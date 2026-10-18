@@ -173,6 +173,43 @@ def run_train(req: TrainRequest) -> int:
     else:
         raise SystemExit(f"lr_scheduler={req.lr_scheduler!r} 暂不支持（constant | cosine）")
 
+    # ---- 预热：对齐 krea2-webui 的 `accelerator_prepared → loop_ready` --------------
+    # 它进 loop 之前会把网络/优化器/分配器全部建好、**暖一次前向**，并把要用的缓存读进
+    # 内存（宿主磁盘 100%、GPU 12% 就是那一段）；之后磁盘基本不动、reserved 从第 1 步
+    # 就稳在 6.38GB。我原来加载完 1.8s 就开步、每步现读 30MB 的 `_krea2_te` →
+    # 新分配不断产生，reserved 会从 4.81 爬到 6.75（`free` 掉到 0）。
+    # ⚠ 预热后**不要** `torch.cuda.empty_cache()`：那会造成"先缩后涨"的碎片抖动。
+    for i in range(min(req.mem_cache_size, len(ds))):
+        ds.load(i)  # 只填 CPU 侧窗口，不动显存
+    _log(f"缓存窗口已预读 {min(req.mem_cache_size, len(ds))} 张（不占显存）")
+    # 预热要用**最大形状**那张（不是第 0 张）：allocator 的池子按"见过的最大块"长，
+    # 用小图预热之后再遇到 1200x896 这类大桶就会一路往上长（实测第 5 步涨到 7.50GB、
+    # 步时 86s = 换页）。先用最大形状把池子撑到位，后面各档就都落在里面了。
+    worst = max(
+        range(len(ds)),
+        key=lambda i: ds.samples[i].size[0] * ds.samples[i].size[1],
+    )
+    _log(f"预热样本选最大形状：{ds.samples[worst].stem} "
+         f"{ds.samples[worst].size[0]}x{ds.samples[worst].size[1]}")
+    with torch.enable_grad():
+        w_lat, w_hid, w_mask, _ = ds.load(worst)
+        w_lat = w_lat.to(device)
+        w_5d = w_lat.unsqueeze(2)
+        w_noise = torch.randn_like(w_5d)
+        w_sigma = torch.empty(w_5d.shape[0], device=device, dtype=torch.bfloat16).uniform_(
+            req.sigma_min, req.sigma_max
+        )
+        w_view = w_sigma.view(-1, 1, 1, 1, 1)
+        w_noisy = (1.0 - w_view) * w_5d + w_view * w_noise
+        if req.blocks_to_swap:
+            dit.prepare_block_swap_before_forward()
+        w_pred = forward_for_loss(dit, w_noisy, (w_hid.to(device), w_mask.to(device)), w_sigma)
+        torch.nn.functional.mse_loss(w_pred.float(), (w_noise - w_5d).float()).backward()
+        opt.zero_grad(set_to_none=True)
+        del w_lat, w_5d, w_noise, w_sigma, w_view, w_noisy, w_pred
+        _log(f"预热完成：reserved {torch.cuda.memory_reserved() / 1024**3:.2f} GB"
+             f"（krea2-webui 同参数为 6.38）；此后开始计时统计")
+
     saved: list[Path] = []
     for step in range(1, req.max_steps + 1):
         lat_4d, hiddens, mask, sample = ds.load(step - 1)
