@@ -13,11 +13,6 @@ additive gui/i18n/cn_overlay.json
 additive gui/i18n/overlay.py
 additive library/krea2/README.md
 additive library/krea2/**
-additive library/runtime/block_swap_config.py
-additive library/runtime/block_swap_masters.py
-additive library/runtime/block_swap_payload.py
-additive library/runtime/block_swap_profiler.py
-additive library/runtime/int8_linear.py
 additive library/models/krea2_raw/**
 additive scripts/krea2/**
 additive configs/krea2/**

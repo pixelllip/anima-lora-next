@@ -7,12 +7,12 @@ from typing import Any, Optional, Union, Callable, Tuple
 import torch
 import torch.nn as nn
 
-from library.runtime.device import (
+from library.krea2.device import (
     clean_memory_on_device,
     synchronize_device,
     weighs_to_device,
 )
-from library.runtime.block_swap_config import (
+from library.krea2.block_swap_config import (
     _BLOCK_SWAP_INT8_RESTORE_MODES,
     _BLOCK_SWAP_INT8_SCOPES,
     _BLOCK_SWAP_RESTORE_MODES,
@@ -27,7 +27,7 @@ from library.runtime.block_swap_config import (
     normalize_block_swap_restore_mode,
     normalize_block_swap_transfer_dtype,
 )
-from library.runtime.block_swap_masters import (
+from library.krea2.block_swap_masters import (
     Int8BlockSwapCpuMaster,
     Params4bitBlockSwapCpuMaster,
     _can_swap_frozen_weight_to_cpu,
@@ -42,8 +42,8 @@ from library.runtime.block_swap_masters import (
     _weight_device_type,
     is_params4bit_weight,
 )
-from library.runtime.block_swap_profiler import BlockSwapProfiler, _resolve_profiler
-from library.runtime.block_swap_payload import set_block_swap_payload_placement
+from library.krea2.block_swap_profiler import BlockSwapProfiler, _resolve_profiler
+from library.krea2.block_swap_payload import set_block_swap_payload_placement
 
 logger = logging.getLogger(__name__)
 

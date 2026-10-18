@@ -8,8 +8,8 @@ from typing import Optional, Union
 import torch
 import torch.nn as nn
 
-from library.runtime.device import is_weight_swap_excluded, should_move_weight_to_device
-from library.runtime.int8_linear import (
+from library.krea2.device import is_weight_swap_excluded, should_move_weight_to_device
+from library.krea2.int8_linear import (
     INT8_MAX,
     classify_frozen_linear_module,
     quantize_weight_per_channel,

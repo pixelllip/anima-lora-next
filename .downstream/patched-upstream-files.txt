@@ -16,11 +16,6 @@ gui/i18n/ja.py
 gui/i18n/cn.py
 gui/explanations/guides/cn/_fields.json
 
-# Krea-2 需要"块交换搬运引擎"的那份超集（krea2-webui 的 1908 行版本，pinned slab 复用 +
-# foreach_copy 合批 + D2H non_blocking=False）。上游那份 device.py 被换成 fork 的版本
-# —— 两份的差别只在 device/int8 辅助，Anima 路径仍走 library.runtime.offloading（未改）。
-library/runtime/device.py
-
 # 上游文件里的"招牌"位置：README 顶部加一段下游说明、NOTICE 末尾加我们的来源与改动段。
 # 这两处上游偶尔也会改（README 尤其频繁），冲突时保留两边即可。
 README.md

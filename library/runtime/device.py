@@ -11,6 +11,13 @@ def clean_memory():
     torch.cuda.empty_cache()
 
 
+def free_vram_gb(device: int = 0) -> float:
+    """``mem_get_info`` free bytes in GiB (the allocator's reserve and other
+    processes included, unlike ``total - max_allocated``)."""
+    free, _total = torch.cuda.mem_get_info(device)
+    return free / 1024**3
+
+
 def clean_memory_on_device(device: Optional[Union[str, torch.device]]):
     r"""
     Clean memory on the specified device, will be called from training scripts.
@@ -33,67 +40,10 @@ def synchronize_device(device: Optional[Union[str, torch.device]]):
         torch.cuda.synchronize()
 
 
-def is_weight_swap_excluded(module: nn.Module) -> bool:
-    """True when block-swap must not master / H2D / D2H this module.weight.
-
-    ConvRot free-base replaces dense ``Linear.weight`` with a ``meta`` Parameter
-    (see ``library.runtime.convrot.free_base``). Offloader masters and
-    ``weighs_to_device`` must skip those tensors — copying meta raises
-    ``NotImplementedError``. Attribute ``_convrot_weight_freed`` is the explicit
-    mark; ``device.type == "meta"`` is the belt-and-suspenders check.
-    """
-    if bool(getattr(module, "_convrot_weight_freed", False)):
-        return True
-    weight = getattr(module, "weight", None)
-    if weight is None:
-        return False
-    device = getattr(getattr(weight, "data", weight), "device", None)
-    return getattr(device, "type", None) == "meta"
-
-
-def should_move_weight_to_device(
-    module: nn.Module,
-    device: torch.device,
-    *,
-    include_trainable: bool = True,
-) -> bool:
-    weight = getattr(module, "weight", None)
-    if weight is None:
-        return False
-    # Free-base / meta weights are not movable storage — never plan a swap job.
-    if is_weight_swap_excluded(module):
-        return False
-    target_device = torch.device(device)
-    if (
-        not include_trainable
-        and target_device.type == "cpu"
-        and getattr(weight, "requires_grad", False)
-    ):
-        return False
-    return True
-
-
-def weighs_to_device(
-    layer: nn.Module,
-    device: torch.device,
-    *,
-    include_trainable: bool = True,
-    non_blocking: bool = True,
-):
-    """把 ``layer`` 里需要换设备的 ``module.weight`` 搬过去.
-
-    ``non_blocking`` 默认 True 保持 H2D 快路径 —— block swap 每步的 restore 依赖
-    它做异步预取. 但 **D2H 方向必须显式传 False**: ``non_blocking=True`` 的 D2H
-    会让每块权重的锁页(pinned)缓冲一直挂到下一次 synchronize 才归还, 于是 pinned
-    峰值随块数线性增长, 见 ``offloading.py::prepare_block_devices_before_forward``.
-    """
+def weighs_to_device(layer: nn.Module, device: torch.device):
     for module in layer.modules():
-        if should_move_weight_to_device(
-            module, device, include_trainable=include_trainable
-        ):
-            module.weight.data = module.weight.data.to(
-                device, non_blocking=non_blocking
-            )
+        if hasattr(module, "weight") and module.weight is not None:
+            module.weight.data = module.weight.data.to(device, non_blocking=True)
 
 
 def str_to_dtype(

@@ -7,7 +7,7 @@ from typing import Optional
 
 import torch
 
-from library.runtime.int8_linear import INT8_LINEAR_SCOPE_MODULES
+from library.krea2.int8_linear import INT8_LINEAR_SCOPE_MODULES
 
 _BLOCK_SWAP_TRANSFER_DTYPES = {"bf16", "fp8_e4m3", "int8"}
 _BLOCK_SWAP_RESTORE_MODES = {"foreach", "slab"}
