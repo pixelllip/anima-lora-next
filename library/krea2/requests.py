@@ -27,7 +27,7 @@ class TrainRequest:
     # LoRA
     rank: int = 16
     alpha: float = 16.0
-    target_preset: str = "attention"                 # attention | attn_mlp | official | official_gate
+    target_preset: str = "official_gate"             # official_gate(264) | official(232) | attention(160)；attn_mlp 已弃用
     dropout: float = 0.0
     # 训练
     max_steps: int = 20
@@ -36,13 +36,18 @@ class TrainRequest:
     lr_scheduler: str = "constant"
     warmup_steps: int = 0
     weight_decay: float = 0.0
+    # adamw | adamw8bit（8bit = bitsandbytes AdamW8bit，8GB 卡上实测再省 ~0.13GiB；
+    # ⚠ 唯一"改数值"的一项：不能与旧的 fp32 AdamW state 混用续训）
+    optimizer_type: str = "adamw"
     seed: int = 0
     sigma_min: float = 0.0
     sigma_max: float = 1.0
     # 显存
-    blocks_to_swap: int = 20
+    blocks_to_swap: int = 26
     grad_checkpointing: bool = True
     device: str = "cuda"
+    # 宿主内存：常驻内存的样本窗口（TE 缓存每张 31.46MB；372 张全进内存是 11GB+，会顶爆宿主）
+    mem_cache_size: int = 8
     # 保存
     save_every_n_steps: int = 0                      # 0 = 只存最后
     save_last_n: int = 2

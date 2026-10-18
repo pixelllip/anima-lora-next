@@ -61,18 +61,40 @@ def _save(handles, req: TrainRequest, step: int, *, final: bool) -> Path:
     return out
 
 
+def _configure_attention_backends() -> None:
+    """把 SDPA 后端钉在 **mem-efficient** 上（8GB 卡的生死线）。
+
+    为什么要显式钉（本机实测，L=4032 / heads=28 / D=128 / bf16）：
+
+        math       peak 4.12 GB   0.432s     ← 一旦落到这里，1024 档直接越线换页
+        efficient  peak 0.14 GB   0.073s
+        cudnn      peak 0.14 GB   0.727s
+
+    本项目 Krea-2 的 attention 走 `attention_backend._cudnn_attention`：它先用
+    `sdpa_kernel(CUDNN_ATTENTION)`，**失败就退回裸 `scaled_dot_product_attention`**——
+    而裸调用会自己挑后端，实测挑中了 **math**（于是在 1024 档 reserved 冲到 8.12GB、
+    步时 76–155s、GPU 反而不干活）。禁用 math（再顺手禁掉更慢的 cuDNN）之后，
+    退路只能落到 mem-efficient。上游 `networks/attention_dispatch.py` 用的也是
+    `SDPBackend.EFFICIENT_ATTENTION`，口径一致。
+    """
+    torch.backends.cuda.enable_math_sdp(False)
+    torch.backends.cuda.enable_cudnn_sdp(False)
+
+
 def run_train(req: TrainRequest) -> int:
     """跑 `req.max_steps` 步并落盘 LoRA；返回 0。内存/显存按 §"用户还要用电脑" 的纪律打印。"""
     from library.models.krea2_raw.family import forward_for_loss
     from library.models.krea2_raw.weights import load_krea2_dit
 
+    _configure_attention_backends()
     torch.manual_seed(req.seed)
     device = torch.device(req.device)
     if not torch.cuda.is_available():
         raise SystemExit("CUDA 不可用")
 
-    ds = Krea2Cache(req.cache)
-    _log(f"缓存 {len(ds.samples)} 个样本（跳过 {ds.skipped} 个孤立的 latent）")
+    ds = Krea2Cache(req.cache, mem_cache_size=req.mem_cache_size)
+    _log(f"缓存 {len(ds.samples)} 个样本（跳过 {ds.skipped} 个孤立的 latent；"
+         f"内存窗口 {req.mem_cache_size} 张 ≈ {req.mem_cache_size * 31.5:.0f} MB）")
 
     t0 = time.time()
     dit = load_krea2_dit(req.model, device="cpu", nf4_path=req.model)
@@ -100,7 +122,15 @@ def run_train(req: TrainRequest) -> int:
     )
     _log(f"LoRA 挂在 {len(handles.modules)} 个 Linear 上，可训参数 {handles.param_count:,}")
 
-    opt = torch.optim.AdamW(lora_params, lr=req.lr, weight_decay=req.weight_decay)
+    if req.optimizer_type == "adamw8bit":
+        import bitsandbytes as bnb
+
+        opt = bnb.optim.AdamW8bit(lora_params, lr=req.lr, weight_decay=req.weight_decay)
+        _log("优化器 = bitsandbytes AdamW8bit（8bit m/v；不能与旧 fp32 state 混用续训）")
+    elif req.optimizer_type == "adamw":
+        opt = torch.optim.AdamW(lora_params, lr=req.lr, weight_decay=req.weight_decay)
+    else:
+        raise SystemExit(f"optimizer_type={req.optimizer_type!r} 不支持（adamw | adamw8bit）")
     sched = None
     if req.lr_scheduler == "constant":
         sched = torch.optim.lr_scheduler.LambdaLR(opt, lambda _: 1.0)
@@ -122,22 +152,47 @@ def run_train(req: TrainRequest) -> int:
         noisy = (1.0 - view) * lat_5d + view * noise       # rectified flow: x_σ = (1-σ)x₀ + σε
         target = noise - lat_5d                            # velocity
 
+        def _phase(label: str, _step: int = step) -> None:
+            if _step > 3:
+                return
+            _log(
+                "  [%s] step %d alloc %.2f reserved %.2f max_alloc %.2f free %.2f"
+                % (
+                    label,
+                    _step,
+                    torch.cuda.memory_allocated() / 1024**3,
+                    torch.cuda.memory_reserved() / 1024**3,
+                    torch.cuda.max_memory_allocated() / 1024**3,
+                    torch.cuda.mem_get_info()[0] / 1024**3,
+                )
+            )
+
+        _phase("step_enter")
         if req.blocks_to_swap:
             dit.prepare_block_swap_before_forward()
         ts = time.time()
         pred = forward_for_loss(dit, noisy, (hiddens, mask), sigma)
         loss = torch.nn.functional.mse_loss(pred.float(), target.float())
+        _phase("after_forward")
+        _phase("before_backward")
         opt.zero_grad(set_to_none=True)
         loss.backward()
+        _phase("after_backward")
+        _phase("before_optimizer")
         opt.step()
+        _phase("after_optimizer")
         if sched is not None:
             sched.step()
 
         if step % req.log_every_n_steps == 0 or step == 1:
+            alloc = torch.cuda.max_memory_allocated() / 1024**3
+            reserved = torch.cuda.max_memory_reserved() / 1024**3
             _log(
                 f"step {step}/{req.max_steps} loss={loss.item():.4f} "
                 f"σ={sigma.mean().item():.3f} {time.time() - ts:.1f}s "
-                f"| 显存峰值 {torch.cuda.max_memory_allocated() / 1024**3:.2f} GB "
+                # 判据看 reserved（活跃内存可能只有 1.7GB 而 reserved 涨到 7.7GB：
+                # 多出来的是 allocator 池块）——krea2-webui 的实测口径
+                f"| 显存 allocated {alloc:.2f} / reserved {reserved:.2f} GB "
                 f"| 样本 {sample.stem} {sample.size[0]}x{sample.size[1]}"
             )
         if req.save_every_n_steps and step % req.save_every_n_steps == 0:

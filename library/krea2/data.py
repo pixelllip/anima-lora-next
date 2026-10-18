@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import re
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,12 +27,20 @@ class Sample:
 
 
 class Krea2Cache:
-    """扫描缓存目录，配对 latent 与 TE 缓存（缺一半的样本直接跳过并计数）。"""
+    """扫描缓存目录，配对 latent 与 TE 缓存（缺一半的样本直接跳过并计数）。
 
-    def __init__(self, cache_dir: str | Path):
+    `mem_cache_size`：常驻内存的样本数（默认 8）。**为什么必须有**：Krea-2 的 TE 缓存
+    每张 **31.46MB**（`hiddens[512,12,2560]` bf16 + mask），每步都从磁盘读一遍会让步时
+    从 7~8.5s 掉到 10~15s；但把 372 张全塞内存又是 11GB+（宿主内存顶不住）——
+    所以按窗口缓存，默认 8 张 ≈ 250MB。0 = 关掉（纯流式）。
+    """
+
+    def __init__(self, cache_dir: str | Path, mem_cache_size: int = 8):
         self.dir = Path(cache_dir)
         if not self.dir.is_dir():
             raise SystemExit(f"缓存目录不存在：{self.dir}")
+        self._mem_size = max(0, int(mem_cache_size))
+        self._mem: "OrderedDict[int, tuple]" = OrderedDict()
         self.samples: list[Sample] = []
         self.skipped = 0
         for npz in sorted(self.dir.glob("*_anima.npz")):
@@ -53,11 +62,16 @@ class Krea2Cache:
 
     def load(self, index: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, Sample]:
         """返回 `(latents_4d (1,C,H,W) bf16, hiddens (1,L,12,2560) bf16, mask (1,L) bool, sample)`。"""
+        i = index % len(self.samples)
+        if self._mem_size and i in self._mem:
+            self._mem.move_to_end(i)
+            return self._mem[i]
+
         from library.models.krea2_raw.strategy import (
             Krea2TextEncoderOutputsCachingStrategy,
         )
 
-        s = self.samples[index % len(self.samples)]
+        s = self.samples[i]
         with np.load(s.latent_path) as z:
             key = next((k for k in z.keys() if k.startswith("latents")), list(z.keys())[0])
             arr = np.ascontiguousarray(z[key])
@@ -73,9 +87,15 @@ class Krea2Cache:
             hiddens = hiddens.unsqueeze(0)
         if mask.dim() == 1:
             mask = mask.unsqueeze(0)
-        return (
+        out = (
             lat.to(torch.bfloat16),
             hiddens.to(torch.bfloat16),
             mask.to(torch.bool),
             s,
         )
+        if self._mem_size:
+            self._mem[i] = out
+            self._mem.move_to_end(i)
+            while len(self._mem) > self._mem_size:
+                self._mem.popitem(last=False)
+        return out

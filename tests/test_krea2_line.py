@@ -27,7 +27,9 @@ from library.krea2.requests import TrainRequest  # noqa: E402
 def test_train_request_defaults_and_cli():
     req = TrainRequest().apply_cli(["--max_steps", "7", "--rank", "32", "--lr", "1e-4"])
     assert (req.max_steps, req.rank, req.lr) == (7, 32, 1e-4)
-    assert req.target_preset == "attention"  # 8GB 安全档是默认
+    # 当前口径是 official_gate（264 = 官方 232 + 32 个 mlp.gate），不是 attention(160)
+    assert req.target_preset == "official_gate"
+    assert req.blocks_to_swap == 26  # 512 档生产口径
 
 
 def test_train_request_config_roundtrip(tmp_path):
@@ -45,10 +47,12 @@ def test_train_request_rejects_unknown_key(tmp_path):
         TrainRequest.load_config(cfg)
 
 
-def test_resolve_spec_rejects_unsupported_preset():
+def test_resolve_spec_presets_and_deprecation():
+    assert set(SPEC_BY_PRESET) == {"official_gate", "official", "attention"}
     with pytest.raises(SystemExit):
-        resolve_spec("official_gate")  # 还没接的档不许静默降级
-    assert set(SPEC_BY_PRESET) == {"attention", "official"}
+        resolve_spec("attn_mlp")  # 196 档已弃用，不许静默当别的档用
+    with pytest.raises(SystemExit):
+        resolve_spec("nope")
 
 
 # --- 2. target 选择 -----------------------------------------------------------

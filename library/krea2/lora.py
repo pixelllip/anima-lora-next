@@ -24,18 +24,31 @@ import torch.nn as nn
 from library.models.krea2_raw.lora_targets import (
     KREA2_ATTENTION_ONLY_SPEC,
     KREA2_LORA_TARGET_SPEC,
+    KREA2_OFFICIAL_GATE_SPEC,
 )
 
+# 档位表（与 krea2-webui 的 `lora_targets.py::_KREA2_SPEC_PRESETS` 同源）：
+#   official_gate = **264** = 全部 Linear（官方 232 + 32 个 `mlp.gate`）—— 2026-10-13 起的口径，
+#                   r16 下 58.65M 参数；gate 与 mlp.up 同形状**不引入新张量宽度**，
+#                   所以 8GB 卡上 512 档 + swap26 实测 reserved 4.41–4.62GB 跑得动。
+#   official      = 232（官方 DreamBooth 集），r16 下 47.95M —— 8GB 上 1024 档会越线换页。
+#   attention     = 160（只训注意力投影），r16 下 25.03M —— 窄档，留给"就想试注意力学没学到"的场景。
+#   attn_mlp      = 196 —— **已弃用**（2026-10-07 的中间档，被 official_gate 取代），不再接受。
 SPEC_BY_PRESET = {
-    "attention": KREA2_ATTENTION_ONLY_SPEC,
+    "official_gate": KREA2_OFFICIAL_GATE_SPEC,
     "official": KREA2_LORA_TARGET_SPEC,
+    "attention": KREA2_ATTENTION_ONLY_SPEC,
 }
-# `attn_mlp` / `official_gate` 在 krea2-webui 里是另外两档；这里先只放最常用的两档，
-# 需要时从 lora_targets.py 追加（不许静默降级成别的档：见 resolve_spec）。
+DEPRECATED_PRESETS = ("attn_mlp",)
 SUPPORTED_PRESETS = tuple(SPEC_BY_PRESET)
 
 
 def resolve_spec(preset: str):
+    if preset in DEPRECATED_PRESETS:
+        raise SystemExit(
+            f"target_preset={preset!r} 已弃用（196 档的中间档）——"
+            f" 改用 {SUPPORTED_PRESETS[0]!r}（264，含 mlp.gate）或 'official'（232）"
+        )
     if preset not in SPEC_BY_PRESET:
         raise SystemExit(
             f"target_preset={preset!r} 暂不支持（已接：{list(SUPPORTED_PRESETS)}）——"
