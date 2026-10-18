@@ -1,10 +1,13 @@
 name: upstream-sync
 
-# 下游整合版的"上游跟版"：每天把 sorryhyun/anima_lora 的 main 合进本仓库，
-# 干净就开 PR（可选手动开自动合），有冲突就把带冲突标记的分支推上来 + 点名冲突文件。
+# 下游整合版的"上游跟版"：每天把 sorryhyun/anima_lora 的 main 合进本仓库。
 #
-# 为什么不是直接 push 到 main：合并结果要让守卫测试与人工过一眼 —— 上游重构
-# 训练器/推理链时，"能合并"不等于"我们的缝合点还在"。
+#   * 合并干净  → 跑守卫测试，开一个 PR（可显式 auto_merge 让它绿了自动合）；
+#   * 有冲突    → **不硬推半成品**：把冲突文件点名写进 job summary、开一个 issue，
+#                 然后让本地脚本 scripts/downstream/upstream-sync.ps1 去合（人在场解决）。
+#
+# 为什么不直接 push 到 main：上游重构训练器/推理链时，"能合并"不等于"我们的缝合点还在"，
+# 守卫测试（tests/test_downstream_guards.py）就是那条线。
 
 on:
   schedule:
@@ -12,13 +15,14 @@ on:
   workflow_dispatch:
     inputs:
       auto_merge:
-        description: 同步 PR 的 CI 变绿后自动合并
+        description: 同步 PR 的检查变绿后自动合并
         type: boolean
         default: false
 
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 concurrency:
   group: upstream-sync
@@ -48,21 +52,20 @@ jobs:
           set -euo pipefail
           behind=$(git rev-list --count HEAD..upstream/main)
           ahead=$(git rev-list --count upstream/main..HEAD)
+          head=$(git rev-parse upstream/main)
           echo "behind=$behind" >> "$GITHUB_OUTPUT"
           echo "ahead=$ahead"   >> "$GITHUB_OUTPUT"
-          echo "upstream_head=$(git rev-parse upstream/main)" >> "$GITHUB_OUTPUT"
+          echo "head=$head"     >> "$GITHUB_OUTPUT"
           echo "本地领先 $ahead，落后上游 $behind"
           {
-            echo "### 上游 $behind 个新提交（本地领先 $ahead）"
+            echo "### 上游新提交 $behind 个（本地领先 $ahead）"
+            echo ''
+            echo "上游 main: \`$head\`"
             echo ''
             echo '```'
             git log --oneline --no-decorate -n 40 HEAD..upstream/main || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: 上游没有新东西就收工
-        if: steps.drift.outputs.behind == '0'
-        run: echo '已经跟上游一致，什么都不用做'
 
       - name: 合并 upstream/main
         id: merge
@@ -75,10 +78,13 @@ jobs:
           set -e
           if [ "$rc" -eq 0 ]; then
             echo "clean=1" >> "$GITHUB_OUTPUT"
-            echo "合并干净" >> "$GITHUB_STEP_SUMMARY"
+            echo '合并干净' >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          # 有冲突：点名 → 写 summary + 输出给后面的 issue 步骤，然后 abort（不留半成品状态）
+          files=$(git diff --name-only --diff-filter=U | tr '\n' ' ')
           echo "clean=0" >> "$GITHUB_OUTPUT"
+          echo "conflicts=$files" >> "$GITHUB_OUTPUT"
           {
             echo ''
             echo '### ⚠ 合并冲突（需要人工）'
@@ -86,8 +92,10 @@ jobs:
             echo '```'
             git diff --name-only --diff-filter=U || true
             echo '```'
+            echo ''
+            echo '本机解决：`pwsh -File scripts\downstream\upstream-sync.ps1 -Merge`'
           } >> "$GITHUB_STEP_SUMMARY"
-          # 冲突分支照样推上去，PR 里见 —— 退出码 0，让后续步骤（开 PR）还能跑。
+          git merge --abort
           exit 0
 
       - name: 守卫测试（只在合并干净时）
@@ -96,15 +104,15 @@ jobs:
           python -m pip install --quiet pytest
           python -m pytest tests/test_downstream_guards.py tests/test_gui_i18n_parity.py -q
 
-      - name: 更新基线记录
+      - name: 更新基线记录（只在合并干净时）
         if: steps.drift.outputs.behind != '0' && steps.merge.outputs.clean == '1'
         run: |
-          printf '%s\n' "${{ steps.drift.outputs.upstream_head }}" > .downstream/upstream-base
+          printf '%s\n' "${{ steps.drift.outputs.head }}" > .downstream/upstream-base
           git add .downstream/upstream-base
-          git diff --cached --quiet || git commit -m "chore(upstream): advance baseline to $(echo ${{ steps.drift.outputs.upstream_head }} | cut -c1-12)"
+          git diff --cached --quiet || git commit -m "chore(upstream): advance baseline to $(echo ${{ steps.drift.outputs.head }} | cut -c1-12)"
 
-      - name: 开同步 PR
-        if: steps.drift.outputs.behind != '0'
+      - name: 开同步 PR（只在合并干净时）
+        if: steps.drift.outputs.behind != '0' && steps.merge.outputs.clean == '1'
         uses: peter-evans/create-pull-request@v6
         with:
           branch: sync/upstream
@@ -112,24 +120,32 @@ jobs:
           delete-branch: true
           title: "chore(upstream): sync sorryhyun/anima_lora (${{ steps.drift.outputs.behind }} commits)"
           labels: upstream-sync
+          token: ${{ secrets.GITHUB_TOKEN }}
           body: |
             上游 `sorryhyun/anima_lora` 的新提交合入本下游仓库。
 
-            * 上游 `main`：`${{ steps.drift.outputs.upstream_head }}`
+            * 上游 `main`：`${{ steps.drift.outputs.head }}`
             * 落后提交数：${{ steps.drift.outputs.behind }}
-            * 合并是否干净：${{ steps.merge.outputs.clean == '1' && '是' || '否（有冲突，见下方文件清单）' }}
 
-            合并前请看两件事：
-            1. `.downstream/patched-upstream-files.txt` 里的补丁文件有没有被上游改到
-               （有冲突时 PR 里会直接看到冲突标记）；
-            2. 守卫测试 `tests/test_downstream_guards.py` 是否还绿 —— 它守的是我们依赖的
-               上游缝合点（`library/env.py` / `runtime/blockswap.py` / `lines/adapters.py` /
-               `anima_daemon/client.py` / `downloads.py` / `gui/i18n/*`）。
+            合并前请确认两件事：
+            1. `.downstream/patched-upstream-files.txt` 里的补丁文件没有被上游改到（改到了就会有冲突，这个 PR 就不会出现）；
+            2. 守卫测试 `tests/test_downstream_guards.py` 是否还绿 —— 它守的是我们依赖的上游缝合点
+               （`library/env.py` / `runtime/blockswap.py` / `lines/adapters.py` / `anima_daemon/client.py` /
+               `downloads.py` / `gui/i18n/*` / `gui/core/config_io.py`）。
 
-            详细约定见 `DOWNSTREAM.md`。
-          token: ${{ secrets.GITHUB_TOKEN }}
+            约定见 `DOWNSTREAM.md`。
 
-      - name: 自动合并（仅 workflow_dispatch 且显式打开）
+      - name: 开冲突 issue（只在有冲突时）
+        if: steps.drift.outputs.behind != '0' && steps.merge.outputs.clean == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "upstream-sync: 需要人工合并上游 ${{ steps.drift.outputs.behind }} 个提交" \
+            --label upstream-sync \
+            --body "$(printf '上游 `main`：`%s`\n\n冲突文件：\n\n```\n%s\n```\n\n本机解决：`pwsh -File scripts\\downstream\\upstream-sync.ps1 -Merge`\n\n约定见 `DOWNSTREAM.md`。' '${{ steps.drift.outputs.head }}' '${{ steps.merge.outputs.conflicts }}')" || true
+
+      - name: 自动合并（仅 workflow_dispatch 且显式打开、且合并干净）
         if: steps.drift.outputs.behind != '0' && inputs.auto_merge && steps.merge.outputs.clean == '1'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
