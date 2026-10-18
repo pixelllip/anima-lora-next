@@ -47,6 +47,19 @@ def _owned_files(kind: str) -> list[str]:
     return out
 
 
+def _owned_match(diff_paths: set[str]) -> set[str]:
+    """自有面清单支持 `dir/**` 前缀；返回还没被覆盖的路径。"""
+    allowed_files = set(_patched_files()) | {
+        p for p in _owned_files("additive") if not p.endswith("/**")
+    }
+    prefixes = tuple(p[:-3] for p in _owned_files("additive") if p.endswith("/**"))
+    return {
+        p
+        for p in diff_paths
+        if p not in allowed_files and not (prefixes and p.startswith(prefixes))
+    }
+
+
 # --- 1. 补丁面 ---------------------------------------------------------------
 
 
@@ -82,8 +95,7 @@ def test_diff_against_baseline_touches_only_known_files():
         text=True,
         check=True,
     ).stdout.split()
-    allowed = set(_patched_files()) | set(_owned_files("additive"))
-    unexpected = sorted(set(diff) - allowed)
+    unexpected = sorted(_owned_match(set(diff)))
     assert unexpected == [], (
         "这些文件既不在补丁清单、也不在自有新文件清单里 —— 要么把它们登记进 "
         f"downstream/owned-paths.txt，要么别改上游文件：{unexpected}"

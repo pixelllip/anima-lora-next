@@ -12,8 +12,11 @@ additive downstream/krea2-line-plan.md
 additive gui/i18n/cn_overlay.json
 additive gui/i18n/overlay.py
 additive library/krea2/README.md
-additive scripts/krea2/README.md
-additive configs/krea2/README.md
+additive library/krea2/**
+additive library/models/krea2_raw/**
+additive scripts/krea2/**
+additive configs/krea2/**
+additive scripts/krea2/probe_port.py
 additive scripts/downstream/upstream-sync.ps1
 additive .github/workflows/upstream-sync.yml
 additive tests/test_downstream_guards.py

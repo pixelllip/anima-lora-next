@@ -109,8 +109,23 @@ confirmed by its author) — the Krea-2 model family, NF4 self-contained
 checkpoint loading, family-aware LoRA targets and the Qwen3-VL text path live
 there. When that code is ported in, this section must name every ported file.
 
+Ported as of 2026-10-18 (vendored **as-is** from krea2-webui; sha256-identical
+to the source build, one marked downstream shim in `dit.py` noted below):
+
+    library/models/krea2_raw/{__init__,attention_backend,dit,family,
+      inference_runner,lora_targets,quantize,sampling,strategy,
+      training_preview,uncond,weights}.py        (4200 lines total)
+    scripts/krea2/probe_port.py                  (downstream probe, not ported)
+
+Downstream shim inside the vendored `dit.py::enable_block_swap`: krea2-webui's
+`ModelOffloader` is a superset of upstream's, so the extra kwargs
+(`profile_jsonl` / `transfer_dtype` / `restore_mode`) are filtered by signature
+instead of passed blindly. The Krea-2 block-swap path additionally needs that
+superset's semantics — tracked in `downstream/krea2-line-plan.md`.
+
 ⚠ The Krea-2 *architecture* code in krea2-webui is a port of
 https://github.com/krea-ai/krea-2, whose repository carries **no LICENSE file**
 (checked 2026-10-18) and whose README only states the *model weights*' community
 license. Resolve the code license before redistributing any such file.
+
 
