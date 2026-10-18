@@ -29,7 +29,14 @@ from library.models.krea2_raw.attention_backend import (
     normalize_krea2_attention_mode,
     run_krea2_attention,
 )
-from library.runtime import offloading as custom_offloading_utils
+# ⚠ 下游适配（anima-lora-next）：Krea-2 用**自己那份 offloader**（`library/krea2/offloading.py`，
+# 从 krea2-webui 原样搬入，1908 行）。上游那份 386 行是"每个参数各自 to('cpu', non_blocking=True)"，
+# 每次换块都新分配 pinned 暂存、不复用 —— 本机实测 1024 档 reserved 会从 5.09 一路涨到 8.41GB
+# （allocated 稳在 4.7-4.9GB 不涨），到第 3 步就开始 WDDM 换页、步时 83→188s。
+# 那份超集里有 pinned slab 复用 + `foreach_copy` 合批 + D2H `non_blocking=False`（它文档里写了：
+# 不修的话 swap≥12 会把 23GB 宿主打爆，报错却伪装成 `CUDA error: out of memory`）。
+# **Anima 路径一个字不动**：`library/anima/models.py` 仍然 import `library.runtime.offloading`。
+from library.krea2 import offloading as custom_offloading_utils
 
 
 def rope(pos: Tensor, dim: int, theta: float = 1e4, ntk: float = 1.0) -> Tensor:

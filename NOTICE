@@ -129,3 +129,17 @@ https://github.com/krea-ai/krea-2, whose repository carries **no LICENSE file**
 license. Resolve the code license before redistributing any such file.
 
 
+
+Ported as of 2026-10-18 (Krea-2 block-swap engine — needed because upstream's
+`library/runtime/offloading.py` allocates a fresh pinned staging buffer per swap
+and never reuses it; measured on a 4060 8GB: reserved climbed 5.09 -> 8.41GB with
+allocated flat at ~4.8GB, and step time went 25s -> 188s = WDDM paging):
+
+    library/krea2/offloading.py            (1908 lines, byte-identical to source)
+    library/runtime/{block_swap_config,block_swap_masters,block_swap_payload,
+                     block_swap_profiler,int8_linear}.py   (its dependencies)
+    library/runtime/device.py              (upstream file, replaced by fork version)
+
+Downstream shim: `library/models/krea2_raw/dit.py` imports `library.krea2.offloading`
+instead of `library.runtime.offloading` — the Krea-2 line uses the superset, the
+Anima path is untouched.
