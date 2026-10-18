@@ -1,0 +1,39 @@
+# Krea-2 line —— 512 档 LoRA 训练配置（键 = library/krea2/requests.py 的 TrainRequest 字段）
+#
+# 口径来自 krea2-webui 的实证（docs 里那批 findings + 探针实测）：
+#   · 512 档在 8GB 卡上**不必**精打细算：探针 swap=20 + 梯度检查点 = reserved 4.48GB；
+#   · attn_mode=torch（FlashAttention 对 Krea-2 要显式 opt-in，8GB 上不划算）；
+#   · 不开 torch.compile（8GB 上 reserved 反而涨，方向为负）；
+#   · σ 采样用官方口径：未 shift 线性网格 + u~U(0,1) → sigma_min/max 留 0..1（本 line 叫 "sigma"）；
+#   · 底模用**自包含 NF4 v2**（bf16 26GB 在 8GB 卡上不可能加载）；
+#   · target 档：attention(160) 是 8GB 卡的安全档；official(232) 需要 ≥12GB，
+#     attn_mlp/official_gate 两档还没接进 library/krea2/lora.py（不许静默降级）。
+#
+# 缓存目录用的是 krea2-webui 已经做好的 512 档缓存（**只读**：372 张图，
+# {stem}_anima.npz 是 56x72 的 latent = 448x576 = 1008 tokens，正是 512 档的桶）。
+
+cache = "D:/myProject/krea2-webui/post_image_dataset/hiten_512/lora"
+output = "output/ckpt_krea2/krea2_hiten_512_r16.safetensors"
+output_name = "krea2_hiten_512_r16"
+model = "D:/myProject/krea2-webui/models/diffusion_models/krea2_raw_nf4_self_contained.safetensors"
+
+rank = 16
+alpha = 16.0
+target_preset = "attention"
+dropout = 0.0
+
+max_steps = 20
+batch_size = 1
+lr = 3e-4
+lr_scheduler = "constant"
+warmup_steps = 0
+seed = 0
+sigma_min = 0.0
+sigma_max = 1.0
+
+blocks_to_swap = 20
+grad_checkpointing = true
+
+save_every_n_steps = 10
+save_last_n = 2
+log_every_n_steps = 1

@@ -95,6 +95,40 @@
 `hiten_krea2_r264_r16_tagnotes_512.toml`（r16/α16、lr 3e-4 constant、
 `timestep_sampling="sigma"`+shift 1.0+uniform、attn_mode=torch、full grad ckpt、NF4 自包含、TE 在 CPU 编）。
 
+---
+
+## ✅ 20 步真训练已跑通（2026-10-18，同一个 4060 8GB）
+
+接线落地在 `library/krea2/`（`requests.py` / `data.py` / `lora.py` / `train.py`）+
+`scripts/krea2/train.py` + `configs/krea2/lora.toml`，实测：
+
+```
+[krea2] 缓存 372 个样本（跳过 0 个孤立的 latent）
+[krea2] DiT 就绪 1.5s；swap=20；grad_ckpt=True；显存 0.41 GB
+[krea2] LoRA 挂在 160 个 Linear 上，可训参数 25,034,752      ← 与 krea2-webui 的 160 集 25.03M 完全一致
+[krea2] step 1/20 loss=0.2531 σ=0.972 10.4s | 显存峰值 5.17 GB
+[krea2] step 10/20 loss=0.1476 → 存档
+[krea2] step 20/20 loss=0.1737 σ=0.376 9.8s | 显存峰值 5.36 GB
+[krea2] 最终 LoRA: output/ckpt_krea2/krea2_hiten_512_r16.safetensors（95.6 MB，160 个模块）
+```
+
+产物检查：480 张量 = 160 target × 3 键（`.lora_down.weight` / `.lora_up.weight` / `.alpha`），
+键名就是 **ComfyUI 认的形状**（`lora_unet_blocks_0_attn_gate.lora_down.weight`），
+元数据带 `ss_target_preset=attention`、`ss_timestep_sampling=sigma`、`ss_network_dim=16` 等；
+任取一个 `lora_up` 的 |Σ| = 121.7（零初始化起步 → 训练确实推动了权重）。
+
+**接线时踩到、并且已经写进代码注释的那个坑**：**LoRA 参数必须放在 block 外**。
+第一版把 `nn.Linear` 换成包一层的 `LoRALinear`（参数在 block 里）→ 块交换按名字成对搬
+block 的 `.weight`，于是优化器 `step()` 报
+`Expected all tensors to be on the same device, cuda:0 and cpu`（只在开 swap 时出现）。
+改成 **functional 注入**：`lora_down/lora_up` 挂在一个独立 holder（挂在 DiT 根下，根不参与交换），
+目标 Linear 的 `forward` 用闭包补 `up(down(x)) * (alpha/rank)` —— 上游 `library/qwen21/CLAUDE.md`
+与 `library/moss/CLAUDE.md` 早就写了这条纪律（"adapter 要放在 block 外"）。
+
+**还没接的**：`cache.py` / `generate.py`（缓存与推理的 CLI）、`attn_mlp` / `official_gate` 两档
+target preset、resume、以及把这条 line 挂进 `anima_daemon`（现在只能命令行跑）。
+
+
 **待补的兼容件**：`library/training/anima_strategies.py::_is_krea2` 上游没有（fork 独有），
 只在"未缓存、需要现场编码"分支用到；移植时要带上或改成上游等价物。
 

@@ -20,6 +20,7 @@ additive scripts/krea2/probe_port.py
 additive scripts/downstream/upstream-sync.ps1
 additive .github/workflows/upstream-sync.yml
 additive tests/test_downstream_guards.py
+additive tests/test_krea2_line.py
 
 patched gui/tabs/config_tab.py
 patched gui/tabs/easycontrol_tab.py
