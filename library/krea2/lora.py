@@ -128,8 +128,15 @@ def select_targets(dit: nn.Module, spec) -> list[tuple[str, nn.Linear]]:
 
 
 def attach_lora(dit: nn.Module, *, rank: int, alpha: float, preset: str,
-                dropout: float = 0.0, holder_name: str = "_krea2_lora") -> LoRAHandles:
-    """把 LoRA 挂到 DiT 上（参数常驻在 block 外的 holder 里；返回句柄）。"""
+                dropout: float = 0.0, holder_name: str = "_krea2_lora",
+                dtype: torch.dtype | None = None) -> LoRAHandles:
+    """把 LoRA 挂到 DiT 上（参数常驻在 block 外的 holder 里；返回句柄）。
+
+    ⚠ `dtype` 必须给成**模型的 compute dtype（bf16）**：LoRA 权重留 fp32 时，
+    `F.linear(bf16_x, fp32_w)` 会提升成 fp32，`_orig(x) + _pair(x)` 于是把**整个下游图**
+    拖成 fp32 —— 激活翻倍、步时变慢（本机实测：1024 档前向峰值 4.56GB，而 krea2-webui
+    同参数只有 3.47GB）。参数给 bf16、优化器状态让它自己按参数 dtype 走。
+    """
     spec = resolve_spec(preset)
     holder = nn.Module()
     modules: dict[str, LoRALinear] = {}
@@ -151,6 +158,8 @@ def attach_lora(dit: nn.Module, *, rank: int, alpha: float, preset: str,
 
     if not modules:
         raise SystemExit("没扫到任何目标 Linear —— spec 与 DiT 的模块名对不上？")
+    if dtype is not None:
+        holder.to(dtype=dtype)
     dit.add_module(holder_name, holder)
     return LoRAHandles(holder=holder, modules=modules, patched=patched)
 

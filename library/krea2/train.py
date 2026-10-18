@@ -61,6 +61,32 @@ def _save(handles, req: TrainRequest, step: int, *, final: bool) -> Path:
     return out
 
 
+def _cast_model_bf16(dit) -> int:
+    """把**非量化**的浮点参数统一降到 bf16（NF4 的 Params4bit 跳过）。
+
+    为什么必须做：v2 自包含 NF4 文件里 `first` / `last` 这类没被量化的 Linear 与一堆
+    norm/调制参数是 **fp32**，`load_krea2_dit(..., dtype=...)` 不会替你全转。fp32 权重
+    一旦参与运算，就会把整条图拉成 fp32 —— 本机实测前向峰值 4.56GB（krea2-webui 同参数
+    3.47GB），而且 LoRA 权重被迫跟着 fp32 才不会 dtype 报错。生产快照里写的就是
+    `mixed_precision = "bf16"`。
+    """
+    from bitsandbytes.nn import Params4bit
+
+    quantized = set()
+    for mod in dit.modules():
+        for name, p in list(mod.named_parameters(recurse=False)):
+            if isinstance(p, Params4bit):
+                quantized.add(id(p))
+
+    n = 0
+    for p in list(dit.parameters()):
+        if id(p) in quantized or not p.is_floating_point() or p.dtype == torch.bfloat16:
+            continue
+        p.data = p.data.to(torch.bfloat16)
+        n += 1
+    return n
+
+
 def _configure_attention_backends() -> None:
     """把 SDPA 后端钉在 **mem-efficient** 上（8GB 卡的生死线）。
 
@@ -97,7 +123,16 @@ def run_train(req: TrainRequest) -> int:
          f"内存窗口 {req.mem_cache_size} 张 ≈ {req.mem_cache_size * 31.5:.0f} MB）")
 
     t0 = time.time()
-    dit = load_krea2_dit(req.model, device="cpu", nf4_path=req.model)
+    # dtype 必须按 `mixed_precision` 给死 bf16（生产快照里就是 `mixed_precision = "bf16"`）：
+    # 留 None = "保持文件原 dtype"，那个自包含 NF4 里的 159 个非 Linear 张量是 fp32，
+    # modulation 一乘就把整个 block 拉成 fp32 —— 激活翻倍，而且 LoRA 权重也必须跟着 fp32
+    # 才不会 dtype 报错（本机实测：bf16 LoRA + fp32 图 = `expected mat1 and mat2 to have
+    # the same dtype, but got: float != BFloat16`）。整张图统一 bf16 后前向峰值才对得上
+    # krea2-webui 的 3.47GB。
+    dit = load_krea2_dit(req.model, device="cpu", nf4_path=req.model,
+                         dtype=torch.bfloat16)
+    cast = _cast_model_bf16(dit)
+    _log(f"fp32 → bf16 的参数 {cast} 个（NF4 的 Params4bit 跳过）")
     dit.train()
     if req.grad_checkpointing:
         dit.enable_gradient_checkpointing()
@@ -106,10 +141,9 @@ def run_train(req: TrainRequest) -> int:
     # 块里有什么"来搬的，后加的 LoRA 参数就成了漏网之鱼 —— 现象就是
     # `Expected all tensors to be on the same device, cuda:0 and cpu`。
     handles = attach_lora(dit, rank=req.rank, alpha=req.alpha,
-                          preset=req.target_preset, dropout=req.dropout)
+                          preset=req.target_preset, dropout=req.dropout,
+                          dtype=torch.bfloat16)  # ← 必须 bf16：留 fp32 会把整张图拖成 fp32
     lora_params = list(lora_parameters(handles))
-    for p in lora_params:
-        p.data = p.data.to(dtype=torch.float32)
 
     if req.blocks_to_swap:
         dit.enable_block_swap(req.blocks_to_swap, device)
@@ -147,7 +181,11 @@ def run_train(req: TrainRequest) -> int:
         mask = mask.to(device)
         lat_5d = lat_4d.unsqueeze(2)
         noise = torch.randn_like(lat_5d)
-        sigma = torch.empty(lat_5d.shape[0], device=device).uniform_(req.sigma_min, req.sigma_max)
+        # ⚠ σ 必须与模型同为 bf16：fp32 的 σ 一乘进 `(1-σ)x₀ + σε`，整个 noisy 输入就被
+        # 提升成 fp32，`self.first` 立刻 dtype 报错；就算不报错（权重也是 fp32 时）整张图
+        # 会在 fp32 里跑 —— 本机实测就是这条让前向峰值从 3.5GB 涨到 4.56GB。
+        sigma = torch.empty(lat_5d.shape[0], device=device,
+                            dtype=torch.bfloat16).uniform_(req.sigma_min, req.sigma_max)
         view = sigma.view(-1, 1, 1, 1, 1)
         noisy = (1.0 - view) * lat_5d + view * noise       # rectified flow: x_σ = (1-σ)x₀ + σε
         target = noise - lat_5d                            # velocity
