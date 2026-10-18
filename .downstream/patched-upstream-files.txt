@@ -1,0 +1,22 @@
+# 我们改过的「上游文件」清单（一行一个，相对仓库根）。
+#
+# 这些文件不是我们的，是上游的；我们对它们做了最小补丁。上游一旦也改了同一个文件，
+# `scripts/downstream/upstream-sync.ps1` / CI 的 upstream-sync 会把它们列进冲突清单。
+# tests/test_downstream_guards.py 会拿这份清单核对 git diff（防止有人顺手多改上游文件）。
+#
+# 加一个新补丁文件之前先问一句：能不能做成新增文件？（新增文件永远不会冲突）
+
+gui/tabs/config_tab.py
+gui/tabs/easycontrol_tab.py
+gui/tabs/methods_tab.py
+gui/tabs/preprocess/tab.py
+gui/i18n/en.py
+gui/i18n/ko.py
+gui/i18n/ja.py
+gui/i18n/cn.py
+gui/explanations/guides/cn/_fields.json
+
+# 上游文件里的"招牌"位置：README 顶部加一段下游说明、NOTICE 末尾加我们的来源与改动段。
+# 这两处上游偶尔也会改（README 尤其频繁），冲突时保留两边即可。
+README.md
+NOTICE

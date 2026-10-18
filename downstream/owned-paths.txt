@@ -1,0 +1,31 @@
+# 本仓库的自有面（给机器读的清单；给人读的说明在 DOWNSTREAM.md §3）
+#
+# 一行一条，`additive` = 上游没有的文件（永远不会冲突）；
+# `patched` = 上游有、我们改过的文件（写在上游改动它们时可能冲突）。
+# `.downstream/patched-upstream-files.txt` 是 patched 那一半的单独清单，守卫测试读它。
+
+additive DOWNSTREAM.md
+additive .downstream/upstream-base
+additive .downstream/patched-upstream-files.txt
+additive downstream/owned-paths.txt
+additive downstream/krea2-line-plan.md
+additive gui/i18n/cn_overlay.json
+additive gui/i18n/overlay.py
+additive library/krea2/README.md
+additive scripts/krea2/README.md
+additive configs/krea2/README.md
+additive scripts/downstream/upstream-sync.ps1
+additive .github/workflows/upstream-sync.yml
+additive tests/test_downstream_guards.py
+
+patched gui/tabs/config_tab.py
+patched gui/tabs/easycontrol_tab.py
+patched gui/tabs/methods_tab.py
+patched gui/tabs/preprocess/tab.py
+patched gui/i18n/en.py
+patched gui/i18n/ko.py
+patched gui/i18n/ja.py
+patched gui/i18n/cn.py
+patched gui/explanations/guides/cn/_fields.json
+patched README.md
+patched NOTICE

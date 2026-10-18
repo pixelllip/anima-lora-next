@@ -56,6 +56,7 @@ from gui import (
 from gui.jobs import daemon as gui_daemon
 from gui.explanations import field_help
 from gui.i18n import t
+from gui.i18n import overlay as cn_overlay
 from gui.tabs.config_tab import ConfigTab
 from gui.theme import tok
 from gui.widgets import action_button, apply_variant, make_field_label
@@ -271,7 +272,7 @@ class EasyControlTab(ConfigTab):
             w = _widget(plain, key=k)
             help_text = field_help(k)
             lbl = make_field_label(
-                k,
+                cn_overlay.field_label(k),
                 on_click=lambda _k=k, _h=help_text: self._show_explain(_k, _h, ()),
             )
             form.addRow(lbl, w)

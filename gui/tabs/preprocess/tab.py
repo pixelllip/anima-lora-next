@@ -217,7 +217,7 @@ class PreprocessingTab(DaemonJobMixin, DirtyTrackingMixin, LazyTabMixin, QWidget
         # bypasses SplitButtonStyle and miscentres the label).
         run_step_style = action_button_qss("info")
 
-        self._method_label = QLabel("Method")
+        self._method_label = QLabel(t("method"))
         top.addWidget(self._method_label)
         self.method_combo = QComboBox()
         self.method_combo.addItems(PREPROCESS_METHODS)

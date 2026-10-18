@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from gui.i18n import t
 from gui.tabs.config_tab import ConfigTab
 from gui.tabs.distill_tab import TurboTrainTab
 from gui.tabs.soup_tab import SoupTrainTab
@@ -73,8 +74,8 @@ class MethodsTab(QWidget):
         self._picker = QWidget()
         picker_row = QHBoxLayout(self._picker)
         picker_row.setContentsMargins(0, 0, 0, 0)
-        # "Method" matches ConfigTab's own (hardcoded) picker label.
-        picker_row.addWidget(QLabel("Method"))
+        # "Method" matches ConfigTab's own picker label.
+        picker_row.addWidget(QLabel(t("method")))
         self._combo = QComboBox()
         self._combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         self._combo.setMinimumContentsLength(

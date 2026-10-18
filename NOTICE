@@ -79,3 +79,38 @@ are not limited to:
     accelerators (Spectrum, SPD, SMC-CFG, modulation guidance).
   * Restructuring the codebase into the library/, networks/, and anima_lora/
     packages with a new configuration system and task runner.
+
+--------------------------------------------------------------------------------
+Downstream modifications (this repository)
+--------------------------------------------------------------------------------
+
+This repository is a downstream distribution of `sorryhyun/anima_lora`
+(MIT, Copyright (c) 2026 Seunghyun Ji). The upstream `LICENSE`, `NOTICE` and
+`LICENSE-APACHE` are kept verbatim; the modifications below are the downstream
+project's own and are covered by the same MIT license.
+
+  1. Chinese display overlay for the PySide6 GUI
+     (`gui/i18n/cn_overlay.json`, `gui/i18n/overlay.py`, and the call sites listed
+     in `downstream/owned-paths.txt`): TOML keys, `_GROUPS` titles and
+     `presets.toml` labels are rendered in Chinese when the GUI language is
+     `cn`. English/Korean/Japanese rendering is unchanged.
+  2. Three i18n keys upstream was missing (`refresh`, `method`, `path_scope`) in
+     `gui/i18n/{en,ko,ja,cn}.py`, plus two Chinese field-help entries in
+     `gui/explanations/guides/cn/_fields.json`.
+  3. Upstream-tracking tooling: `.github/workflows/upstream-sync.yml`,
+     `scripts/downstream/upstream-sync.ps1`, `.downstream/*` and
+     `tests/test_downstream_guards.py`.
+  4. Placeholders for a planned Krea-2 line (`library/krea2/`, `scripts/krea2/`,
+     `configs/krea2/`, `downstream/krea2-line-plan.md`). No Krea-2 code is
+     included yet.
+
+Planned Krea-2 work derives from https://github.com/scvxzf1/krea2-webui (MIT,
+confirmed by its author) — the Krea-2 model family, NF4 self-contained
+checkpoint loading, family-aware LoRA targets and the Qwen3-VL text path live
+there. When that code is ported in, this section must name every ported file.
+
+⚠ The Krea-2 *architecture* code in krea2-webui is a port of
+https://github.com/krea-ai/krea-2, whose repository carries **no LICENSE file**
+(checked 2026-10-18) and whose README only states the *model weights*' community
+license. Resolve the code license before redistributing any such file.
+

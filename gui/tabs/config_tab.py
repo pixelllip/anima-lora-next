@@ -57,6 +57,7 @@ from gui.jobs.mixin import DaemonJobMixin
 from gui.theme import action_button_qss, tok
 from gui.explanations import field_help, method_guide
 from gui.i18n import t
+from gui.i18n import overlay as cn_overlay
 from gui.jobs.process import StreamingProcess
 from gui.widgets import (
     DirtyTrackingMixin,
@@ -106,7 +107,7 @@ class ConfigTab(DaemonJobMixin, DirtyTrackingMixin, QWidget):
         # this row when it embeds this tab.
         self._top_bar = top
         method_items = methods if methods is not None else list_methods()
-        self._method_label = QLabel("Method")
+        self._method_label = QLabel(t("method"))
         top.addWidget(self._method_label)
         self.method_combo = QComboBox()
         self.method_combo.addItems(method_items)
@@ -144,7 +145,9 @@ class ConfigTab(DaemonJobMixin, DirtyTrackingMixin, QWidget):
         self.preset_combo = QComboBox()
         self.preset_combo.setSizeAdjustPolicy(QComboBox.AdjustToContents)
         for name, meta in list_hardware_presets():
-            self.preset_combo.addItem(str(meta.get("label") or name), name)
+            self.preset_combo.addItem(
+                cn_overlay.preset_label(name, str(meta.get("label") or name)), name
+            )
             desc = meta.get("description")
             if desc:
                 self.preset_combo.setItemData(
@@ -419,7 +422,7 @@ class ConfigTab(DaemonJobMixin, DirtyTrackingMixin, QWidget):
         self, title: str, fields: dict, styles: dict[str, tuple[str, str]]
     ) -> QGroupBox:
         """One group of fields; registers each widget in ``self._w``."""
-        box = QGroupBox(title)
+        box = QGroupBox(cn_overlay.group_title(title))
         form = QFormLayout()
         for k in sorted(fields, key=variant_form.field_sort_key):
             w = _widget(fields[k], key=k)
@@ -427,7 +430,7 @@ class ConfigTab(DaemonJobMixin, DirtyTrackingMixin, QWidget):
             help_text = field_help(k)
             style, note = styles.get(self._origin.get(k, "base"), styles["base"])
             lbl = make_field_label(
-                k,
+                cn_overlay.field_label(k),
                 style=style,
                 on_click=lambda _k=k, _h=help_text, _n=(note,): self._show_explain(
                     _k, _h, _n

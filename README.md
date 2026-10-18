@@ -1,5 +1,10 @@
 # anima_lora
 
+> **本仓库是下游整合版（downstream）**：基线是 [`sorryhyun/anima_lora`](https://github.com/sorryhyun/anima_lora)，
+> 我们在它上面加了**中文显示补丁**，并为 **Krea-2 line** 预留了落点。
+> 上游更新怎么跟、哪些文件是我们的、许可怎么算 —— 先读 **[DOWNSTREAM.md](DOWNSTREAM.md)**。
+> 下面这份 README 是上游的原文，描述的是上游行为。
+
 > **New (alpha): [MOSS-Image LoRA](docs/experimental/moss_lora.md).** Train LoRAs for OpenMOSS's 5B [MOSS-Image](https://huggingface.co/OpenMOSS-Team/MOSS-Image-Base) on a 16 GB card, with Spectrum sampling (2.6×) — `make gui-moss`. A separate line from Anima; flags and defaults may still change.
 
 📖 Guidebook: [English](docs/guidelines/guidebook.md) · [한국어](docs/guidelines/가이드북.md) · [日本語](docs/guidelines/ガイドブック.md) · [中文](docs/guidelines/指南书.md)
