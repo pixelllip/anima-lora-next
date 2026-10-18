@@ -63,13 +63,41 @@
 | 512 档缓存直读 | latent `latents_56x72` → 5D (1,16,1,56,72)（=448×576，**1008 tokens**，正是 512 档的桶）；TE 走**训练侧同一份实现** `Krea2TextEncoderOutputsCachingStrategy.load_outputs_npz` → `hiddens (1,512,12,2560)` + `mask (1,512)`（缓存里是 12 层 MFA 堆栈，**不能自己按形状猜**） |
 | 不交换时 | 权重占显存 6.21GB；8GB 卡上 forward 直接 OOM（桌面已占 1.4GB）——与预期一致 |
 
-**卡住的部分 ❌（= 必须一起带过来的那块）**
+**当时卡住、现在已解决 ✅（2026-10-18 当天复验通过）**
 
-| 现象 | 原因 |
-| --- | --- |
-| `ModelOffloader.__init__() got an unexpected keyword argument 'profile_jsonl'` | krea2-webui 的 `runtime/offloading.py` 是上游那份的**超集**（多 `profile_jsonl` / `transfer_dtype` / `restore_mode`）。已在移植版 `dit.py` 里加**按签名过滤**的下游适配（上游以后把那份超集合进来时，这些参数会自动生效） |
-| `ModelOffloader` 没有 `supports_backward` / `flush_profile_events` | 同上：那批 API 也在超集里 |
-| CPU 载入 + swap=16：`Expected all tensors on the same device` → 补 `prepare_block_swap_before_forward()` 后变成 `CUBLAS_STATUS_EXECUTION_FAILED`；swap=24：直接 OOM | 上游这套 offloader 的**滑动窗口语义**与 fork 的 super-set 不同（fork 的每步 H2D 时机、pinned/async 拷贝、WDDM 修复都在那 1908 行里）。在 8GB 卡上这不是"调参能绕过去"的，**要么把那份 offloading.py 一起搬进来（登记为补丁文件），要么给 Krea-2 写一个适配层** |
+先说结论：**上游那份 `ModelOffloader` 够用，不需要把 krea2-webui 那 1908 行的超集搬进来。**
+之前判成"必须搬"是被两个真因掩盖了 —— 记录在这里免得以后再踩：
+
+| 当时的现象 | 真因 | 修法 |
+| --- | --- | --- |
+| `ModelOffloader.__init__() got an unexpected keyword argument 'profile_jsonl'` | fork 的 offloader 参数是超集（多 `profile_jsonl` / `transfer_dtype` / `restore_mode`，都是 profiling / H2D 调优用） | 移植版 `dit.py` 里**按签名过滤**这些 kwargs（上游以后合入超集时自动生效）。profiling 能力暂时失去，**不影响训练** |
+| `Expected all tensors to be on the same device` | 训练步开始时没人把第一块搬上卡（fork 的训练循环每步开头会调） | 探针/训练循环每步调一次 `prepare_block_swap_before_forward()` |
+| `CUBLAS_STATUS_EXECUTION_FAILED`（swap=16）/ 直接 OOM（swap=24） | **激活内存**，不是 offloader：探针当时没开梯度检查点 | `enable_gradient_checkpointing()` + `swap=20` |
+
+**512 档桶实测（RTX 4060 Laptop 8GB / 23GB 宿主，swap=20 + 全程梯度检查点）**
+
+```
+[probe] DiT 就绪 1.6s；参数 6,410,783,302；swap=20；grad_ckpt=True
+[probe] step 1/2: loss=1.6977 8.9s | 显存峰值 allocated 3.77 GB / reserved 4.48 GB | 可用内存 7.5 GB
+[probe] step 2/2: loss=1.6952 6.1s | 显存峰值 allocated 3.77 GB / reserved 4.48 GB | 可用内存 7.5 GB
+[probe] OK —— 核心在本仓库里能加载并在 512 档桶上 forward+backward
+```
+
+要点：
+* **显存只用 3.77GB（reserved 4.48GB）**，8GB 卡有充裕余量 —— 512 档不必像 1024 档那样精打细算；
+* 宿主内存从 14.1GB 掉到 7.5GB 后**不再增长**（20 个块的 pinned CPU 副本 + 模型），
+  探针自带"可用内存 < 6GB 拒绝开跑"的闸门；
+* 稳定态 ~6.1s/step（单步 forward+backward，未含优化器/LoRA）；**没有开 torch.compile**（512 档也不需要）。
+
+**剩下要做的**（属于"接线"而非"通路"）：按上游 line 风格把 `requests/loader/train/cache/generate`
+写出来，把 LoRA 注入（`lora_targets.py` 的 target spec + `library/lines/adapters.py`）接上，
+再跑一次真正的 20 步出 LoRA。8GB 上的验收参数照
+`hiten_krea2_r264_r16_tagnotes_512.toml`（r16/α16、lr 3e-4 constant、
+`timestep_sampling="sigma"`+shift 1.0+uniform、attn_mode=torch、full grad ckpt、NF4 自包含、TE 在 CPU 编）。
+
+**待补的兼容件**：`library/training/anima_strategies.py::_is_krea2` 上游没有（fork 独有），
+只在"未缓存、需要现场编码"分支用到；移植时要带上或改成上游等价物。
+
 
 **下一步（按优先级）**
 

@@ -106,6 +106,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--te", required=True, help="512 档 Krea-2 TE 缓存（*_krea2_te.safetensors）")
     ap.add_argument("--swap", type=int, default=0, help="块交换块数（0 = 不交换）")
     ap.add_argument("--steps", type=int, default=1, help="前向+反向跑几次")
+    ap.add_argument(
+        "--no-grad-ckpt",
+        action="store_true",
+        help="关掉梯度检查点（默认开 —— 512 档在 8GB 卡上靠它压激活）",
+    )
     ap.add_argument("--min-free-gb", type=float, default=6.0, help="可用内存低于这个值就拒绝开跑")
     ap.add_argument("--device", default="cuda")
     args = ap.parse_args(argv)
@@ -148,8 +153,10 @@ def main(argv: list[str] | None = None) -> int:
     else:
         dit.to(dev)
     dit.train()
+    if not args.no_grad_ckpt:
+        dit.enable_gradient_checkpointing()
     print(f"[probe] DiT 就绪 {time.time() - t0:.1f}s；参数 {sum(p.numel() for p in dit.parameters()):,}"
-          f"；swap={args.swap}")
+          f"；swap={args.swap}；grad_ckpt={not args.no_grad_ckpt}")
     print(f"[probe] 加载后可用内存 {free_gb():.1f} GB；显存 {torch.cuda.memory_allocated() / 1024**3:.2f} GB")
 
     for step in range(1, args.steps + 1):
