@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Anima LoRA 训练台</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>Anima LoRA 训练台</h1>
+  <div class="spacer"></div>
+  <span id="env" class="pill">连接中…</span>
+  <button id="btn-pause">暂停队列</button>
+  <button id="btn-refresh">刷新</button>
+</header>
+
+<main>
+  <section class="col jobs">
+    <h2>作业 <span class="dim" id="jobs-count"></span></h2>
+    <div id="jobs" class="list"></div>
+  </section>
+
+  <section class="col detail">
+    <h2 id="detail-title">进度</h2>
+    <div id="job-meta" class="meta dim">选一个作业看详情</div>
+    <canvas id="loss" height="180"></canvas>
+    <div class="tabs">
+      <button data-tab="progress" class="tab active">事件流</button>
+      <button data-tab="log" class="tab">stdout 日志</button>
+      <button data-tab="submit" class="tab">提交训练</button>
+      <button data-tab="command" class="tab">提交命令</button>
+    </div>
+    <div id="tab-progress" class="tabpane">
+      <h3>进度事件 <span class="dim" id="progress-summary"></span></h3>
+      <div id="progress" class="table"></div>
+    </div>
+    <div id="tab-log" class="tabpane hidden">
+      <pre id="log" class="log"></pre>
+    </div>
+    <div id="tab-submit" class="tabpane hidden">
+      <form id="form-train" class="form">
+        <label>method <input name="method" value="lora" required></label>
+        <label>preset <input name="preset" value="low_vram"></label>
+        <label>methods_subdir <select name="methods_subdir">
+          <option value="methods">methods</option>
+          <option value="gui-methods">gui-methods</option>
+        </select></label>
+        <fieldset><legend>overrides（留空就不传）</legend>
+          <label>output_name <input name="output_name" placeholder="my_lora"></label>
+          <label>max_train_epochs <input name="max_train_epochs" placeholder="8"></label>
+          <label>max_train_steps <input name="max_train_steps" placeholder="（注意：epochs 优先）"></label>
+          <label>learning_rate <input name="learning_rate" placeholder="2e-5"></label>
+          <label>network_dim <input name="network_dim" placeholder="32"></label>
+          <label>network_alpha <input name="network_alpha" placeholder="32"></label>
+          <label>blocks_to_swap <input name="blocks_to_swap" placeholder="0"></label>
+        </fieldset>
+        <label>extra（每行一个参数）<textarea name="extra" rows="3" placeholder="--network_args&#10;use_repa=false"></textarea></label>
+        <button type="submit">提交训练作业</button>
+        <span id="submit-msg" class="dim"></span>
+      </form>
+    </div>
+    <div id="tab-command" class="tabpane hidden">
+      <form id="form-cmd" class="form">
+        <label>label <input name="label" value="preprocess"></label>
+        <label>argv（每行一个 token，第一行通常是 tasks.py 子命令）
+          <textarea name="argv" rows="5" placeholder="tasks.py&#10;preprocess"></textarea>
+        </label>
+        <button type="submit">提交命令作业</button>
+        <span id="cmd-msg" class="dim"></span>
+      </form>
+    </div>
+  </section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

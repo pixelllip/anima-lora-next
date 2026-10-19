@@ -78,6 +78,7 @@ pwsh -File scripts\downstream\upstream-sync.ps1 -Merge -Push   # 合完推回 or
 * `gui/i18n/cn_overlay.json`、`gui/i18n/overlay.py`
 * `gui/explanations/guides/cn/_fields.json` 的两个补充键（见下）
 * `library/krea2/**`、`scripts/krea2/**`、`configs/krea2/**`（计划中，当前只有 README 占位）
+* `anima_lora_webui/**`、`tests/test_webui_server.py`（自有 Web 界面，见「界面策略」）
 * `scripts/downstream/**`、`.github/workflows/upstream-sync.yml`、`downstream/**`
 * `tests/test_downstream_guards.py`
 
@@ -89,9 +90,11 @@ pwsh -File scripts\downstream\upstream-sync.ps1 -Merge -Push   # 合完推回 or
 * `gui/i18n/{en,ko,ja,cn}.py`（补 3 个上游漏掉的键：`refresh` / `method` / `path_scope`）
 * `gui/explanations/guides/cn/_fields.json`（补 `path_scope` / `preprocess_path_pattern` 两条帮助）
 
-**界面策略（2026-10-18 决定）**：自带 PySide6 GUI **继续保留、但不作为主要界面**。
-它的功能面很全，但存在 bug；主要界面按 `krea2-webui` 下游的做法走**自己的 Web UI**
-（守护进程的 REST 已经是稳定面：`POST /jobs`、`/jobs/{id}/progress`、`/jobs/{id}/{stop,pause,resume}`）。
+**界面策略（2026-10-18 决定，2026-10-19 落地）**：自带 PySide6 GUI **继续保留、但不作为主要界面**。
+它的功能面很全，但存在 bug；主要界面是仓库内的 [`anima_lora_webui/`](anima_lora_webui/README.md)
+—— 零运行时依赖、同源反代守护进程（`python -m anima_lora_webui.server --root <引擎>`）。
+守护进程的 REST 是稳定面（`POST /jobs`、`/jobs/{id}/progress`、`/jobs/{id}/{stop,pause,resume}`）；
+反代白名单与这些路由的契约由 `tests/test_webui_server.py` 守着 —— 守护进程改端点而界面没跟上，测试就红。
 因此 GUI 上的中文补丁只做「标识符 → 中文」这一层，不投入重构。
 
 ## 4. 版本与发布
