@@ -1,0 +1,37 @@
+# Krea-2 line —— rin_yuu 画风 LoRA（768 档，用户实测任务）
+#
+# 口径与 configs/krea2/lora.toml 相同（逐键对齐 krea2-webui 的生产快照），差异只在数据与步数：
+#   · 数据集 = D:\myProject\krea2-webui\datasets\rin_yuu（200 张 + Danbooru tag 侧车，trigger `@rin yuu`）
+#   · 缓存 = post_image_dataset/rin_yuu_768/{resized,lora}（768 档现做：resize → VAE latent → Krea-2 TE）
+#   · **1000 步 = 200 张 × 5 遍**（用户口径：画风最好跑满 5 遍）
+#   · swap26 + 全梯度检查点 + attention 后端钉 mem-efficient（8GB 上 1024 档实测 reserved 稳在
+#     6.2GB、23.5s/step；768 档应当更快、更省）
+
+cache = "D:/myProject/krea2-webui/post_image_dataset/rin_yuu_768/lora"
+output = "output/ckpt_krea2/rin_yuu_krea2_r264_768.safetensors"
+output_name = "rin_yuu_krea2_r264_768"
+model = "D:/myProject/krea2-webui/models/diffusion_models/krea2_raw_nf4_self_contained.safetensors"
+
+rank = 16
+alpha = 16.0
+target_preset = "official_gate"   # 264 = 官方 232 + 32 个 mlp.gate
+dropout = 0.0
+
+max_steps = 1000                  # 200 张 × 5 遍
+batch_size = 1
+lr = 3e-4
+lr_scheduler = "constant"
+warmup_steps = 0
+weight_decay = 0.0
+optimizer_type = "adamw"
+seed = 0
+sigma_min = 0.0
+sigma_max = 1.0
+
+blocks_to_swap = 26
+grad_checkpointing = true
+mem_cache_size = 8
+
+save_every_n_steps = 50
+save_last_n = 3
+log_every_n_steps = 1

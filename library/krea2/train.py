@@ -11,7 +11,13 @@
 from __future__ import annotations
 
 import json
+import os
 import time
+
+# 分配器设置必须在 import torch **之前**生效；守护进程/ComfyHub 拉起的子进程不会继承
+# 我们 shell 里的环境变量，所以在代码里兜底（Windows 不支持 expandable_segments；
+# krea2-webui 实测：带它 reserved 7.25 → 6.09GB）。
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "backend:cudaMallocAsync")
 from pathlib import Path
 
 import torch
