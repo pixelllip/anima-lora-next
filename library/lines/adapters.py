@@ -145,7 +145,8 @@ class LoRAAdapter(nn.Module):
         from networks.lora_modules.lora import _top_right_singular_vectors
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        weight = base.weight.detach().to(device, torch.float32)
+        raw = base.dequantized_weight() if hasattr(base, "dequantized_weight") else base.weight.detach()
+        weight = raw.to(device, torch.float32)
         basis = _top_right_singular_vectors(weight, self.down.out_features)
         self.down.weight.copy_(basis.T / math.sqrt(3.0))
 

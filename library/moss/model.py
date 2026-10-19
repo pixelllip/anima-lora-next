@@ -134,7 +134,9 @@ class _Block(nn.Module):
     def forward(self, x, rope, modulation, key_mask=None):
         shift_a, scale_a, gate_a, shift_f, scale_f, gate_f = modulation.unbind(1)
         y = self.norm1(x) * (1 + scale_a[:, None]) + shift_a[:, None]
-        dtype = self.proj["q"].weight.dtype
+        # The quantized (int8) base's ``weight.dtype`` is int8; the activations
+        # stay bf16. The norms are never quantized, so they carry the compute dtype.
+        dtype = self.norm1.weight.dtype
         y = y.to(dtype)
         q = self.q_norm(self.proj["q"](y).unflatten(-1, (self.heads, -1))).flatten(2)
         k = self.k_norm(self.proj["k"](y).unflatten(-1, (self.heads, -1))).flatten(2)

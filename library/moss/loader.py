@@ -15,6 +15,7 @@ Leaf-level offload hooks break on Qwen3.5's gated-DeltaNet layers, which read
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import torch
@@ -103,7 +104,13 @@ def load_text_encoder(
 
     root = variant_dir(model_dir, "base")
     tok = tok or load_tokenizer(model_dir)
-    te = AutoModel.from_pretrained(root / "text_encoder", dtype=torch.bfloat16).eval()
+    single = os.environ.get("ANIMA_MOSS_TE_FILE")
+    if single:
+        from library.moss.single_file import load_te_single_file
+
+        te = load_te_single_file(single, root / "text_encoder" / "config.json")
+    else:
+        te = AutoModel.from_pretrained(root / "text_encoder", dtype=torch.bfloat16).eval()
     reserve = _te_reserve_gb(max_tokens)
     paged = _offload_by_layer(te, torch.device(device), reserve)
     if log:
@@ -167,9 +174,17 @@ def pad_embeds(rows, device=None):
 
 
 def load_transformer(model_dir, variant="base", dtype=torch.bfloat16, device=None):
-    tr = MOSSImageTransformer.from_pretrained(
-        variant_dir(model_dir, variant) / "transformer", torch_dtype=dtype
-    ).eval()
+    single = os.environ.get("ANIMA_MOSS_DIT_FILE")
+    if single:
+        from library.moss.single_file import load_dit_single_file
+
+        tr = load_dit_single_file(
+            single, variant_dir(model_dir, "base") / "transformer" / "config.json"
+        )
+    else:
+        tr = MOSSImageTransformer.from_pretrained(
+            variant_dir(model_dir, variant) / "transformer", torch_dtype=dtype
+        ).eval()
     return tr.to(device) if device is not None else tr
 
 
@@ -188,9 +203,18 @@ def compile_blocks(blocks) -> None:
 
 
 def load_vae(model_dir, dtype=torch.float32, device=None):
-    from diffusers import AutoencoderKLFlux2
+    single = os.environ.get("ANIMA_MOSS_VAE_FILE")
+    if single:
+        from library.moss.single_file import load_vae_single_file
 
-    vae = AutoencoderKLFlux2.from_pretrained(
-        variant_dir(model_dir, "base") / "vae", torch_dtype=dtype
-    ).eval()
+        vae = load_vae_single_file(
+            single, variant_dir(model_dir, "base") / "vae" / "config.json"
+        )
+        vae = vae.to(dtype)
+    else:
+        from diffusers import AutoencoderKLFlux2
+
+        vae = AutoencoderKLFlux2.from_pretrained(
+            variant_dir(model_dir, "base") / "vae", torch_dtype=dtype
+        ).eval()
     return vae.to(device) if device is not None else vae
