@@ -73,14 +73,15 @@ seed 1, ER-SDE + Spectrum, 30 steps, CFG 3, against v2's eval (10000 steps):
 2. Stamp `ref_scale` and whether the TE saw the page into the LoRA metadata. Today only
    `ref_timestep` / `ref_isolate` are stamped, while ComfyUI-MOSS-Toolkit reads
    `ref_scale` from it.
-3. ComfyUI-MOSS-Toolkit: `reference.py` reads `ref_isolate` (ref-only attention) and,
-   when `patches_replace` skips a block, still runs the ref rows through it. Colorize
-   wiring: Caption Helper → a plain text encode, no vision. Check that path's chat
-   template against `vision_te.encode(image=None)` first. README + example workflow,
-   version bump; check `_vendor` drift before publishing.
+3. ComfyUI-MOSS-Toolkit: **done in 0.5.0** (2026-10-23). `reference.py` reads
+   `ref_isolate` and runs the ref rows through a `patches_replace`-skipped block;
+   the Reference node's `task = colorize` picks the ref size from the recipe; prompt
+   through a plain CLIP Text Encode (its template is byte-identical to
+   `vision_te.encode(image=None)`). Example workflow `moss-i2i-colorize-v3.json`.
 4. Publish the v3 LoRA with its eval sheet.
-5. Later: a ref KV cache in `generate.py` and the node (the ref is step-, text- and
-   branch-free, ~2.1 GB bf16 at 1 MP), so the full-size ref costs once per image.
+5. Ref KV cache: **in the node** (0.5.0, `ref_cache`): the ref runs through the
+   blocks once per page, ~2.1 GB bf16 at 1 MP; with the 1-hour arm an iteration
+   costs ~1.25× t2i. Still to do in `generate.py`.
 
 ## Done (shipped or settled)
 
