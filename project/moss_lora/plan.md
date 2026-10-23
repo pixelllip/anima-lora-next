@@ -11,7 +11,7 @@ Code map `library/moss/CLAUDE.md`; user doc `docs/moss/README.md`.
 | i2i / colorize (VAE reference on RoPE `r`) | v2 = `moss_colorize_3k_ocr` (shipped). **v3 planned** (§ below): text-only TE + full-size isolated ref | `docs/proposal/moss_i2i.md`, `colorize_ocr.md`, `src/colorize_*.py` |
 | Correction training (arXiv 2610.14136), dual LoRA | joint D + C holds to K 8; CFG 1.5 + K 2 ≈ CFG 3 at 2× forwards (one seed) | `correction.md`, `src/correction*.py` |
 | Anima negatives revisit | Tier 1 measured, Tier 2 unmeasured | `docs/proposal/moss_anima_negatives_revisit.md` |
-| Latent HF budget (gates a VR-loss port) | step 1 measured 2026-10-23: H holds (centred HF share 2.3–2.5× Anima's); step 2 (base residual by frequency → VR gradients) proposed | `docs/proposal/moss_latent_hf_budget.md`, `moss_vr_headroom.md` |
+| Latent HF budget (gates a VR-loss port) | step 1 measured 2026-10-23: H holds (centred HF share 2.3–2.5× Anima's); step 2 Phase A measured: 72 % of the matched-σ loss gap is above 0.5 Nyquist; Phase B (VR gradients) next | `docs/proposal/moss_latent_hf_budget.md`, `moss_vr_headroom.md` |
 | TE quantization | INT8 W8A8 (SmoothQuant + act-aware GPTQ) is the default TE | `src/te_*.py`; comparison runs + drivers in `_archive/bench/moss_te_fp8/` |
 | Technical-report digest | reference | `report_notes.md` |
 

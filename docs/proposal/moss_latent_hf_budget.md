@@ -16,6 +16,10 @@ most of the gap:
 | loss reweighted to Anima's σ density | — | 0.22–0.27 | 0.29 |
 | cached latent E[x²] (20 files each) | 0.47 | 0.75 | 0.75 |
 
+(Correction, 2026-10-23: the Anima soup shards trained with `masked_loss = true`. Unmasked
+runs on the same content log ~0.07. The like-for-like gap is in
+`moss_vr_headroom.md` § Phase A result.)
+
 - **σ density is ruled out.** Reweighting MOSS's per-σ-bin loss to Anima's
   `sigmoid(N(0,1))` density leaves the t2i loss at 0.22–0.27. Anima's logs carry no
   per-step σ, so only MOSS could be rebinned.
