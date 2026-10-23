@@ -56,7 +56,7 @@ adds some clean → clean pairs.
 pair's own `.txt`. The reference carries the edit, so the caption is just a constant. Changing
 it re-encodes only the TE files. The reference is full size (`ref_scale = 1`). Copies of
 `fixed_caption` live in `generate.toml` (as `prompt`, with `prompt_format = "text"`) and in
-the ComfyUI MOSS Toolkit (`SANITIZE_CAPTION`); change all three together.
+the ComfyUI MOSS Toolkit (`FIXED_CAPTIONS["sanitize"]`); change all three together.
 
 **Train.** `ref_timestep = 0`, `ref_isolate = true`, other fields at the `TrainRequest`
 defaults. The first run (`moss_i2i_sanitize`) used 49 pairs from 17 artist folders, rank 32,
