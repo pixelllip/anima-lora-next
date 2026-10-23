@@ -1,7 +1,9 @@
 # MOSS-Image — is the loss gap a high-frequency residual, and would VR-loss help with it?
 
-Status: proposed 2026-10-23. **Phase A measured 2026-10-23: passes** (72 % of the
-residual gap sits above 0.5 Nyquist) — § Phase A result. Phase B unmeasured. Step 2 of 2 after
+Status: **closed 2026-10-23.** Phase A passes: 72 % of the residual gap sits above
+0.5 Nyquist (§ Phase A result). Phase B fails: VR's control variate is uncorrelated with
+the MOSS residual (ρ² ≈ 0.01), so at the λ the trainer would learn, VR is a no-op
+(§ Phase B result). Do not port VR-loss to MOSS. Step 2 of 2 after
 `docs/proposal/moss_latent_hf_budget.md`, whose gate passed: the FLUX.2 latent carries
 2.3–2.5× Anima's centred HF share, and about 0.16 more energy per element above 0.5
 Nyquist. That is roughly the size of the unexplained loss gap. No training; Phase A runs
@@ -17,16 +19,19 @@ record says that number does not decide anything:
   2026-05-14 errata). Live training put `vr/lambda_ema` near −0.75, not −1. The re-probe
   on the v1.0 quarter LoRA read **MARGINAL** (high-band mid-σ ρ² median 0.23, null gap
   0.21; `results/20260524-1716-v1.0-quarter-vs-base`).
-- **At the gradient level VR failed every criterion** (`_archive/bench/vr_grad_diagnostics/`,
-  2026-05-15, from a T-LoRA and from a VR-trained LoRA). The VR gradient was 6 % of the
-  standard one in norm, cos 0.03–0.04 to it, with 4.0–4.5× its relative variance and a
-  direction lift of −0.18 to −0.19. VR redirects the adapter toward `x_0^H`; it does not
-  denoise the standard gradient. No shipped config sets `vr_loss_weight`.
+- **There is no valid Anima gradient-level reading.** `_archive/bench/vr_grad_diagnostics/`
+  (2026-05-15) reported a VR gradient 6 % of the standard one in norm, cos 0.03–0.04 to
+  it, 4.0–4.5× its relative variance and a direction lift of −0.18. But that bench
+  passes `t · 1000` as the DiT timestep (`_forward_velocity`), and Anima's DiT takes σ in
+  [0, 1] (`train.py`: "timesteps are [0,1]-scaled"). `fm_vr_headroom` fixed the same bug
+  on 2026-05-24 (its `tfix` runs); the gradient bench was never re-run. Its numbers were
+  measured far outside the trained timestep range and say nothing about VR. No shipped
+  config sets `vr_loss_weight`.
 
 So a MOSS port needs two things the Anima record never established: that the MOSS loss
 gap really is high-frequency residual (Phase A), and that VR's gradient is usable on
-MOSS where it was not on Anima (Phase B). The prior for B is a fail. A goes first because
-it is cheap, and it settles the step-1 question whichever way B lands.
+MOSS (Phase B). A goes first because it is cheap, and it settles the step-1 question
+whichever way B lands.
 
 ## Phase A — split the base model's residual by frequency
 
@@ -100,8 +105,7 @@ Residual energy per element `E[y²]`, and the part above 0.5 Nyquist:
   and 18 % for Anima. At σ = 0.95 MOSS's HF residual (0.143) is about the clean latent's
   own HF energy (0.132): the caption predicts none of it, as expected.
 
-Phase B is still expected to fail on Anima's record. Phase A says the floor is there;
-it does not say VR's gradient makes use of it.
+Phase A says the floor is there; it does not say VR's gradient makes use of it.
 
 ## Phase B — VR-loss gradients on a trained MOSS LoRA
 
@@ -120,9 +124,10 @@ cache:
 - Loss-level side readout at the Anima rig's settings: global and high-band ρ², with a
   decorrelated-ε null.
 
-**Gate** (`vr_grad_diagnostics` criteria, all three):
+**Gate** (`vr_grad_diagnostics` criteria, all three). The third column is the archived
+Anima reading, void because of the timestep bug above:
 
-| Metric | Pass | Anima (T-LoRA) |
+| Metric | Pass | Anima (void) |
 |---|---|---|
 | `gradient_magnitude_ratio_vr_over_std` | 0.5–2 | 0.06 |
 | `cov_sq_ratio_vr_over_std` | < 0.7 | 4.0 |
@@ -132,9 +137,53 @@ A pass justifies wiring VR into `library/moss/train.py` and a wall-clock-matched
 (VR costs one extra no-grad forward per step, more under block swap). A fail closes the
 line, with Phase A's split kept as the explanation of the loss gap.
 
+### Phase B result (2026-10-23)
+
+`bench/moss_vr_headroom/grad_diagnostics.py`, run `results/20261023-2351/` (gitignored):
+`caststation_ga4_lr1e4_s0` reloaded as fp32 adapters (74.3 M params) on the bf16 Base,
+24 of its 30 training stems, one batch each, σ from MOSS's training density, ~3 min with
+no block swap. How it differs from the plan:
+
+- **λ comes from the 24 batches, not an online EMA.** `g_vr` is linear in λ, so the
+  bench keeps `s_k = ∂mean(y²)` and `c_k = ∂mean(z·y)` and reads every metric for any λ
+  off their Gram matrices. The rows below are the pooled `λ = −Σcov(y,z)/Σvar(z)`, which
+  an EMA converges to, and the fixed −1 of `vr_loss.md`'s open question.
+- **Each gradient takes its own forward** rather than `retain_graph` through the block
+  swapper.
+- **The direction cosine leaves batch k out of its reference.** The archived bench kept
+  it in, which inflates the cosine; that version is reported as `incl`.
+- **The ρ²-with-null readout was not run.** The per-batch correlation below already
+  settles it.
+
+| λ | `‖g_vr‖ / ‖g_std‖` | cov² ratio | lift (LOO) | lift (incl) | cos(mean g_std, mean g_vr) |
+|---|---|---|---|---|---|
+| pooled −0.19 | 1.01 ✓ | 0.99 ✗ | +0.011 ✗ | +0.009 | 0.993 |
+| fixed −1 | 1.19 ✓ | 0.80 ✗ | +0.177 ✓ | +0.165 | 0.844 |
+
+- **The control variate is dead on MOSS.** Per batch, `ρ²(y, z)` has median 0.014 and
+  max 0.044. At the pooled λ the loss falls by 1.3 %, and `g_vr` is `g_std` (cos 0.993,
+  norm ratio 1.01). VR as the trainer runs it, with λ learned online, would be a no-op
+  that costs one extra forward per step.
+- **Phase A explains why.** `x_0^L` is a heavy low-pass (σ_low 21–32 px on the /8 grid, median 30; Anima's default is the same `min/4`),
+  so `z` carries the base model's low-frequency error. The MOSS residual is 72 %
+  HF texture that is not in `z` at all, so nothing can cancel it. A low-pass control
+  variate can only remove shared low-frequency error, and MOSS has little of it.
+- **λ = −1 is a different loss, not variance reduction.** The loss rises by 33 % on
+  average (`‖y − z‖² > ‖y‖²`), and the mean gradient turns 32° away from the standard
+  one. Its single-batch gradients agree with each other better (lift +0.18), but the cov²
+  ratio is still 0.80, above the 0.7 line. Whether training on that HF-directed objective
+  improves samples would take a training A/B. Nothing measured here argues for one.
+- **Gradient norms are σ-skewed.** 7 of the 24 batches (σ ≥ 0.85) carry 57 % of
+  `Σ‖g_std‖²`, and the standard-gradient LOO cosine is only +0.006. At batch 1, the mean
+  gradient over 24 batches is not a well-resolved direction, so the lift numbers are
+  noisy. That does not touch the pooled-λ verdict, which rests on ρ² and cos 0.993.
+
+**Verdict: close.** Phase A stands as the account of the MOSS − Anima loss gap: it is an
+HF texture floor the base cannot predict. VR-loss with a low-pass pair cannot remove it.
+
 ## Not in scope
 
-- Wiring VR into `library/moss/train.py`; that waits for Phase B.
+- Wiring VR into `library/moss/train.py` (Phase B closed it).
 - LPIPS or other perceptual correction (`vr_loss.md` open question).
 - Per-step σ logging in Anima's `train.py`. Phase A's self-check uses early logged loss
   instead.
