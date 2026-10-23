@@ -15,4 +15,6 @@ resolution = 1024
 # keeps its detail. Changing it re-encodes the refs only.
 ref_scale = 1
 caption_format = "fixed"
+# Copied as SANITIZE_CAPTION in the ComfyUI MOSS Toolkit's caption helper and
+# verbatim in generate.toml — change all three together.
 fixed_caption = "no sfx, no dialogue, no watermark"
