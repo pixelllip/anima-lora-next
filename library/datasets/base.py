@@ -202,7 +202,7 @@ class BaseDataset(torch.utils.data.Dataset):
 
         # BYG unpaired-editing per-image text conditionings. Set via
         # `dataset.byg_text_dir = ...`; None disables. Loads <stem>_byg.safetensors
-        # (4 role embeddings + masks, built by scripts/byg/build_edit_tuples.py).
+        # (4 role embeddings + masks, built by _archive/scripts/byg/build_edit_tuples.py).
         self.byg_text_dir: Optional[str] = None
         self._byg_roles = (
             "src_caption",

@@ -442,11 +442,6 @@ COMMANDS = {
         exp_training.cmd_soft_tokens,
         "[experimental] SoftREPA-style per-layer × per-t soft tokens (training-only v1)",
     ),
-    "exp-byg-data": (
-        exp_training.cmd_byg_data,
-        "[experimental] Build BYG edit-tuple sidecars (tag-swap) into "
-        "post_image_dataset/byg/. Usage: exp-byg-data [--limit N --overwrite].",
-    ),
     "exp-test-soft": (
         exp_inference.cmd_test_soft,
         "[experimental] Inference with latest soft_tokens weight "

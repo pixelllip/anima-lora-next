@@ -9,11 +9,13 @@ step and a parameter-free conditioning patch.
 
 - Paper: Bootstrap Your Generator: Unpaired Visual Editing with Flow Matching
   (Tewel, Atzmon, Chechik, Wolf; arXiv 2606.03911), Alg. 1.
-- Design rationale + Phase-0 validation gate: `bench/byg/README.md`
-  (demoted from `docs/proposal/` 2026-07-02 — re-propose after the gate passes).
+- Design rationale + Phase-0 validation gate: `_archive/bench/byg/README.md`
+  (demoted from `docs/proposal/` 2026-07-02; bench archived 2026-10-23 after
+  gate step 1 failed on MOSS-Image too — the edit prior clears a tag-shuffle
+  null only above σ ≈ 0.95).
 - Code: `networks/methods/byg.py` (`BYGMethodAdapter` + `BYGConditioning`),
   `library/training/forward/ste.py`, `library/datasets/base.py` (sidecar loader),
-  `scripts/byg/build_edit_tuples.py` (data), `configs/methods/byg.toml`.
+  `_archive/scripts/byg/build_edit_tuples.py` (data, archived), `configs/methods/byg.toml`.
 
 > Status (v1, phased). Training is functional end-to-end and verified
 > (data build → multi-forward step with all four losses + staged identity
@@ -150,7 +152,7 @@ draws) BYG returns `λ_id·L_id` and lets the normal training loop backward it.
 
 ## Data — tag-swap edit tuples
 
-`scripts/byg/build_edit_tuples.py` (`make exp-byg-data`) makes one offline pass
+`_archive/scripts/byg/build_edit_tuples.py` (archived; run it by path) makes one offline pass
 over the captioned corpus, emitting `post_image_dataset/byg/<stem>_byg.safetensors`
 per image — the encoded (post-LLM-adapter `crossattn_emb` + mask) for the four
 roles `src_caption / tgt_caption / instruction / reverse_instruction`.
@@ -162,12 +164,6 @@ caption. Free, but cannot express style edits — the `--vlm` tail (App. D.1,
 Qwen3-VL) is a later phase and currently raises `NotImplementedError`. Images
 without a color tag emit no tuple (counted as `no_color`).
 
-```bash
-make exp-byg-data                      # full corpus → post_image_dataset/byg/
-make exp-byg-data ARGS="--limit 200"   # smoke subset
-make exp-byg-data ARGS="--overwrite"   # rebuild existing sidecars
-```
-
 The image VAE/TE caches are the standard `preprocess` ones (the source image
 is the training image — no separate cond cache). Stems are matched to those
 caches by basename, so the sidecar dir is flat. The dataset
@@ -177,7 +173,7 @@ caches by basename, so the sidecar dir is flat. The dataset
 ## Training
 
 ```bash
-make exp-byg-data        # build edit-tuple sidecars first
+python _archive/scripts/byg/build_edit_tuples.py --help   # build edit-tuple sidecars first
 python train.py --method byg --preset default   # train (configs/methods/byg.toml)
 ```
 
@@ -219,7 +215,7 @@ escape hatch for methods whose objective isn't a single FM regression.
   grad-requiring tensors are the closed-over LoRA params — which the reentrant
   path silently drops, leaving `L_prior` pinned at chance and only `L_cycle`
   training. Use plain `gradient_checkpointing` (`use_reentrant=False`). Proof &
-  regression guard: `bench/byg/grad_parity.py`.
+  regression guard: `_archive/bench/byg/grad_parity.py`.
 - No caption dropout — the instruction/captions *are* the supervision signal
   (`caption_dropout_rate = 0.0`).
 - 5D dim-2 boundary — `_dit_velocity` does `unsqueeze(2)` in / `squeeze(2)`
@@ -231,7 +227,7 @@ escape hatch for methods whose objective isn't a single FM regression.
 
 ## Status & next phase
 
-- ✅ Data (`exp-byg-data`) — tag-swap sidecars; now with a tqdm progress bar.
+- ✅ Data (`_archive/scripts/byg/build_edit_tuples.py`) — tag-swap sidecars.
 - ✅ Training (`train.py --method byg`) — full multi-forward step, all four losses, staged
   identity backward, snapshot bootstrap; saves a plain LoRA.
 - ⛔ Inference — not wired, no make target. The
@@ -242,5 +238,5 @@ escape hatch for methods whose objective isn't a single FM regression.
 - 🔜 VLM tuples (`--vlm`) — App. D.1 Qwen3-VL data for style edits, beyond
   the tag-swap color edits.
 
-See `bench/byg/README.md` for the full design and the P2
+See `_archive/bench/byg/README.md` for the full design and the P2
 inference plan.

@@ -2,7 +2,7 @@
 
 Paper: *Bootstrap Your Generator: Unpaired Visual Editing with Flow Matching*
 (Tewel, Atzmon, Chechik, Wolf; arXiv 2606.03911). Proposal:
-``bench/byg/README.md``.
+``_archive/bench/byg/README.md``.
 
 BYG trains a **plain rank-64 LoRA** to follow edit instructions with *no paired
 (source, edited) data and no reward model* — only unpaired images plus
@@ -751,7 +751,7 @@ class BYGMethodAdapter(MethodAdapter):
         emb = ctx.batch.get(f"byg_{role}_emb")
         if emb is None:
             raise KeyError(
-                f"BYG batch missing 'byg_{role}_emb'; run build_edit_tuples + "
+                f"BYG batch missing 'byg_{role}_emb'; run _archive/scripts/byg/build_edit_tuples.py + "
                 "the BYG text-embedding cache pass first."
             )
         mask = ctx.batch.get(f"byg_{role}_mask")

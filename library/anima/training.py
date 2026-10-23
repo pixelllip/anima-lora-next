@@ -194,7 +194,7 @@ def add_anima_training_arguments(parser: argparse.ArgumentParser):
     # BYG (Bootstrap Your Generator): owning-step rank-64 LoRA, multi-forward
     # objective (bootstrap rollout + DDS prior + cycle + identity), conditioned on
     # a token-concat source latent; no edited target exists. See
-    # bench/byg/README.md and networks/methods/byg.py.
+    # _archive/bench/byg/README.md and networks/methods/byg.py.
     parser.add_argument(
         "--use_byg",
         action="store_true",

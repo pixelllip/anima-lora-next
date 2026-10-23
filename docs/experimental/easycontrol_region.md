@@ -8,7 +8,7 @@ EasyControl stack ([`easycontrol.md`](easycontrol.md)).
 
 Pipeline: `i2i_tasks/region/prep.py` (select → SAM3 masks → gate +
 augment + paint → captions → VAE cond cache → TE cache), descriptor
-`configs/easycontrol/region.toml`, bench `bench/region/run_bench.py`, mask
+`configs/easycontrol/region.toml`, bench `_archive/bench/region/run_bench.py`, mask
 QA `i2i_tasks/region/contact_sheet.py`.
 
 ```
@@ -16,10 +16,10 @@ make i2i-stage TASK=region   # select · SAM · cond · captions  (GPU: SAM3)
 python i2i_tasks/region/contact_sheet.py   # → {base}/contact_sheets/index.html
 make easycontrol-preprocess EASYADAPTER=region   # VAE cond latents + TE variants
 make easycontrol            EASYADAPTER=region ARGS=--queue
-make daemon-run ARGS="--label region-bench bench/region/run_bench.py --label v5"
+make daemon-run ARGS="--label region-bench _archive/bench/region/run_bench.py --label v5"
 ```
 
-## History (bench `bench/region/results/`)
+## History (bench `_archive/bench/region/results/`)
 
 | ver | data | mean_iou | iou_lift | girl_in_paint | bg_psnr | verdict |
 |---|---|---|---|---|---|---|
@@ -90,7 +90,7 @@ v5 stays comparable on the original six layouts.
 
 ### v5 read (2026-08-25)
 
-`bench/region/results/20260825-1338-v5`: the character no longer fills the
+`_archive/bench/region/results/20260825-1338-v5`: the character no longer fills the
 paint — `area_ratio` fell from ~0.8 to 0.46 (tight) / 0.38 (slack) with
 `girl_in_paint` still 1.00 and position tracking intact (centre corr
 0.92 / 0.89, area corr 0.72), and the contact sheet shows desks / bushes /
@@ -105,7 +105,7 @@ Failure modes seen: 2/32 no girl found (top_left street, faint garden girl),
 and on tight layouts the girl is now sometimes smaller than a user would
 want (a tighter paint restores size; no inference knob yet).
 
-## Real-image use (`bench/region/run_real.py`, `20260825-1407-v5-real`)
+## Real-image use (`_archive/bench/region/run_real.py`, `20260825-1407-v5-real`)
 
 The plate bench scores placement on synthetic scenes. `run_real.py` runs the
 user's actual flow: 8 safe staged images (1 pair + 7 named solo), the
@@ -157,5 +157,5 @@ flips on skirt/legs renders, not nsfw content.
   `--sam_force` regenerates all.
 - Staging via the daemon: `make daemon-run ARGS="--queue tasks.py
   i2i-stage" TASK=region` (the env var reaches the job).
-- `paint_color` in `bench/region/run_bench.py` and `contact_sheet.py` must
+- `paint_color` in `_archive/bench/region/run_bench.py` and `contact_sheet.py` must
   match the descriptor (128 gray).
