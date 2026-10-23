@@ -118,7 +118,8 @@ behind it.
 To be fair to the revival idea:
 
 1. Anima latents are low-rank. The SPD/spectral work found a power-law latent
-   spectrum (`β ≈ 2.26`) and a collapsed manifold (participation ratio ≈ 6.2). A
+   spectrum (`β ≈ 2.26`) and a collapsed manifold (token participation ratio ≈ 4.1 of 64
+   dims, 99 % of the energy in 39; `docs/proposal/moss_latent_hf_budget.md` M3). A
    patch-PCA subspace `P` would therefore be meaningful (the paper's necessary
    condition C2, below, would pass). But this is moot: a low-rank data manifold makes
    full-rank noise prediction even less of a capacity burden, so it strengthens the

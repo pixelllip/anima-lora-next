@@ -1,8 +1,8 @@
 # MOSS-Image — how much of the FLUX.2 latent is high frequency?
 
-Status: proposed 2026-10-23, unmeasured. Step 1 of 2. Step 2, a VR-loss headroom probe
-on MOSS (`docs/experimental/vr_loss.md`), is written only if this step's gate passes.
-VAE encodes only, no DiT, no training.
+Status: **measured 2026-10-23, gate passes (H holds, min ratio 2.33×)** — § Results.
+Step 1 of 2. Step 2 is `docs/proposal/moss_vr_headroom.md`. VAE encodes only, no DiT,
+no training.
 
 ## Why
 
@@ -41,10 +41,10 @@ and the gradient. If H fails, the higher MOSS loss is not a reason to port VR-lo
   artist 2.26 ± 0.08 (`_archive/spd/bench/plan.md`, method in
   `_archive/spd/bench/measure_latent_spectrum.py`). The SPD paper reports β ≈ 1.92 for
   FLUX.1 latents, but that number comes from different data.
-- **No per-token PCA of either latent exists.** The "participation ratio ≈ 6.2" that
-  `asymflow_parameterization.md` attributes to Anima latents was measured on
-  PE-Spatial features (`_archive/bench/ip_adapter/analysis.md`). Fix that line when
-  this lands.
+- **No per-token PCA of either latent existed before this step.** The "participation
+  ratio ≈ 6.2" that `asymflow_parameterization.md` attributed to Anima latents was
+  measured on PE-Spatial features (`_archive/bench/ip_adapter/analysis.md`); that line
+  now cites M3's 4.1 / 64.
 
 ## Measurements
 
@@ -59,7 +59,10 @@ All four run on **matched pixels**, so the two VAEs differ in nothing but the en
 - **Normalisation:** each latent is standardised as its DiT sees it. Anima uses the
   per-channel `latents_mean` / `latents_std` (`encode_pixels_to_latents`). MOSS uses
   `library/moss/model.py::encode`, which applies the BatchNorm buffers over the packed
-  128 channels, and is then unpacked to 32 ch at /8 (`unpack_latents`) for M1.
+  128 channels; M1 reads that normalised latent un-patchified to 32 ch at /8
+  (`unpatchify`, not `unpack_latents`, which also undoes the BN). The BN stats of one
+  channel differ across its four 2×2 phases by ≤ 1.1 % (`bn_phase_spread` in the
+  envelope), so the un-patchified grid carries no phase pattern at Nyquist.
 
 | # | Quantity | Per model | Why |
 |---|---|---|---|
@@ -75,7 +78,10 @@ Submit through the daemon, since it loads two VAEs on the GPU; expect a few minu
 ## Gate
 
 The deciding number is the HF energy share ratio, MOSS ÷ Anima. Read M1's share above
-0.5 Nyquist and M2's detail share together.
+0.5 Nyquist and M2's detail share together, both **centred**: each channel (M1) or token
+dim (M2) has its pooled mean taken out before the share is formed. A constant offset is
+predictable, and Anima's channel means are far enough from zero (45 % of its E[x²]) that
+the uncentred shares overstate the ratio.
 
 | Ratio | Reading | Next |
 |---|---|---|
@@ -86,6 +92,43 @@ The deciding number is the HF energy share ratio, MOSS ÷ Anima. Read M1's share
 M3 does not gate. A low PR with a high HF share would mean the extra dimensions are spent
 on unstructured texture, which strengthens H. A high PR would mean the extra dimensions
 carry structure, which weakens it.
+
+## Results (2026-10-23)
+
+`make daemon-run ARGS="bench/moss_latent_budget/run_bench.py"`, run
+`bench/moss_latent_budget/results/20261023-2321/` (gitignored; the numbers below are the
+record). 200 originals from 91 artist folders, seed 0, `target_size` at 1024, Anima VAE
+bf16 + 2D fold (shipped preprocess), FLUX.2 VAE fp32 (shipped MOSS cache), 809,680
+tokens per model. A rerun gives the same numbers to the last digit.
+
+| | Anima | MOSS | MOSS ÷ Anima |
+|---|---|---|---|
+| **M0** E[x²] | 0.426 | 0.769 | 1.81× |
+| M0 predict-zero loss `1 + E[x²]` | 1.43 | 1.77 | 1.24× |
+| M0 per-channel variance, min–max | 0.10–0.42 (16 ch) | 0.46–1.23 (32 ch) | |
+| M0 share of E[x²] in the channel means | 0.45 | 0.09 | |
+| **M1** β over 0.06–0.5 Nyquist (R²) | 2.22 (0.999) | 1.71 (0.994) | |
+| M1 share above 0.25 Nyquist, centred (raw) | 0.201 (0.110) | 0.466 (0.422) | 2.32× (3.82×) |
+| **M1 share above 0.5 Nyquist, centred** (raw) | 0.104 (0.057) | 0.264 (0.239) | **2.55×** (4.20×) |
+| M1 energy above 0.5 Nyquist per element | 0.024 | 0.184 | 7.6× |
+| **M2 Haar detail share, centred** (raw) | 0.122 (0.067) | 0.285 (0.258) | **2.33×** (3.85×) |
+| **M3** participation ratio / D | 4.1 / 64 | 23.3 / 128 | 5.7× (2.9× over D) |
+| M3 rank at 90 / 95 / 99 % | 10 / 18 / 39 | 65 / 90 / 119 | |
+
+- **The gate passes: H holds.** Both centred ratios are above 1.5×, and the raw ones are
+  higher still.
+- **M0 reproduces the cache numbers** (0.47 / 0.75) on matched pixels, so the
+  1.2× latent-scale part of the gap stands.
+- **The HF energy gap is about the size of the loss gap.** Energy above 0.5 Nyquist is
+  0.184 − 0.024 ≈ 0.16 per element higher on MOSS, close to the ~0.13–0.18 left between
+  Anima's ~0.09 and MOSS's σ-reweighted 0.22–0.27. This is circumstantial: it holds only
+  if that band is mostly unpredictable, which no VAE-only number can show.
+- **β:** Anima's 2.22 agrees with the SPD bench's 2.26 (that bench used longest side
+  1536). The FLUX.2 latent is flatter at 1.71, below the FLUX.1 1.92 the SPD paper reports.
+- **M3 weakens H, read as the gate table says.** MOSS uses nearly all 128 token dims
+  (rank 119 at 99 %), Anima about 40 of 64. A participation ratio cannot tell
+  structure from noise-like texture, though, and the HF numbers above favour texture.
+  Step 2 decides which.
 
 ## Not in scope
 
