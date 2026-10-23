@@ -1,7 +1,10 @@
-"""The MOSS window's i2i tab: stage → preprocess → train → test for one i2i task.
+"""The MOSS window's i2i tabs: stage → preprocess on one, train → test on the
+other, for one i2i task.
 
 Tasks are the ``library.moss.requests.I2I_CACHE`` rows whose
-``configs/moss/i2i/<task>/cache.toml`` exists. Each form starts from the task's
+``configs/moss/i2i/<task>/cache.toml`` exists; both tabs show the selected task
+under a header holding the task picker and the tab's buttons. Each form starts
+from the task's
 ``cache.toml`` / ``train.toml`` / ``generate.toml``, and only what differs from
 that seed is saved (``moss_gui_i2i`` in ``gui_settings.json``). Stage is
 ``tasks.py i2i-stage`` with ``TASK`` in the job's env, a daemon command job like
@@ -36,7 +39,7 @@ from PySide6.QtWidgets import (
 
 from gui.core.paths import get_setting, set_setting
 from gui.lines.window import LineJob, LinePage, RequestForm, tr
-from gui.theme import rich_text_pt, tok
+from gui.theme import Pad, rich_text_pt, tok
 from gui.widgets import ExplainPanel, action_button
 from library.env import resolve_under_home
 from library.moss.requests import (
@@ -116,11 +119,34 @@ def _thumb(path: Path, caption: str) -> QWidget:
     return cell
 
 
-class _TaskView(QWidget):
-    """One task's four steps; the page wires the buttons."""
+def _group(title: str, hint: str | None, *widgets: QWidget) -> QGroupBox:
+    box = QGroupBox(tr(title))
+    v = QVBoxLayout(box)
+    if hint:
+        label = QLabel(hint)
+        label.setWordWrap(True)
+        v.addWidget(label)
+    for w in widgets:
+        if isinstance(w, QLabel):
+            w.setWordWrap(True)
+        v.addWidget(w)
+    return box
 
-    def __init__(self, task: str, help_cb, saved: dict):
-        super().__init__()
+
+def _body(*groups: QGroupBox) -> QWidget:
+    body = QWidget()
+    v = QVBoxLayout(body)
+    for g in groups:
+        v.addWidget(g)
+    v.addStretch(1)
+    return body
+
+
+class _Task:
+    """One task's forms, seeded from its configs, and the read-outs the two
+    tabs show for it."""
+
+    def __init__(self, task: str, saved: dict, prep_help, train_help):
         self.task = task
         self.cache_cls = I2I_CACHE[task]
         self.seeds = {
@@ -129,88 +155,29 @@ class _TaskView(QWidget):
             "test": _seed(GenerateRequest, task, "generate"),
         }
         self.forms = {
-            "cache": RequestForm(self.cache_cls, help_cb),
-            "train": RequestForm(TrainRequest, help_cb),
-            "test": RequestForm(GenerateRequest, help_cb),
+            "cache": RequestForm(self.cache_cls, prep_help),
+            "train": RequestForm(TrainRequest, train_help),
+            "test": RequestForm(GenerateRequest, train_help),
         }
         for kind, form in self.forms.items():
             form.set_values(self.seeds[kind])
             form.set_values(saved.get(kind, {}))
-
-        v = QVBoxLayout(self)
-        self.btn_stage = action_button(tr("run_stage"))
-        v.addWidget(
-            self._group(
-                "i2i_stage_group",
-                tr("i2i_stage_hint", task=task),
-                None,
-                None,
-                [self.btn_stage],
-            )
-        )
         self.cache_summary = QLabel()
-        self.btn_cache = action_button(tr("run_cache"))
-        v.addWidget(
-            self._group(
-                "i2i_cache_group",
-                None,
-                self.forms["cache"],
-                self.cache_summary,
-                [self.btn_cache],
-            )
-        )
         self.train_summary = QLabel()
-        self.btn_train = action_button(tr("run_train"))
-        self.btn_chain = action_button(tr("i2i_chain"), variant="secondary")
-        v.addWidget(
-            self._group(
-                "i2i_train_group",
-                None,
-                self.forms["train"],
-                self.train_summary,
-                [self.btn_train, self.btn_chain],
-            )
-        )
-        self.btn_test = action_button(tr("run_test"), variant="info")
-        test_box = self._group(
-            "i2i_test_group",
-            tr("i2i_test_hint"),
-            self.forms["test"],
-            None,
-            [self.btn_test],
-        )
         self.images = QGridLayout()
-        test_box.layout().addLayout(self.images)
-        v.addWidget(test_box)
-        v.addStretch(1)
 
-    def _group(self, title, hint, form, summary, buttons) -> QGroupBox:
-        box = QGroupBox(tr(title))
-        v = QVBoxLayout(box)
-        if hint:
-            label = QLabel(hint)
-            label.setWordWrap(True)
-            v.addWidget(label)
-        if form is not None:
-            v.addWidget(form)
-        if summary is not None:
-            summary.setWordWrap(True)
-            v.addWidget(summary)
-        row = QHBoxLayout()
-        row.addStretch(1)
-        for b in buttons:
-            row.addWidget(b)
-        v.addLayout(row)
-        return box
+    def prep_body(self) -> QWidget:
+        return _body(
+            _group("i2i_stage_group", tr("i2i_stage_hint", task=self.task)),
+            _group("i2i_cache_group", None, self.forms["cache"], self.cache_summary),
+        )
 
-    @property
-    def buttons(self):
-        return (
-            self.btn_stage,
-            self.btn_cache,
-            self.btn_train,
-            self.btn_chain,
-            self.btn_test,
+    def train_body(self) -> QWidget:
+        test = _group("i2i_test_group", tr("i2i_test_hint"), self.forms["test"])
+        test.layout().addLayout(self.images)
+        return _body(
+            _group("i2i_train_group", None, self.forms["train"], self.train_summary),
+            test,
         )
 
     def state(self) -> dict:
@@ -252,46 +219,30 @@ class _TaskView(QWidget):
         return next((p for p in reversed(runs) if _records(p)), None)
 
 
-class I2IPage(LinePage):
-    labels = LABELS
-    scripts = {ColorizeCacheRequest.SCRIPT: CACHE}
+class _Tab(LinePage):
+    """One i2i tab: the task picker and the tab's buttons pinned on top, the
+    selected task's groups below, help on the right."""
 
-    def __init__(self, panel):
+    def __init__(self, i2i: I2I, title_key: str, labels: tuple[str, ...], buttons):
         super().__init__()
-        self.panel = panel
-        self.title = tr("tab_i2i")
+        self.i2i = i2i
+        self.title = tr(title_key)
+        self.labels = labels
+        self.buttons = buttons
         self.explain = ExplainPanel()
-        self._test_view: _TaskView | None = None
-        self._test_out: Path | None = None
-        saved = get_setting(SETTINGS_KEY, {}) or {}
-
         self.task_combo = QComboBox()
         self.stack = QStackedWidget()
-        self.views: list[_TaskView] = []
-        for task in tasks():
-            view = _TaskView(task, self.explain.show_field_help, saved.get(task, {}))
-            view.btn_stage.clicked.connect(lambda _=False, w=view: self._run_stage(w))
-            view.btn_cache.clicked.connect(lambda _=False, w=view: self._run_cache(w))
-            view.btn_train.clicked.connect(lambda _=False, w=view: self._run_train(w))
-            view.btn_chain.clicked.connect(lambda _=False, w=view: self._run_chain(w))
-            view.btn_test.clicked.connect(lambda _=False, w=view: self._run_test(w))
-            self.views.append(view)
-            self.task_combo.addItem(task)
-            self.stack.addWidget(view)
-            view.show_test(view.latest_test_dir())
 
-        inner = QWidget()
-        v = QVBoxLayout(inner)
-        top = QHBoxLayout()
-        top.addWidget(QLabel(tr("i2i_task")))
-        top.addWidget(self.task_combo, 1)
-        v.addLayout(top)
-        if not self.views:
-            v.addWidget(QLabel(tr("i2i_no_tasks")))
-        v.addWidget(self.stack, 1)
+        header = QHBoxLayout()
+        header.setContentsMargins(Pad.SM, Pad.SM, Pad.SM, Pad.XS)
+        header.addWidget(QLabel(tr("i2i_task")))
+        header.addWidget(self.task_combo)
+        header.addStretch(1)
+        for b in buttons:
+            header.addWidget(b)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setWidget(inner)
+        scroll.setWidget(self.stack)
         split = QSplitter(Qt.Horizontal)
         split.addWidget(scroll)
         split.addWidget(self.explain)
@@ -299,39 +250,115 @@ class I2IPage(LinePage):
         split.setStretchFactor(1, 2)
         split.setSizes([620, 380])
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.addWidget(split)
+        root.setContentsMargins(Pad.NONE, Pad.NONE, Pad.NONE, Pad.NONE)
+        root.addLayout(header)
+        root.addWidget(split, 1)
 
-        self._rescan_timer = QTimer(self)
+    def add_task(self, task: str, body: QWidget) -> None:
+        self.task_combo.addItem(task)
+        self.stack.addWidget(body)
+
+    def set_busy(self, busy: bool) -> None:
+        for b in self.buttons:
+            b.setEnabled(not busy)
+        if not busy and self is self.i2i.prep:
+            self.i2i.rescan()
+
+    def job_finished(self, label: str, ok: bool) -> None:
+        self.i2i.job_finished(label, ok)
+
+    def persist(self) -> None:
+        if self is self.i2i.prep:
+            self.i2i.persist()
+
+
+class I2I:
+    """What the two tabs share: the tasks, the selected one, the job handlers."""
+
+    def __init__(self, panel):
+        self.panel = panel
+        self._test_task: _Task | None = None
+        self._test_out: Path | None = None
+        saved = get_setting(SETTINGS_KEY, {}) or {}
+
+        self.prep = _Tab(
+            self,
+            "tab_i2i_preprocess",
+            (STAGE, CACHE),
+            [
+                action_button(tr("run_stage"), on_click=self.run_stage),
+                action_button(tr("run_cache"), on_click=self.run_cache),
+            ],
+        )
+        self.prep.scripts = {ColorizeCacheRequest.SCRIPT: CACHE}
+        self.train = _Tab(
+            self,
+            "tab_i2i_train",
+            (TRAIN, TEST),
+            [
+                action_button(tr("run_train"), on_click=self.run_train),
+                action_button(
+                    tr("i2i_chain"), variant="secondary", on_click=self.run_chain
+                ),
+                action_button(tr("run_test"), variant="info", on_click=self.run_test),
+            ],
+        )
+        self.tabs = (self.prep, self.train)
+
+        self.tasks = [
+            _Task(
+                task,
+                saved.get(task, {}),
+                self.prep.explain.show_field_help,
+                self.train.explain.show_field_help,
+            )
+            for task in tasks()
+        ]
+        for t in self.tasks:
+            self.prep.add_task(t.task, t.prep_body())
+            self.train.add_task(t.task, t.train_body())
+            t.show_test(t.latest_test_dir())
+        if not self.tasks:
+            for tab in self.tabs:
+                tab.stack.addWidget(QLabel(tr("i2i_no_tasks")))
+
+        self._rescan_timer = QTimer(self.prep)
         self._rescan_timer.setSingleShot(True)
         self._rescan_timer.setInterval(300)
-        self._rescan_timer.timeout.connect(self._rescan)
-        for view in self.views:
-            for form in view.forms.values():
+        self._rescan_timer.timeout.connect(self.rescan)
+        for t in self.tasks:
+            for form in t.forms.values():
                 form.watch(self._rescan_timer.start)
-        names = [w.task for w in self.views]
-        if saved.get("task") in names:
-            self.task_combo.setCurrentIndex(names.index(saved["task"]))
-        self.task_combo.currentIndexChanged.connect(self._task_changed)
-        self.stack.setCurrentIndex(self.task_combo.currentIndex())
-        self._rescan()
+        names = [t.task for t in self.tasks]
+        self.index = names.index(saved["task"]) if saved.get("task") in names else 0
+        for tab in self.tabs:
+            tab.task_combo.setCurrentIndex(self.index)
+            tab.stack.setCurrentIndex(self.index)
+            tab.task_combo.currentIndexChanged.connect(self._select)
+        self.rescan()
 
     # ── state ────────────────────────────────────────────────────────────
 
     @property
-    def view(self) -> _TaskView | None:
-        return self.views[self.stack.currentIndex()] if self.views else None
+    def current(self) -> _Task | None:
+        return self.tasks[self.index] if self.tasks else None
 
-    def _task_changed(self, index: int) -> None:
-        self.stack.setCurrentIndex(index)
-        self.explain.show_guide(None)
-        self._rescan()
+    def _select(self, index: int) -> None:
+        # Setting the other tab's combo re-enters with the same index.
+        if index == self.index:
+            return
+        self.index = index
+        for tab in self.tabs:
+            tab.task_combo.setCurrentIndex(index)
+            tab.stack.setCurrentIndex(index)
+            tab.explain.show_guide(None)
+        self.rescan()
 
-    def _guide_html(self, task: str) -> str:
+    def _guide_html(self, tab: _Tab, task: str) -> str:
         dim = tok("text_dim")
         return (
             f"<h2 style='margin:0 0 10px 0; font-size:{rich_text_pt(18)};'>"
-            f"{html.escape(tr('tab_i2i'))} · {html.escape(task)}</h2>"
+            f"{html.escape(tab.title)} · {html.escape(task)}</h2>"
             f"<p style='font-size:{rich_text_pt(15)}; line-height:1.6;'>"
             f"{html.escape(tr('i2i_task_' + task))}</p>"
             f"<p style='line-height:1.6;'>{html.escape(tr('i2i_guide'))}</p>"
@@ -339,14 +366,15 @@ class I2IPage(LinePage):
             f"{html.escape(tr('click_field'))}</p>"
         )
 
-    def _rescan(self) -> None:
-        view = self.view
-        if view is None:
+    def rescan(self) -> None:
+        t = self.current
+        if t is None:
             return
-        if self.explain.mode is None:
-            self.explain.show_guide(self._guide_html(view.task))
+        for tab in self.tabs:
+            if tab.explain.mode is None:
+                tab.explain.show_guide(self._guide_html(tab, t.task))
         lines = []
-        req = view.forms["cache"].request()
+        req = t.forms["cache"].request()
         if req is not None:
             n, path = _staged(req)
             lines.append(
@@ -356,48 +384,44 @@ class I2IPage(LinePage):
             lines.append(
                 tr("cache_counts", samples=c.samples, text=c.text, latents=c.latents)
             )
-        view.cache_summary.setText("\n".join(lines))
-        cache = view.forms["train"].text_of("cache")
+        t.cache_summary.setText("\n".join(lines))
+        cache = t.forms["train"].text_of("cache")
         n = cache_counts(resolve_under_home(cache)).samples if cache else 0
-        view.train_summary.setText(tr("train_ready", n=n) if n else tr("train_empty"))
-        view.forms["test"].widgets["lora"].setPlaceholderText(
-            tr("test_lora_placeholder", path=view.train_output())
+        t.train_summary.setText(tr("train_ready", n=n) if n else tr("train_empty"))
+        t.forms["test"].widgets["lora"].setPlaceholderText(
+            tr("test_lora_placeholder", path=t.train_output())
         )
 
     def persist(self) -> None:
-        data = {w.task: w.state() for w in self.views}
-        if self.view is not None:
-            data["task"] = self.view.task
+        data = {t.task: t.state() for t in self.tasks}
+        if self.current is not None:
+            data["task"] = self.current.task
         set_setting(SETTINGS_KEY, data)
 
-    def set_busy(self, busy: bool) -> None:
-        for view in self.views:
-            for b in view.buttons:
-                b.setEnabled(not busy)
-        if not busy:
-            self._rescan()
-
     def job_finished(self, label: str, ok: bool) -> None:
-        if label == TEST and ok and self._test_view is not None:
-            view = self._test_view
-            view.show_test(self._test_out or view.latest_test_dir())
-        if label == TEST:
-            self._test_view = self._test_out = None
+        if label != TEST:
+            return
+        t = self._test_task
+        if ok and t is not None:
+            t.show_test(self._test_out or t.latest_test_dir())
+        self._test_task = self._test_out = None
 
     # ── jobs ─────────────────────────────────────────────────────────────
 
-    def _stage_job(self, view: _TaskView) -> LineJob:
-        return LineJob(StageRequest(), STAGE, env={"TASK": view.task})
+    def _stage_job(self, t: _Task) -> LineJob:
+        return LineJob(StageRequest(), STAGE, env={"TASK": t.task})
 
     def _warn(self, key: str, **kwargs) -> None:
-        QMessageBox.warning(self, tr("window_title"), tr(key, **kwargs))
+        QMessageBox.warning(self.panel, tr("window_title"), tr(key, **kwargs))
 
-    def _run_stage(self, view: _TaskView) -> None:
+    def run_stage(self) -> None:
+        if self.current is None:
+            return
         self.persist()
-        self.panel.submit([self._stage_job(view)])
+        self.panel.submit([self._stage_job(self.current)])
 
-    def _cache_req(self, view: _TaskView, staged: bool):
-        req = view.forms["cache"].request()
+    def _cache_req(self, t: _Task, staged: bool):
+        req = t.forms["cache"].request()
         if req is None or not self.panel._model_ok(req):
             return None
         if staged:
@@ -407,40 +431,44 @@ class I2IPage(LinePage):
                 return None
         return req
 
-    def _run_cache(self, view: _TaskView) -> None:
-        req = self._cache_req(view, staged=True)
+    def run_cache(self) -> None:
+        t = self.current
+        req = self._cache_req(t, staged=True) if t else None
         if req is None:
             return
         self.persist()
         self.panel.submit([LineJob(req, CACHE)])
 
-    def _run_train(self, view: _TaskView) -> None:
-        req = view.forms["train"].request()
+    def run_train(self) -> None:
+        t = self.current
+        req = t.forms["train"].request() if t else None
         if req is None or not self.panel._model_ok(req):
             return
         self.persist()
         self.panel.submit([LineJob(req, TRAIN)])
 
-    def _run_chain(self, view: _TaskView) -> None:
-        cache_req = self._cache_req(view, staged=False)
+    def run_chain(self) -> None:
+        t = self.current
+        cache_req = self._cache_req(t, staged=False) if t else None
         if cache_req is None:
             return
         # Training reads what this preprocessing run writes.
-        view.forms["train"].set_values({"cache": cache_req.out})
-        train_req = view.forms["train"].request()
+        t.forms["train"].set_values({"cache": cache_req.out})
+        train_req = t.forms["train"].request()
         if train_req is None or not self.panel._model_ok(train_req):
             return
         self.persist()
         self.panel.submit(
             [
-                self._stage_job(view),
+                self._stage_job(t),
                 LineJob(cache_req, CACHE, note=tr("i2i_stage_next")),
                 LineJob(train_req, TRAIN, note=tr("chain_next")),
             ]
         )
 
-    def _run_test(self, view: _TaskView) -> None:
-        req = view.forms["test"].request()
+    def run_test(self) -> None:
+        t = self.current
+        req = t.forms["test"].request() if t else None
         if req is None or not self.panel._model_ok(req):
             return
         if not req.ref_image or not resolve_under_home(req.ref_image).exists():
@@ -449,7 +477,7 @@ class I2IPage(LinePage):
         if not req.ref_vision and not (req.prompt or req.prompts_file):
             self._warn("i2i_need_prompt")
             return
-        lora = resolve_under_home(req.lora) if req.lora else view.train_output()
+        lora = resolve_under_home(req.lora) if req.lora else t.train_output()
         if not lora.is_file():
             self._warn("no_lora", path=lora)
             return
@@ -458,4 +486,9 @@ class I2IPage(LinePage):
         out = resolve_under_home(req.out_dir) / time.strftime("%Y%m%d-%H%M%S")
         req = dataclasses.replace(req, lora=str(lora), out_dir=str(out))
         if self.panel.submit([LineJob(req, TEST)]):
-            self._test_view, self._test_out = view, out
+            self._test_task, self._test_out = t, out
+
+
+def pages(panel) -> list[LinePage]:
+    """The i2i Preprocess and i2i Train tabs."""
+    return list(I2I(panel).tabs)

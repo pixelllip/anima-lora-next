@@ -20,8 +20,8 @@ i2i_tasks/<task>/  ──make i2i-stage TASK=<task>──▶  post_image_dataset
 line, paths relative to it); near_twins / sanitize write it, and
 `library.moss.cache.manifest_pairs` reads it. Colorize's MOSS cache reads the staging
 tree directly (`scripts/moss/colorize_cache.py`, `library/moss/colorize.py`: vision TE +
-OCR captions). The MOSS task list is `library.moss.requests.I2I_CACHE`; the GUI's i2i tab
-(`gui/moss/i2i.py`) runs stage → cache → train → test for each.
+OCR captions). The MOSS task list is `library.moss.requests.I2I_CACHE`; the GUI's two i2i tabs
+(`gui/moss/i2i.py`) run stage → cache → train → test for each.
 
 | Task (`TASK=`) | Folder | Staging builds |
 |---|---|---|

@@ -18,7 +18,8 @@ UI: dict[str, dict[str, str]] = {
         "preprocessing run re-encodes them.",
         "scan_dupes": "{n} images share a file name with one in another subfolder — "
         "their cache files are prefixed with the folder name.",
-        "tab_i2i": "i2i",
+        "tab_i2i_preprocess": "i2i Preprocess",
+        "tab_i2i_train": "i2i Train",
         "i2i_task": "Task",
         "i2i_no_tasks": "No i2i task configs under configs/moss/i2i/.",
         "i2i_guide": "An i2i LoRA learns to turn a reference image into a target: the "
@@ -61,7 +62,8 @@ UI: dict[str, dict[str, str]] = {
         "scan_stale": "{stale} 条标注在文本缓存之后被修改——下次预处理会自动重新编码。",
         "scan_dupes": "有 {n} 张图片与其他子文件夹中的图片同名——"
         "它们的缓存文件名会加上文件夹前缀。",
-        "tab_i2i": "图生图",
+        "tab_i2i_preprocess": "图生图预处理",
+        "tab_i2i_train": "图生图训练",
         "i2i_task": "任务",
         "i2i_no_tasks": "configs/moss/i2i/ 下没有图生图任务配置。",
         "i2i_guide": "图生图 LoRA 学习把参考图变成目标图：参考图以干净的潜变量 token "

@@ -82,13 +82,13 @@ def test_i2i_chain_submits_through_panel(qapp, monkeypatch):
         panel, "_submit", lambda req, label, env=None: sent.append((label, env)) or True
     )
     monkeypatch.setattr(panel, "_model_ok", lambda req: True)
-    (page,) = panel._pages
-    assert panel.tabs.tabText(panel._line_pages - 1) == page.title
-    view = page.views[0]
-    page._run_chain(view)
-    assert sent == [(i2i.STAGE, {"TASK": view.task})]
+    prep, train = panel._pages
+    assert panel.tabs.tabText(panel._line_pages - 1) == train.title
+    task = train.i2i.current.task
+    train.i2i.run_chain()
+    assert sent == [(i2i.STAGE, {"TASK": task})]
     assert [j.label for j in panel._pending] == [i2i.CACHE, i2i.TRAIN]
     assert panel._pending[1].req.cache == panel._pending[0].req.out
     # Only edits against the task's seed are saved.
-    assert store[i2i.SETTINGS_KEY][view.task]["train"] == {}
+    assert store[i2i.SETTINGS_KEY][task]["train"] == {}
     panel.cleanup_subprocess()

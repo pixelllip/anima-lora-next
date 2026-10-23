@@ -2,8 +2,8 @@
 
 Sidecars ``scripts/moss/{cache,train,generate}.py``. The generate sidecar takes
 one ``lora_multiplier``, so a Test is two jobs into one run folder: ``lora/``
-with the adapter, then ``base/`` without it, same prompts and seeds. The i2i tab
-after Train is ``gui.moss.i2i``.
+with the adapter, then ``base/`` without it, same prompts and seeds. The i2i tabs
+after Train are ``gui.moss.i2i``.
 """
 
 from __future__ import annotations
@@ -25,9 +25,9 @@ from library.moss.scan import cache_counts, scan
 
 
 def _extra_pages(panel) -> list:
-    from gui.moss.i2i import I2IPage
+    from gui.moss.i2i import pages
 
-    return [I2IPage(panel)]
+    return pages(panel)
 
 
 def _test_runs(req: GenerateRequest) -> list[GenerateRequest]:

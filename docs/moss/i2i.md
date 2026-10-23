@@ -37,8 +37,9 @@ make daemon-run ARGS="scripts/moss/generate.py --config configs/moss/i2i/<task>/
 ```
 
 `--ref_image` takes one image or a folder (one job per image and prompt). The output keeps
-the reference's aspect ratio, with the area capped at `width × height`. The GUI's **i2i** tab
-(`make gui-moss`, or MOSS mode in `make gui`) runs the same four steps. Staging is shared with
+the reference's aspect ratio, with the area capped at `width × height`. The GUI's **i2i Preprocess**
+(stage, preprocess) and **i2i Train** (train, test) tabs (`make gui-moss`, or MOSS mode in
+`make gui`) run the same four steps. Staging is shared with
 EasyControl: `i2i_tasks/README.md`.
 
 ## sanitize

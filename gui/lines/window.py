@@ -61,7 +61,7 @@ from gui.jobs.mixin import DaemonJobMixin
 from gui.core.paths import ROOT, get_setting, set_setting
 from gui.jobs.progress import TQDM_RE
 from gui.lines.strings import LANGUAGES, UI
-from gui.theme import rich_text_pt, tok
+from gui.theme import Pad, rich_text_pt, tok
 from gui.widgets import (
     ExplainPanel,
     _no_wheel,
@@ -421,8 +421,12 @@ class LinePanel(DaemonJobMixin, QWidget):
         self.tabs = QTabWidget()
         self.cache_explain = ExplainPanel()
         self.train_explain = ExplainPanel()
-        self.cache_form = RequestForm(spec.cache_cls, self.cache_explain.show_field_help)
-        self.train_form = RequestForm(spec.train_cls, self.train_explain.show_field_help)
+        self.cache_form = RequestForm(
+            spec.cache_cls, self.cache_explain.show_field_help
+        )
+        self.train_form = RequestForm(
+            spec.train_cls, self.train_explain.show_field_help
+        )
         saved = get_setting(self._settings_key, {}) or {}
         self.cache_form.set_values(saved.get("cache", {}))
         self.train_form.set_values(saved.get("train", {}))
@@ -459,25 +463,19 @@ class LinePanel(DaemonJobMixin, QWidget):
         hint.setWordWrap(True)
         tb.addWidget(hint)
         tb.addWidget(self.test_form)
-        row = QHBoxLayout()
-        row.addStretch(1)
-        row.addWidget(self.btn_test)
-        tb.addLayout(row)
         tb.addLayout(self.test_images)
         self.tabs.addTab(
             self._page(
                 self.train_form,
                 self.train_summary,
-                [self.btn_train, self.btn_chain],
+                [self.btn_train, self.btn_chain, self.btn_test],
                 self.train_explain,
                 extra=test_box,
             ),
             tr("tab_train"),
         )
 
-        self._pages: list[LinePage] = (
-            spec.extra_pages(self) if spec.extra_pages else []
-        )
+        self._pages: list[LinePage] = spec.extra_pages(self) if spec.extra_pages else []
         for page in self._pages:
             self.tabs.addTab(page, page.title)
 
@@ -539,15 +537,11 @@ class LinePanel(DaemonJobMixin, QWidget):
         explain: ExplainPanel,
         extra=None,
     ) -> QWidget:
+        """The form scrolls under a header that keeps ``buttons`` top-right."""
         inner = QWidget()
         v = QVBoxLayout(inner)
         v.addWidget(form)
         v.addWidget(summary)
-        row = QHBoxLayout()
-        row.addStretch(1)
-        for b in buttons:
-            row.addWidget(b)
-        v.addLayout(row)
         if extra is not None:
             v.addWidget(extra)
         v.addStretch(1)
@@ -560,7 +554,17 @@ class LinePanel(DaemonJobMixin, QWidget):
         split.setStretchFactor(0, 3)
         split.setStretchFactor(1, 2)
         split.setSizes([620, 380])
-        return split
+        header = QHBoxLayout()
+        header.setContentsMargins(Pad.SM, Pad.SM, Pad.SM, Pad.XS)
+        header.addStretch(1)
+        for b in buttons:
+            header.addWidget(b)
+        page = QWidget()
+        root = QVBoxLayout(page)
+        root.setContentsMargins(Pad.NONE, Pad.NONE, Pad.NONE, Pad.NONE)
+        root.addLayout(header)
+        root.addWidget(split, 1)
+        return page
 
     def _guide_html(self, guide_key: str, model: Path, model_ok: bool) -> str:
         """The tab's default help: what the tab does, the model folder (red
