@@ -1,6 +1,6 @@
 """Experimental inference entry-points (exp-test-* commands).
 
-Covers the unstable methods kept under ``make exp-*``: soft tokens, BYG, plus
+Covers the unstable methods kept under ``make exp-*``: soft tokens, plus
 the DirectEdit probes. Reference-image variants accept
 REF_IMAGE env or first positional arg, copy the ref alongside the generated
 output.

@@ -200,17 +200,6 @@ class BaseDataset(torch.utils.data.Dataset):
         self.inversion_dir: Optional[str] = None
         self.inversion_num_runs: int = 3
 
-        # BYG unpaired-editing per-image text conditionings. Set via
-        # `dataset.byg_text_dir = ...`; None disables. Loads <stem>_byg.safetensors
-        # (4 role embeddings + masks, built by _archive/scripts/byg/build_edit_tuples.py).
-        self.byg_text_dir: Optional[str] = None
-        self._byg_roles = (
-            "src_caption",
-            "tgt_caption",
-            "instruction",
-            "reverse_instruction",
-        )
-
         # REPA v2 PE feature loading. Set via `dataset.load_repa_pe = True`
         # (+ `repa_pe_encoder`). Loads cached PE safetensors into
         # batch["repa_pe_features"]; see _repa_pe_sidecar_candidates.
@@ -243,15 +232,6 @@ class BaseDataset(torch.utils.data.Dataset):
                 policy="masked",
                 mask_key="inversion_mask",
                 enabled_attr="inversion_dir",
-            )
-        )
-        self.register_sidecar(
-            SidecarSpec(
-                name="byg",
-                loader=self._try_load_byg_tuple,
-                out_key="byg_",
-                policy="dict",
-                enabled_attr="byg_text_dir",
             )
         )
         self.register_sidecar(
@@ -562,10 +542,6 @@ class BaseDataset(torch.utils.data.Dataset):
                 info.image_size = self.get_image_size(info.absolute_path)
 
         logger.info("make buckets")
-
-        # Remembered so a later rebuild (e.g. restrict_to_byg_tuples) re-buckets
-        # identically.
-        self._target_res = target_res
 
         if self.bucket_manager is None:
             self.bucket_manager = BucketManager()
@@ -1613,60 +1589,6 @@ class BaseDataset(torch.utils.data.Dataset):
             return feats.float() if feats is not None else None
         return None
 
-    def restrict_to_byg_tuples(self) -> tuple[int, int]:
-        """Drop images lacking a BYG edit-tuple sidecar, then rebuild buckets.
-
-        Collation silently omits ``byg_*_emb`` whenever *any* sample in a
-        bucket-batch lacks a tuple, so the adapter would raise mid-epoch the
-        first time such a batch is drawn — filtering up front guarantees every
-        batch is fully-tupled. Returns ``(kept, dropped)`` image counts.
-        """
-        if not self.byg_text_dir:
-            return (0, 0)
-        kept: Dict[str, ImageInfo] = {}
-        dropped = 0
-        for key, info in self.image_data.items():
-            stem = os.path.splitext(os.path.basename(info.absolute_path))[0]
-            p = os.path.join(self.byg_text_dir, f"{stem}_byg.safetensors")
-            if os.path.exists(p):
-                kept[key] = info
-            else:
-                dropped += 1
-        if dropped == 0:
-            return (len(kept), 0)
-        self.image_data = kept
-        self.num_train_images = sum(info.num_repeats for info in kept.values())
-        # bucket_manager.add_image accumulates, so reset before re-bucketing.
-        self.bucket_manager = None
-        self.make_buckets(target_res=getattr(self, "_target_res", None))
-        return (len(kept), dropped)
-
-    def _try_load_byg_tuple(self, info: ImageInfo) -> Optional[dict]:
-        """Load <stem>_byg.safetensors from self.byg_text_dir.
-
-        Returns ``{f"{role}_emb": Tensor[S,D], f"{role}_mask": Tensor[S]}`` for
-        the four edit-tuple roles, or None if missing/malformed.
-        """
-        if not self.byg_text_dir:
-            return None
-        stem = os.path.splitext(os.path.basename(info.absolute_path))[0]
-        from safetensors.torch import load_file
-
-        p = os.path.join(self.byg_text_dir, f"{stem}_byg.safetensors")
-        if not os.path.exists(p):
-            return None
-        sd = load_file(p)
-        out = {}
-        for role in self._byg_roles:
-            emb = sd.get(f"{role}_emb")
-            if emb is None:
-                return None
-            out[f"{role}_emb"] = emb.float()
-            mask = sd.get(f"{role}_mask")
-            if mask is not None:
-                out[f"{role}_mask"] = mask
-        return out
-
     def _load_sample(self, subset, image_info, flipped):
         """Load one sample's pixels-or-latents plus its alpha mask.
 
@@ -1870,7 +1792,7 @@ class BaseDataset(torch.utils.data.Dataset):
         neg_crossattn_list: List[Optional[torch.Tensor]] = []
         # Per-image (k,) tag-overlap weights for jaccard mode; None otherwise.
         neg_jaccard_list: List[Optional[torch.Tensor]] = []
-        # Registered per-image sidecars (inversion runs, BYG tuples, REPA PE…).
+        # Registered per-image sidecars (inversion runs, REPA PE…).
         sidecar_values: Dict[str, List[Optional[Any]]] = {
             spec.name: [] for spec in self._sidecar_specs
         }

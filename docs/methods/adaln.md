@@ -132,7 +132,7 @@ They reach the network as top-level TOML keys, not `network_args` — the
 allowlist is AST-derived from the `kwargs.get()` reads (`networks/__init__.py::
 _derive_network_kwargs`) and `train.py::resolve_network_kwargs` forwards them. So
 `configs/base.toml`'s `train_adaln = true` applies to every LoRA-family method
-(lora / soup / byg) with no per-method opt-in. Verify a merge with
+(lora / soup) with no per-method opt-in. Verify a merge with
 `make print-config METHOD=<m> PRESET=<p>`.
 
 `soft_tokens` takes `**kwargs` and ignores the adaln keys, so the base default is

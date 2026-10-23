@@ -65,7 +65,7 @@ Sections `[default]`, `[low_vram]` (also Windows 8GB), `[graft]`, `[half]`, `[qu
 
 ## `methods/` — one flat file per family
 
-Read by `train.py` (`lora`, `soft_tokens`, `byg`), each holding rank + routing knobs +
+Read by `train.py` (`lora`, `soft_tokens`), each holding rank + routing knobs +
 opinionated LR/epochs/output_name. The default `lora.toml` stacks plain LoRA
 (weight-SVD `down_init`) + T-LoRA + REPA; Hydra routing is opt-in via the three-axis
 surface (`lora-routing` skill).

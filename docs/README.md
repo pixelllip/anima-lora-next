@@ -32,7 +32,6 @@ Wired and runnable, but not part of the default stack — may break or change.
 | [experimental/directedit_editing_v3.md](experimental/directedit_editing_v3.md) | DirectEdit (v3) — flow-inversion image editing; what's actually wired and runnable |
 | [experimental/vr_loss.md](experimental/vr_loss.md) | Variance-reduced FM loss — AsymFlow §5.2 control-variate correction at the loss level |
 | [experimental/easycontrol_region.md](experimental/easycontrol_region.md) | EasyControl · Region — paint-to-character inpainting task on the EasyControl stack |
-| [experimental/byg.md](experimental/byg.md) | BYG — unpaired instruction editing (no paired data, no reward model) |
 | [experimental/soup.md](experimental/soup.md) | Soup — uncond-init ΔW LoRA soup (`make soup`) |
 | [experimental/cjk_ext_vocab_coverage.md](experimental/cjk_ext_vocab_coverage.md) | CJK ext-vocab row coverage — measured reachable/unreachable rows and the symbol block |
 | [experimental/anima_cjk_vocab_ext.md](experimental/anima_cjk_vocab_ext.md) | CJK vocab ext rows — how the preview5 / preview51 rows (the base of the shipped jp_v1) are made: per-glyph routing + fold, self-generated canvas, per-band data mix, in-box loss, the run chain, the shared direction × 0.8 |
