@@ -49,7 +49,8 @@ Captions: the ``.txt`` beside each image, stripped, mapped onto MOSS's
 layout-JSON prompt by ``anime_tools.captions.layout_json`` (the default
 ``--caption_format layout_json``; ``caption`` / ``caption_sha256`` are the JSON;
 a ``{stem}.layout.txt`` published by anime_tools' Export is read instead) or
-verbatim with ``--caption_format text``. ``source_sha256`` is always the ``.txt``.
+verbatim with ``--caption_format text``; ``--caption_format fixed`` encodes
+``--fixed_caption`` for every image instead. ``source_sha256`` is always the ``.txt``.
 A stem that appears in several subfolders is prefixed with its relative folder
 (``sub__dir__stem``). A caption in the Anima resized tree with no PNG beside it
 pairs with its ``image_dataset/`` original, minus the excluded ones
@@ -67,7 +68,7 @@ import math
 import re
 import statistics
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -523,8 +524,7 @@ def cache_text(
     longest = max(
         prompt_ids(tok, text, max_tokens).input_ids.shape[1]
         for p in todo
-        for text in (p.caption, p.plain)
-        if text
+        for text in (p.caption, p.plain or p.caption)
     )
     tok, te = load_text_encoder(
         model_dir, device, longest, tok=tok, precision=precision
@@ -742,15 +742,19 @@ def run_cache(req) -> Path:
     model_dir = resolve_model_dir(req.model_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     refs = None
+    fixed = req.caption_format == "fixed"
+    fmt = "text" if fixed else req.caption_format
     if req.pairs:
         src = resolve_under_home(req.pairs)
         if not src.is_file():
             raise SystemExit(f"no pair list at {src} (make i2i-stage TASK=<task>)")
-        pairs, refs = manifest_pairs(src, req.caption_format)
+        pairs, refs = manifest_pairs(src, fmt)
     else:
-        pairs = find_pairs(src, req.caption_format)
+        pairs = find_pairs(src, fmt)
     if not pairs:
         raise SystemExit(f"no image/caption pairs under {src}")
+    if fixed:
+        pairs = [replace(p, caption=req.fixed_caption.strip()) for p in pairs]
     print(f"{len(pairs)} pairs from {src}, model {model_dir}", flush=True)
     device = torch.device("cuda")
     report = {"src": str(src), "resolution": req.resolution}

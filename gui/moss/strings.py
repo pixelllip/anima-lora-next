@@ -112,7 +112,8 @@ FIELDS_CN: dict[str, tuple[str, str]] = {
     "caption_format": (
         "标注格式",
         "文本编码器编码的内容：layout_json = 把 Anima 标注映射为 MOSS 的 layout JSON 提示词"
-        "（需要 danbooru 标签 CSV），text = 原样使用 .txt。生成时请使用相同格式",
+        "（需要 danbooru 标签 CSV），text = 原样使用 .txt，fixed = 每张图都编码 fixed_caption。"
+        "生成时请使用相同格式",
     ),
     "overwrite": ("覆盖", "即使缓存是最新的也重新编码"),
     "skip_text": ("跳过文本", "跳过文本编码器"),

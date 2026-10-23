@@ -250,9 +250,9 @@ def _jobs(req: GenerateRequest) -> list[dict]:
     else:
         source, prompts = "prompt", [req.prompt.strip()] if req.prompt.strip() else []
     if not prompts:
-        if not (req.ref_image and req.ref_vision):
+        if not req.ref_image:
             raise SystemExit(f"no prompts in {source}")
-        prompts = [""]  # the page alone
+        prompts = [""]  # the reference alone
     if req.prompt_format != "text":
         from library.moss.cache import caption_converter
 
@@ -361,10 +361,22 @@ def vision_embeds(
 
     def path(j):
         key = "\0".join(
-            map(str, ("vision", precision, j["ref"], j["ref_mtime"], j["width"],
-                      j["height"], j["prompt"]))
+            map(
+                str,
+                (
+                    "vision",
+                    precision,
+                    j["ref"],
+                    j["ref_mtime"],
+                    j["width"],
+                    j["height"],
+                    j["prompt"],
+                ),
+            )
         )
-        return cache_dir / f"v_{hashlib.sha1(key.encode()).hexdigest()[:16]}.safetensors"
+        return (
+            cache_dir / f"v_{hashlib.sha1(key.encode()).hexdigest()[:16]}.safetensors"
+        )
 
     out, missing = {}, []
     for j in jobs:

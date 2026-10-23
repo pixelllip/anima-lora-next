@@ -105,9 +105,17 @@ class CacheRequest(Request):
         "layout_json",
         "what the TE encodes: the Anima caption mapped onto MOSS's layout-JSON "
         "prompt (anime_tools.captions.layout_json; needs the danbooru tag CSV), or "
-        "the .txt verbatim. layout_json leaks the set's attributes onto other "
-        "characters less than plain tags; generate with the same form",
-        choices=("text", "layout_json"),
+        "the .txt verbatim, or fixed = fixed_caption for every image (an i2i task "
+        "whose edit the reference carries; generate with that caption). "
+        "layout_json leaks the set's attributes onto other characters less than "
+        "plain tags; generate with the same form",
+        choices=("text", "layout_json", "fixed"),
+    )
+    fixed_caption: str = _f(
+        "",
+        "with caption_format fixed: the text every image encodes, verbatim "
+        "('' = the empty prompt, which is also CFG's uncond)",
+        advanced=True,
     )
     overwrite: bool = _f(False, "re-encode even when the cache is current")
     skip_text: bool = _f(False, "skip the text-encoder pass")

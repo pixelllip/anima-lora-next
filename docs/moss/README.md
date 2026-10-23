@@ -167,7 +167,7 @@ latent tokens on RoPE's `r` axis. Two tasks have a recipe in `configs/moss/i2i/<
 | Task | Reference | Text encoder input |
 |---|---|---|
 | `colorize` | the B&W page at half size | the page through Qwen3.5's vision tower, then a caption with its OCR'd lines |
-| `sanitize` | the texted page at full size | the clean twin's caption |
+| `sanitize` | the texted page at full size, isolated (`ref_isolate`) | one fixed caption for every pair (`caption_format = "fixed"`, "no sfx, no dialogue, no watermark") |
 
 ```bash
 make i2i-stage TASK=colorize                    # pair tree under post_image_dataset/i2i/
