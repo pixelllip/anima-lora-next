@@ -23,7 +23,7 @@ and for what ships; v3 is it trained long.
 
 | | v2 (`moss_colorize_3k_ocr`) | v3 |
 |---|---|---|
-| TE input | page via vision tower (~1000 rows at 1 MP) + caption | caption only (OCR layout / sparse); `embeds_plain` = empty prompt, so `plain_caption_rate` is text dropout |
+| TE input | page via vision tower (~1000 rows at 1 MP) + caption | caption only, the OCR layout over the full / sparse (80 % dropped) / bare colour caption, sparse and bare split evenly (`variants = 3`), bare keeping one comic tag on a comic page; no `embeds_plain` (no empty-prompt row) |
 | Ref | 1/2 per side (`ref_scale 2`), joint attention | full size (`ref_scale 1`), `ref_isolate`: ref queries see only ref keys |
 | Ref modulation | t = 0 | t = 0 |
 | Uncond skip-22 | whole block, ref included | image + text only; the isolated ref still runs block 22, so cond and uncond read the same ref (`model.py::_ref_only`) |
@@ -58,7 +58,7 @@ seed 1, ER-SDE + Spectrum, 30 steps, CFG 3, against v2's eval (10000 steps):
   reads (`--ocr_from`), `--ref_scale 1 --no-vision`.
 - Train: v2's schedule (lr 5e-5, 3 epochs / 10000 steps) with `--ref_isolate`, swap 28 /
   budget 0.1. ~10.6 h at 3.83 s/step.
-- Eval: `colorize_eval.py --arms lora_ocr,lora_sparse,lora_page,lora_ocr_refskip`
+- Eval: `colorize_eval.py --arms lora_ocr,lora_sparse,lora_bare,lora_page,lora_ocr_refskip`
   against v2's `output/tests/colorize_moss_colorize_3k_ocr`, plus `colorize_wild.py` on
   the real pages.
 - Ship if lettering holds per glyph and chroma error is not worse than v2's. If colour

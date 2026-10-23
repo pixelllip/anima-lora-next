@@ -13,11 +13,15 @@ cache ``train.py`` reads unchanged:
                                              (``vision`` off: the caption alone):
         embeds        OCR caption: the colour caption's layout JSON plus one
                       ``{"label":"text",…,"bbox":…}`` item per OCR line
-        embeds_v{k}   sparse caption: ``tag_dropout`` of the colour caption's
-                      tags dropped, no OCR (k = 1 … ``variants`` - 1;
-                      ``caption_variant_rate`` at training)
-        embeds_plain  the page alone, or with ``vision`` off the empty prompt
-                      (``plain_caption_rate`` at training)
+        embeds_v{k}   sparse caption, OCR items as ``embeds``: odd k drops
+                      ``tag_dropout`` of the colour caption's tags (comic tags
+                      kept), even k all of them; a comic page (``manga__`` or a
+                      comic tag) keeps one comic tag, ``comic`` when its caption
+                      has none (k = 1 … ``variants`` - 1; ``caption_variant_rate``
+                      at training)
+        embeds_plain  the page alone, ``vision`` only (``plain_caption_rate``
+                      at training); with ``vision`` off there is no empty-prompt
+                      row
 
 The OCR reads the condition, never the target. Its floors are looser than the
 stage's (``LINE_MIN_DET`` 0.6, glyph 16): the detector scores horizontal English
@@ -29,7 +33,8 @@ line's glyph floor is ``LATIN_MIN_GLYPH``. Boxes are MOSS's ``abs_centralized``
 Every encode, ``<out>/uncond.safetensors`` included, uses ``text_encoder`` (fp8 by
 default; ``te_file`` overrides the catalog's file). Holdout (``holdout``
 illustration pairs, one page each of ``manga_holdout`` works, no edition of which
-trains; ``holdout_json`` names the pages instead) lands in ``<out>/holdout/`` with
+trains; ``holdout_json`` names the pages instead; ``train_json`` names the
+training pages instead of the draw) lands in ``<out>/holdout/`` with
 ``holdout.json``; OCR reads in ``<out>/ocr.json``. A rerun reuses every file
 already written.
 
@@ -155,6 +160,22 @@ def ocr_caption(caption, lines, size, kb) -> str:
     return json.dumps(layout, ensure_ascii=False, separators=(",", ":"))
 
 
+def sparse_captions(colour, n, dropout, comic_page, is_comic_tag) -> list[str]:
+    """The ``n`` sparse colour captions, partial (``dropout`` of the tags, comic
+    tags kept) and bare (one comic tag on a comic page, else nothing) in turn."""
+    from anime_tools.captions.position_clauses import parse_caption
+    from anime_tools.captions.variants import generate_caption_variants
+
+    partial = generate_caption_variants(colour, (n + 1) // 2 + 1, dropout, is_comic_tag)
+    comic = [t for t in parse_caption(colour).flat_tags if is_comic_tag(t)]
+    if not comic and comic_page:
+        comic = ["comic"]
+    return [
+        partial[k // 2 + 1] if k % 2 == 0 else random.choice(comic) if comic else ""
+        for k in range(n)
+    ]
+
+
 def _color_caption():
     """``i2i_tasks/colorization/color_caption.py`` (not an installed package)."""
     sys.path.insert(0, str(resolve_under_home("i2i_tasks/colorization")))
@@ -165,12 +186,12 @@ def _color_caption():
 
 def run_colorize_cache(req) -> Path:
     """Build ``req.out``; returns it."""
-    from anime_tools.captions.variants import generate_caption_variants
-
     from library.moss.vision_te import encode, encode_variants, load_te
 
-    if req.variants < 2:
-        raise SystemExit("--variants must be at least 2: the eval reads embeds_v1")
+    if req.variants < 3:
+        raise SystemExit(
+            "--variants must be at least 3: embeds_v1 is partial, embeds_v2 bare"
+        )
     out = resolve_under_home(req.out)
     (out / "holdout").mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda")
@@ -205,6 +226,18 @@ def run_colorize_cache(req) -> Path:
             if p[0] not in held
             and not (p[0].startswith("manga__") and p[2].stem.split("_")[0] in works)
         ]
+    if req.train_json:
+        held = {stem for stem, _, _ in holdout}
+        stems = set(json.loads(resolve_under_home(req.train_json).read_text())) - held
+        manga_dir = resolve_under_home(req.manga_dir)
+        pool = pairs + (find_manga_pairs(manga_dir) if manga_dir.is_dir() else [])
+        train = [p for p in pool if p[0] in stems]
+        if missing := stems - {p[0] for p in train}:
+            raise SystemExit(
+                f"{len(missing)} train_json stems have no staged pair, e.g. "
+                f"{sorted(missing)[:3]}"
+            )
+        m_train = [p for p in train if p[0].startswith("manga__")]
     print(f"{len(train)} train ({len(m_train)} manga), {len(holdout)} held out")
 
     def te_path(stem, held):
@@ -272,7 +305,7 @@ def run_colorize_cache(req) -> Path:
     cc = _color_caption()
     copyright_tags = cc.load_copyright_tags()
     kb = moss_cache._tag_knowledge_base()
-    # stem: (colour caption, OCR caption, sparse captions)
+    # stem: (colour caption, OCR caption, sparse OCR captions)
     captions = {}
     for stem, cond, target, _, (w, h) in jobs:
         colour = cc.filter_to_colors_and_protected(
@@ -288,10 +321,18 @@ def run_colorize_cache(req) -> Path:
             for t, b in dedupe(reads[stem])
         ]
         random.seed(f"{req.seed}:{stem}")
-        sparse = generate_caption_variants(
-            colour, req.variants, req.tag_dropout, cc.is_comic_tag
-        )[1:]
-        captions[stem] = (colour, ocr_caption(colour, lines, (w, h), kb), sparse)
+        sparse = sparse_captions(
+            colour,
+            req.variants - 1,
+            req.tag_dropout,
+            stem.startswith("manga__"),
+            cc.is_comic_tag,
+        )
+        captions[stem] = (
+            colour,
+            ocr_caption(colour, lines, (w, h), kb),
+            [ocr_caption(s, lines, (w, h), kb) for s in sparse],
+        )
 
     todo = [j for j in jobs if not te_path(j[0], j[3]).exists()]
     uncond_path = out / "uncond.safetensors"
@@ -310,14 +351,15 @@ def run_colorize_cache(req) -> Path:
         t0 = time.time()
         for i, (stem, cond, _, held, (w, h)) in enumerate(todo, 1):
             colour, ocr, sparse = captions[stem]
-            texts = [ocr, "", *sparse]
+            texts = [ocr, *([""] if req.vision else []), *sparse]
             if req.vision:
                 page = moss_cache.fit(moss_cache.load_rgb(cond), w, h)
                 encoded = encode_variants(tok, te, page, texts, w * h, device)
             else:
                 # No shared page rows: each variant is stored whole (prefix 0).
                 encoded = [(*encode(tok, te, None, t, 0, device), 0) for t in texts]
-            (embeds, n_img, prefix), (plain, _, _), *rest = encoded
+            (embeds, n_img, prefix), *rest = encoded
+            plain = rest.pop(0)[0].to("cpu", torch.bfloat16) if req.vision else None
             var, var_meta = moss_cache.variant_entries(
                 [
                     (t, e.to("cpu", torch.bfloat16))
@@ -328,7 +370,7 @@ def run_colorize_cache(req) -> Path:
             save_file(
                 {
                     "embeds": embeds.to("cpu", torch.bfloat16).contiguous(),
-                    "embeds_plain": plain.to("cpu", torch.bfloat16).contiguous(),
+                    **({"embeds_plain": plain.contiguous()} if req.vision else {}),
                     **var,
                 },
                 str(te_path(stem, held)),
@@ -336,7 +378,7 @@ def run_colorize_cache(req) -> Path:
                     "caption": ocr,
                     "colour_caption": colour,
                     "n_text": str(embeds.shape[0]),
-                    "n_text_plain": str(plain.shape[0]),
+                    **({"n_text_plain": str(plain.shape[0])} if req.vision else {}),
                     "n_image_tokens": str(n_img),
                     "condition": str(cond),
                     "source": str(target),
@@ -367,6 +409,7 @@ def run_colorize_cache(req) -> Path:
             "target": str(target),
             "caption": captions[stem][1],
             "caption_v1": captions[stem][2][0],
+            "caption_v2": captions[stem][2][1],
             "width": w,
             "height": h,
             "te": str(te_path(stem, True)),

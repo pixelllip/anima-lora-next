@@ -10,7 +10,7 @@ max_steps = 10000
 lr = 5e-5
 save_every_epochs = 1
 plain_caption_rate = 0.3       # the page alone
-caption_variant_rate = 0.3     # of the rest, sparse captions; else the OCR layout
+caption_variant_rate = 0.3     # of the rest, sparse / bare colour tags under the OCR layout; else the full one
 ref_timestep = 0.0             # the reference is clean
 # OCR layouts run to ~2.2k text rows: start on the worst case, keep the pool whole.
 activation_memory_budget = 0.15

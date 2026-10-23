@@ -158,23 +158,32 @@ class ColorizeCacheRequest(Request):
         "multiples of 16 (generate with the same value)",
     )
     variants: int = _f(
-        4,
-        "sparse captions + 1: embeds_v1 … embeds_v{variants-1} hold tag-dropped "
-        "colour captions (at least 2)",
+        3,
+        "sparse captions + 1: embeds_v1 … embeds_v{variants-1} hold the OCR layout "
+        "over the colour caption, odd k with tag_dropout of its tags dropped, even "
+        "k with all of them (a comic page keeps one comic tag); at least 3, odd "
+        "for an even split",
     )
     tag_dropout: float = _f(
-        0.8, "share of the colour caption's tags a sparse caption drops"
+        0.8, "share of the colour caption's tags an odd-k sparse caption drops"
     )
     vision: bool = _f(
         True,
         "the page enters the TE through the vision tower ahead of every caption; "
-        "off = the captions alone, embeds_plain the empty prompt (text dropout)",
+        "off = the captions alone, no embeds_plain",
     )
     seed: int = _f(0, "RNG seed of the pair draw, holdout and sparse captions")
     holdout_json: str = _f(
         "",
         "hold out the pages of this holdout.json (its stem / condition / target) "
         "instead of the drawn ones; their stems and manga works never train",
+        advanced=True,
+    )
+    train_json: str = _f(
+        "",
+        "train on exactly the stems of this JSON (a list, or an object's keys: "
+        "another cache's ocr.json) instead of drawing n + manga; holdout stems "
+        "are left out",
         advanced=True,
     )
     staging: str = _f(

@@ -5,8 +5,10 @@ Per held-out page, same seed, one arm per caption the LoRA trained on:
 
     base         no LoRA, no reference, the OCR caption (the zero-shot floor)
     lora_ocr     ``embeds``: the layout JSON with the page's OCR lines
-    lora_sparse  ``embeds_v1``: a tag-dropped colour caption, no OCR
-    lora_page    ``embeds_plain``: the page alone
+    lora_sparse  ``embeds_v1``: the OCR layout over a tag-dropped colour caption
+    lora_bare    ``embeds_v2``: the OCR layout with no colour tags (one comic
+                 tag on a comic page)
+    lora_page    ``embeds_plain``: the page alone (a ``vision`` cache only)
     lora_ocr_refskip  ``lora_ocr`` with the reference skipping the uncond's
                  block 22 too (``ref_follows_skip``; an isolated-ref LoRA only)
 
@@ -27,6 +29,7 @@ import json
 import numpy as np
 import torch
 from PIL import Image
+from safetensors import safe_open
 from safetensors.torch import load_file
 
 from colorize_wild import chroma, luma_r
@@ -50,10 +53,11 @@ ARMS = {
     "base": ("embeds", 0.0),
     "lora_ocr": ("embeds", 1.0),
     "lora_sparse": ("embeds_v1", 1.0),
+    "lora_bare": ("embeds_v2", 1.0),
     "lora_page": ("embeds_plain", 1.0),
     "lora_ocr_refskip": ("embeds", 1.0),
 }
-DEFAULT_ARMS = "base,lora_ocr,lora_sparse,lora_page"
+DEFAULT_ARMS = "base,lora_ocr,lora_sparse,lora_bare,lora_page"
 
 
 def chroma_error(im: Image.Image, target: Image.Image) -> float:
@@ -86,6 +90,11 @@ def main() -> None:
     (out / "latents").mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda")
     items = json.loads((cache / "holdout.json").read_text())
+    with safe_open(items[0]["te"], "pt") as f:
+        keys = set(f.keys())
+    if absent := [a for a in arms if ARMS[a][0] not in keys]:
+        print(f"skipping {absent}: not in the cache's TE files", flush=True)
+        arms = [a for a in arms if a not in absent]
     uncond, uncond_mask = pad_embeds(
         [load_file(str(cache / "uncond.safetensors"))["embeds"]], device
     )
