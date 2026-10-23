@@ -55,8 +55,8 @@ Finished lines:
   content-free tables tie the trained pack for unmask training; the DiT-side
   question continued in [`cjk_aware_anima_dit/`](cjk_aware_anima_dit/) →
   [`cjk_renderable_anima/`](cjk_renderable_anima/).
-  The pack recipe (`scripts/distill_cjk/`, `bench/cjk_adapter/`) was archived to
-  `_archive/` on 2026-10-22 (`docs/methods/cjk_vocab_pack.md` § Rebuilding a pack).
+  The pack recipe was archived to `_archive/scripts/distill_cjk/` and
+  `_archive/bench/cjk_adapter/` on 2026-10-22 (`docs/methods/cjk_vocab_pack.md` § Rebuilding a pack).
   Verdicts: [`cjk_aware_anima/findings.md`](cjk_aware_anima/findings.md);
   digest: [`cjk_aware_anima/README.md`](cjk_aware_anima/README.md).
 - [`cjk_aware_anima_dit/`](cjk_aware_anima_dit/) — the DiT-side CJK line: ext

@@ -167,15 +167,15 @@ line says the flags were not recorded.
    char init, so: `make daemon-run ARGS="_archive/bench/cjk_adapter/build_ext.py"` (the
    v2 default, `--map procrustes-mix --char-init contextual`, symbol block on —
    69,558 rows). `--no-symbols` reproduces the 58,968-row table.
-2. **Corpus** — `_archive/scripts/distill_cjk/corpus/` (`make exp-cjk-corpus
-   ARGS='<stage> [flags]'`, or `python -m scripts.distill_cjk.corpus.<stage>`).
+2. **Corpus** — `_archive/scripts/distill_cjk/corpus/` (`python -m
+   scripts.distill_cjk.corpus.<stage> [flags]`).
    Pair files land in `post_image_dataset/cjk_distill/`, intermediates
    (glossaries, Wikidata lexicon, the danbooru wiki dump, MT caches) in
    `post_image_dataset/cjk_distill/assets/`. `tag_overrides*.json` beside the
    code are the hand-pinned wordings and win over every source.
 3. **Cache** — `python -m scripts.distill_cjk.cache --pairs <jsonl> --cache_dir
    <dir> --holdout 500` per pair file (daemon; encodes both arms once).
-4. **Distill** — `make exp-distill-cjk ARGS="…"` (daemon) →
+4. **Distill** — `make daemon-run ARGS="-m scripts.distill_cjk.distill …"` →
    `output/ckpt/cjk_vocab_pack_<name>.{safetensors,json}`; publish the pair as
    is (the loader reads the json's routing maps; the Hub repo also carries the
    Qwen3 tokenizer files next to it).
@@ -186,12 +186,12 @@ CPU stages, in order (`--lang ja` is the default everywhere; the exact flags of
 the JA glossary / pairs runs were not recorded — the defaults are the recipe):
 
 ```bash
-make exp-cjk-corpus ARGS="wikidata_lexicon"                    # EN↔JA proper nouns (Wikidata, CC0)
+python -m scripts.distill_cjk.corpus.wikidata_lexicon          # EN↔JA proper nouns (Wikidata, CC0)
 make daemon-run ARGS="-m scripts.distill_cjk.corpus.tag_glossary --mt"   # wiki other_names → lexicon → MT residue (Hy-MT2-7B)
-make exp-cjk-corpus ARGS="tag_pairs"                           # fill-only from p1atdev/danbooru-ja-tag-pair
-make exp-cjk-corpus ARGS="build_pairs"                         # pairs.jsonl: tags / tags_alt / names (+ D6 quotes)
-make exp-cjk-corpus ARGS="synth_names --context both"          # + names_synth / names_synth_ja → pairs_synth.jsonl
-make exp-cjk-corpus ARGS="synth_tags"                          # + tags_synth_ja (under-floor tags) → pairs_synth_tags.jsonl
+python -m scripts.distill_cjk.corpus.tag_pairs                 # fill-only from p1atdev/danbooru-ja-tag-pair
+python -m scripts.distill_cjk.corpus.build_pairs               # pairs.jsonl: tags / tags_alt / names (+ D6 quotes)
+python -m scripts.distill_cjk.corpus.synth_names --context both # + names_synth / names_synth_ja → pairs_synth.jsonl
+python -m scripts.distill_cjk.corpus.synth_tags                # + tags_synth_ja (under-floor tags) → pairs_synth_tags.jsonl
 ```
 
 Then cache and distill (`result.json` of `20260831-1221-2c-synthja-v4-kanjifilter`):
@@ -222,19 +222,19 @@ sibling (OpenCC s2t, emitted by `build_pairs --lang zh`). Flags on record:
 ```bash
 # JA
 make daemon-run ARGS="-m scripts.distill_cjk.corpus.tag_glossary --mt"
-make exp-cjk-corpus ARGS="tag_glossary --lang ja --reselect post_image_dataset/cjk_distill/assets/tag_glossary_ja.json"  # CPU re-pick over stored candidates
-make exp-cjk-corpus ARGS="build_pairs --lang ja"                  # pairs.jsonl, 63,241 pairs (a --commentary D2 file was passed; D2 is span-less and not a trained register)
-make exp-cjk-corpus ARGS="synth_tags"                             # tags_synth_ja
+python -m scripts.distill_cjk.corpus.tag_glossary --lang ja --reselect post_image_dataset/cjk_distill/assets/tag_glossary_ja.json # CPU re-pick over stored candidates
+python -m scripts.distill_cjk.corpus.build_pairs --lang ja        # pairs.jsonl, 63,241 pairs (a --commentary D2 file was passed; D2 is span-less and not a trained register)
+python -m scripts.distill_cjk.corpus.synth_tags                   # tags_synth_ja
 # the merge that wrote pairs_tags.jsonl (tags, tags_alt, names, tags_synth_ja — no names_synth) was not recorded
 # KO
-make exp-cjk-corpus ARGS="tag_glossary --lang ko --reselect"      # sources: KR KB (models/danbooru_tags_classified.csv) → wiki → MT
-make exp-cjk-corpus ARGS="build_pairs --lang ko --alt-register"   # pairs_ko.jsonl: tags_ko / tags_alt_ko / names_ko
-make exp-cjk-corpus ARGS="synth_names --lang ko --context ja --max-names 500 --floor 60 --max-per-name 40"  # → pairs_synth_ko.jsonl
-make exp-cjk-corpus ARGS="desc_pairs"                             # pairs_desc_ko.jsonl (desc_ko: EN wiki sentence ↔ KO KB summary)
+python -m scripts.distill_cjk.corpus.tag_glossary --lang ko --reselect # sources: KR KB (models/danbooru_tags_classified.csv) → wiki → MT
+python -m scripts.distill_cjk.corpus.build_pairs --lang ko --alt-register # pairs_ko.jsonl: tags_ko / tags_alt_ko / names_ko
+python -m scripts.distill_cjk.corpus.synth_names --lang ko --context ja --max-names 500 --floor 60 --max-per-name 40 # → pairs_synth_ko.jsonl
+python -m scripts.distill_cjk.corpus.desc_pairs                   # pairs_desc_ko.jsonl (desc_ko: EN wiki sentence ↔ KO KB summary)
 # ZH
-make exp-cjk-corpus ARGS="tag_glossary --lang zh"                 # KB-first ranking, JA-kanji inventory guard
-make exp-cjk-corpus ARGS="build_pairs --lang zh"                  # pairs_zh.jsonl (+ tags_zh_hant)
-make exp-cjk-corpus ARGS="synth_tags --lang zh"                   # → pairs_synth_tags_zh.jsonl
+python -m scripts.distill_cjk.corpus.tag_glossary --lang zh       # KB-first ranking, JA-kanji inventory guard
+python -m scripts.distill_cjk.corpus.build_pairs --lang zh        # pairs_zh.jsonl (+ tags_zh_hant)
+python -m scripts.distill_cjk.corpus.synth_tags --lang zh         # → pairs_synth_tags_zh.jsonl
 ```
 
 Caches (daemon jobs `20260902-184212-622c9c`, `20260903-162103-*`; the four

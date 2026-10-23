@@ -2,7 +2,8 @@
 
 Encoder-side CJK line. Frozen 2026-09-05, moved to `finished/` on 2026-09-24
 (from its old home directly under `project/`; the pack-recipe builders left first, to
-`scripts/distill_cjk/corpus/`). Premise: give Japanese / Korean / Chinese
+the `distill_cjk` corpus package, now `_archive/scripts/distill_cjk/corpus/`).
+Premise: give Japanese / Korean / Chinese
 spans their own rows in the LLM Adapter's T5-side query table (ids ≥ 32128)
 and distill those rows against the adapter's own output on the EN
 translation, so EN prompts stay bit-exact and the artefact is a vocab pack,
@@ -32,14 +33,14 @@ not a LoRA.
 
 | Piece | Where |
 |---|---|
-| Pack recipe (ext table → corpus → cache → distill) | `bench/cjk_adapter/build_ext.py`, `scripts/distill_cjk/{corpus,cache,distill}` — `docs/methods/cjk_vocab_pack.md` § Rebuilding a pack |
+| Pack recipe (ext table → corpus → cache → distill) | `_archive/bench/cjk_adapter/build_ext.py`, `_archive/scripts/distill_cjk/{corpus,cache,distill}` — `docs/methods/cjk_vocab_pack.md` § Rebuilding a pack |
 | Shipped surface (loader, hooks, cache stamps) | `library/anima/{vocab_pack,ext_vocab}.py`, `docs/methods/cjk_vocab_pack.md` |
 | Code ledger, packs, ship contract | [`deliverables.md`](deliverables.md) |
 | Freeze note and why | [`plan.md`](plan.md) |
 | Exploration-side data tooling (D2 commentary, Love Hina set, manga text pilot, glossary audit, OCR record builders) | `datasets/` ([README](datasets/README.md)); `datasets/assets` is a symlink to `post_image_dataset/cjk_distill/assets/` |
 | Gates, probes, eval prompt sets | `gates/`, `probes/`, `assets/` — run by path (`python project/finished/cjk_aware_anima/gates/g34.py`) |
 | Dated reports | `reports/` (gitignored) here for the blind sets s19–s28; the rest under `_archive/cjk_aware_anima/{plans,reports}/` |
-| Bench envelopes | `bench/cjk_distill/results/`, `bench/cjk_adapter/results/` |
+| Bench envelopes | `_archive/bench/cjk_distill/results/`, `_archive/bench/cjk_adapter/results/` |
 
 ## Open remainder
 
