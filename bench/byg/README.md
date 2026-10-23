@@ -52,7 +52,39 @@ part.
 4. **Only if 3 passes**: commit to the VLM tuple phase (App. D.1, the style
    edits that are the method's actual selling point) and re-propose.
 
-Existing probes in this dir: `grad_parity.py` (reentrant-checkpoint grad-drop
+### Step 1 on MOSS-Image: fails (2026-10-23)
+
+MOSS was the better-placed substrate: a native VAE reference on RoPE `r` (the
+colorize line) replaces the attention-level concat, and the Qwen3.5-9B TE is not
+bound to labelled tags. `moss_prior_snr.py`, run `results/20261023-1942-calib`
+(16 `_calib_mixed` latents, 25 of the 50 sampler σ, one seed, Base, int8 TE).
+Edit = one `<color> hair` tag swapped in `summary.caption`; null = the same tags
+shuffled; `‖Δv‖/‖v_src‖` against the src caption at the same noisy latent.
+
+| σ | edit / null | edit / null, 4×4 pooled | top-10 % token share, edit / null |
+|---|---|---|---|
+| 1.00–0.97 | 1.8–2.2 | 2.0–2.5 | 0.50 / 0.23 |
+| 0.95 | 1.11 | 1.24 | 0.46 / 0.44 |
+| 0.90 | 1.06 | 1.25 | 0.54 / 0.50 |
+| 0.84 | 0.94 | 1.00 | 0.49 / 0.45 |
+| 0.79–0.12 | 0.88–0.94 | 0.86–0.94 | edit ≤ null |
+
+- The edit direction clears the null floor only above σ ≈ 0.95 (SNR ≥ 1.5 down
+  to σ 0.963: 3.7 % of `t ~ U(0,1)`, 9 of 50 grid steps) and is spatially
+  concentrated only above σ 0.97. Below that it matches a tag shuffle in size
+  and in spread.
+- Decoded `x0_pred`: blonde → pink shows pink hair at σ 0.95 / 0.90, fading at
+  0.84, blonde again from 0.79. A named character overrides the tag: red → white
+  on `eris greyrat` does not move at any σ.
+- The uncond delta `‖v_src − v_unc‖/‖v_src‖` (Tier 3 §4 of
+  `docs/proposal/moss_anima_negatives_revisit.md`) is U-shaped: 0.24 at σ 1,
+  0.057 at σ ≈ 0.55, 0.089 at σ 0.12 — Anima's floor is ~0.02.
+
+Uniform-`t` BYG would train `L_dir` on a noise direction for most steps. Not
+pursued on MOSS; paired i2i (colorize, sanitize, mined near-twins) is the
+editing route.
+
+Existing probes in this dir: `moss_prior_snr.py` (above), `grad_parity.py` (reentrant-checkpoint grad-drop
 regression guard, see `project_unsloth_reentrant_drops_grad`) and
 `y0_fidelity.py` (bootstrap-target ỹ_0 fidelity vs rollout NFE / warped σ grid).
 
