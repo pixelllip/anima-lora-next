@@ -31,7 +31,7 @@ import sys
 from pathlib import Path
 
 from library.env import resolve_under_home
-from library.training.progress import read_status
+from library.training.progress import _pid_alive, read_status
 
 _SUFFIX = ".progress.jsonl"
 # The daemon points every train job's sink here (manager._build_cmd), one dir
@@ -84,6 +84,32 @@ def _stream_run_name(path: Path) -> str | None:
 def _job_id_for(path: Path) -> str | None:
     """The daemon job id owning this stream (its dir name), for flat-named files."""
     return path.parent.name if path.name == _DAEMON_NAME else None
+
+
+def _streamless_running_job(jobs_dir: Path | None, scan: int = 50) -> dict | None:
+    """The daemon's running job while it has no stream yet (a train loop still
+    loading its model, or a command job that writes none), so a bare
+    ``run-status`` names it instead of the previous run's stream."""
+    if jobs_dir is None or not jobs_dir.is_dir():
+        return None
+    # Job ids start with their submit time, so name order is submit order.
+    for d in sorted(jobs_dir.iterdir(), reverse=True)[:scan]:
+        try:
+            rec = json.loads((d / "job.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if rec.get("state") != "running" or _pid_alive(rec.get("pid")) is False:
+            continue
+        return None if (d / _DAEMON_NAME).is_file() else rec
+    return None
+
+
+def format_streamless(rec: dict) -> str:
+    job = rec.get("id")
+    return (
+        f"{rec.get('method') or '?'} (job {job}) RUNNING  no progress stream yet "
+        f"(still loading, or the job writes none) — make daemon-log JOB={job}"
+    )
 
 
 def _resolve(target: str | None, logs_dir: Path, jobs_dir: Path | None) -> Path:
@@ -181,7 +207,8 @@ def main(argv: list[str] | None = None) -> int:
         "target",
         nargs="?",
         help="run name (output_name), a .progress.jsonl path, or omit for the "
-        "most recently updated run.",
+        "most recently updated run (or the daemon's running job, while it has "
+        "no stream yet).",
     )
     p.add_argument(
         "--logs-dir",
@@ -210,6 +237,23 @@ def main(argv: list[str] | None = None) -> int:
                 + (f" or {jobs_dir}" if jobs_dir else "")
             )
     else:
+        running = None if args.target else _streamless_running_job(jobs_dir)
+        if running is not None:
+            if args.json:
+                json.dump(
+                    {
+                        "status": "running",
+                        "job": running.get("id"),
+                        "label": running.get("method"),
+                        "global_step": None,
+                    },
+                    sys.stdout,
+                    indent=2,
+                )
+                sys.stdout.write("\n")
+            else:
+                print(format_streamless(running))
+            return 0
         streams = [_resolve(args.target, logs_dir, jobs_dir)]
 
     statuses = []

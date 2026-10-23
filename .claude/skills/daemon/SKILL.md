@@ -132,7 +132,8 @@ step off `make daemon-log JOB=<id>`.
 **Both launch paths are scanned**: an inline run's `output/logs/<name>.progress.jsonl`
 *and* a daemon job's `output/daemon/jobs/<id>/progress.jsonl` (the daemon overrides
 `--progress_jsonl` with a per-job path, so the run dir under `output/logs/` holds the
-snapshot + TB events but no stream). Defaults to the newest stream from either;
+snapshot + TB events but no stream). Defaults to the newest stream from either — or, while the daemon's running job has
+no stream yet (a train loop still loading), names that job instead;
 `RUN=<output_name|job id|path>` selects — a daemon stream's filename is bare, so a run
 name there is matched against the `run_start` event inside it, and the header prints
 `(job <id>)`. `ARGS="--list"` for all, `ARGS="--json"` for the dict, `ARGS="--jobs-dir
