@@ -181,6 +181,58 @@ no block swap. How it differs from the plan:
 **Verdict: close.** Phase A stands as the account of the MOSS − Anima loss gap: it is an
 HF texture floor the base cannot predict. VR-loss with a low-pass pair cannot remove it.
 
+## Follow-up — weighting the HF band of the loss (2026-10-24)
+
+The remaining loss-side lever: if the floor is unpredictable, its gradient should be
+noise, and down-weighting the band above 0.5 Nyquist (`w < 1`, DiT input untouched)
+should cut gradient variance. `bench/moss_vr_headroom/band_split.py` splits the residual
+on the /8 grid by an orthogonal FFT mask (`y = y_LF + y_HF`) and keeps `∂mean(y_LF²)`
+and `∂mean(y_HF²)` per batch. `g(w) = g_LF + w·g_HF` is linear in w, so the Gram matrices
+give every w. Same LoRA and cache as Phase B, 48 batches (the 30 stems cycled, fresh σ
+and ε), gradients in bf16, ~7 min. Run `results/20261024-0004-band_split/`.
+
+Pre-registered: the lever is worth a training A/B if, at `w = 0.25`, the cov² ratio
+against `w = 1` is ≤ 0.7 and the mean gradient keeps its direction (cos ≥ 0.9).
+
+| w | `‖g‖ / ‖g_std‖` | cov² ratio vs w = 1 | cos to w = 1 |
+|---|---|---|---|
+| 0 (LF only) | 0.891 | 1.013 | 0.973 |
+| 0.25 | 0.913 | 1.011 | 0.986 |
+| 0.5 | 0.939 | 1.008 | 0.994 |
+| 1 (standard) | 1 | 1 | 1 |
+
+- **No variance to remove: close.** Dropping the HF band entirely leaves the relative
+  gradient noise unchanged (cov² ratio 1.01).
+- **HF is 60 % of the loss but 13 % of the mean gradient.** LF carries 87 %, and the
+  two bands' mean gradients have cos 0.34. HF's own relative noise (cov² 38) is no worse
+  than LF's (44).
+- **The reason is σ.** Batches at σ ≥ 0.85 (15 of 48) hold 93 % of the summed gradient
+  energy. There the HF gradient is a fifth of the LF one in norm (median ratio 0.21).
+  Below σ 0.7 the two are comparable (1.28), but those batches hold 2 % of the energy. The
+  HF residual is large where gradients are small, and the gradient noise lives at high σ
+  in the LF band.
+
+**What this means for the line:** the MOSS − Anima loss gap is a difference in the loss
+number, not an optimisation handicap. The HF texture floor adds ~0.16 to `E[y²]` and
+almost nothing to the gradient, so neither VR nor HF weighting has anything to remove.
+The visible gradient-side fact is the σ skew: at batch 1, a few high-σ samples dominate
+each update. That is a separate question (σ-dependent loss weighting, or how often
+`max_grad_norm = 1.0` clips them).
+
+**Clipping, from the training logs** (pre-clip `grad_norm` per update, `grad_accum 4`):
+
+| Run | updates clipped | clipped norm, median / q90 | updates whose max σ ≥ 0.95, clipped | max σ < 0.85, clipped | spikes > 3 |
+|---|---|---|---|---|---|
+| `caststation_ga4_lr1e4_s0` | 26 % | 1.37 / 2.84 | 55 % | 0 % | 5.4, 6.9, 4.0, **183.7** |
+| `moss_ama_mitsuki_ga4_lr1e4` | 9 % | 1.17 / 1.69 | 14 % | 3 % | none |
+
+Clipping is σ-driven and mostly mild: the median clipped update is scaled by ~0.73. Under
+AdamW that works as a soft down-weighting of high-σ updates. It cannot simply be removed:
+the 183.7 spike (step 512, max σ 0.87) would have entered Adam's second moment
+unclipped. Raising the threshold to ~3 would release the ordinary high-σ clips (q90 2.84)
+and still catch every spike seen. Whether that changes samples needs a training arm judged
+against the s0 / s1001 seed spread. A loss curve cannot decide it.
+
 ## Not in scope
 
 - Wiring VR into `library/moss/train.py` (Phase B closed it).
