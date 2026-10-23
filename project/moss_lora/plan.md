@@ -8,11 +8,79 @@ Code map `library/moss/CLAUDE.md`; user doc `docs/moss/README.md`.
 
 | Sub-line | State | Log / code |
 |---|---|---|
-| i2i / colorize (VAE reference on RoPE `r`) | `moss_colorize_3k_ocr` is the kept run; `colorize_run.py` reproduces it | `docs/proposal/moss_i2i.md`, `colorize_ocr.md`, `src/colorize_*.py` |
+| i2i / colorize (VAE reference on RoPE `r`) | v2 = `moss_colorize_3k_ocr` (shipped). **v3 planned** (§ below): text-only TE + full-size isolated ref | `docs/proposal/moss_i2i.md`, `colorize_ocr.md`, `src/colorize_*.py` |
 | Correction training (arXiv 2610.14136), dual LoRA | joint D + C holds to K 8; CFG 1.5 + K 2 ≈ CFG 3 at 2× forwards (one seed) | `correction.md`, `src/correction*.py` |
 | Anima negatives revisit | Tier 1 measured, Tier 2 unmeasured | `docs/proposal/moss_anima_negatives_revisit.md` |
 | TE quantization | INT8 W8A8 (SmoothQuant + act-aware GPTQ) is the default TE | `src/te_*.py`; comparison runs + drivers in `_archive/bench/moss_te_fp8/` |
 | Technical-report digest | reference | `report_notes.md` |
+
+## colorize v3 — the default i2i recipe from here on
+
+v1 shared the image's timestep on the ref; v2 (`moss_colorize_3k_ocr`) gives it t = 0 and
+sends the page through the vision tower as well. v3 drops the vision tower and gives the
+ref the target's full size, isolated. This recipe becomes the default for i2i training
+and for what ships; v3 is it trained long.
+
+| | v2 (`moss_colorize_3k_ocr`) | v3 |
+|---|---|---|
+| TE input | page via vision tower (~1000 rows at 1 MP) + caption | caption only (OCR layout / sparse); `embeds_plain` = empty prompt, so `plain_caption_rate` is text dropout |
+| Ref | 1/2 per side (`ref_scale 2`), joint attention | full size (`ref_scale 1`), `ref_isolate`: ref queries see only ref keys |
+| Ref modulation | t = 0 | t = 0 |
+| Uncond skip-22 | whole block, ref included | image + text only; the isolated ref still runs block 22, so cond and uncond read the same ref (`model.py::_ref_only`) |
+
+### Basis: 1-hour arm `moss_colorize_1k_textref1_iso` (2026-10-23)
+
+980 pairs (half manga) drawn as v2's cache, v2's 12 held-out pages (`--holdout_json`),
+v2's OCR reads; rank 32, lr 1e-4, 1250 steps. 79.8 min at 3.83 s/step (v2 recipe 2.9),
+swap 28 / budget 0.1 (0.15 OOMs on the 9.5k-token worst sample), peak 13.0 GB. Eval
+seed 1, ER-SDE + Spectrum, 30 steps, CFG 3, against v2's eval (10000 steps):
+
+| | v2 `lora_cap` | v3 arm `lora_ocr` | v3 arm, uncond skip on the ref too |
+|---|---|---|---|
+| luma r (128 px) | 0.977 | **0.989** | 0.989 |
+| chroma (targets ~16) | 18.7 | 14.9 | 15.0 |
+| chroma error, 8 illus. / 4 manga | **12.8 / 11.6** | 14.2 / 14.6 | 13.8 / 14.4 |
+
+- **Lettering: every OCR'd balloon exact** on the 4 manga pages, per glyph. v2 garbles
+  623751 ("ニューシネ未末", "くすぐわたいよ", ☆ dropped) and 403801 (", I" dropped, "ROOI",
+  "SETACY WAE TOO MUC"). v3 also draws "H-HEY," where the OCR read "H-HE": the
+  full-size ref carries the glyphs, not only the caption.
+- **Colour: weaker than v2.** Desaturated; 2550520's warm lamp turns to a blue night
+  cast, yomu's pink background goes grey-blue. Lettering colour is sometimes invented
+  (623751: red where the target is black). The arm had 1/8 of v2's steps and no vision
+  tower, and does not separate the two.
+- Skip-on-ref vs image + text only: lettering identical, colour within noise. Image +
+  text only stays the default; it is what lets one ref KV cache serve both branches.
+
+### Training v3
+
+- Cache: v2's draw (`n 1667`, `manga 1667`), v2's holdout (`--holdout_json`) and OCR
+  reads (`--ocr_from`), `--ref_scale 1 --no-vision`.
+- Train: v2's schedule (lr 5e-5, 3 epochs / 10000 steps) with `--ref_isolate`, swap 28 /
+  budget 0.1. ~10.6 h at 3.83 s/step.
+- Eval: `colorize_eval.py --arms lora_ocr,lora_sparse,lora_page,lora_ocr_refskip`
+  against v2's `output/tests/colorize_moss_colorize_3k_ocr`, plus `colorize_wild.py` on
+  the real pages.
+- Ship if lettering holds per glyph and chroma error is not worse than v2's. If colour
+  stays behind at 10000 steps, run the vision-on arm (full-size isolated ref + vision
+  tower, 1-hour budget) before shipping, to see whether the vision tower carries the hue.
+
+### Deploy
+
+1. Defaults: `configs/moss/i2i/colorize/{cache,train,generate}.toml` and
+   `ColorizeCacheRequest` (`vision = false`, `ref_scale = 1`, `ref_isolate = true`,
+   `ref_vision = false`, budget 0.1); `docs/moss/README.md`'s i2i table.
+2. Stamp `ref_scale` and whether the TE saw the page into the LoRA metadata. Today only
+   `ref_timestep` / `ref_isolate` are stamped, while ComfyUI-MOSS-Toolkit reads
+   `ref_scale` from it.
+3. ComfyUI-MOSS-Toolkit: `reference.py` reads `ref_isolate` (ref-only attention) and,
+   when `patches_replace` skips a block, still runs the ref rows through it. Colorize
+   wiring: Caption Helper → a plain text encode, no vision. Check that path's chat
+   template against `vision_te.encode(image=None)` first. README + example workflow,
+   version bump; check `_vendor` drift before publishing.
+4. Publish the v3 LoRA with its eval sheet.
+5. Later: a ref KV cache in `generate.py` and the node (the ref is step-, text- and
+   branch-free, ~2.1 GB bf16 at 1 MP), so the full-size ref costs once per image.
 
 ## Done (shipped or settled)
 

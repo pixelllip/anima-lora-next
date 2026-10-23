@@ -177,10 +177,16 @@ FIELDS_CN: dict[str, tuple[str, str]] = {
     ),
     "grad_checkpointing": ("梯度检查点", "按块的激活检查点"),
     "seed": ("随机种子", "随机数种子"),
-    "n": ("插画配对数", "用于训练的插画配对数（准备好的漫画化页 + resized 中的彩色目标）"),
+    "n": (
+        "插画配对数",
+        "用于训练的插画配对数（准备好的漫画化页 + resized 中的彩色目标）",
+    ),
     "manga": ("漫画页数", "追加的 manga_color 漫画页数（0 = 只用插画）"),
     "holdout": ("留出插画数", "留作评估的插画配对数"),
-    "manga_holdout": ("留出漫画作品数", "留作评估的漫画作品数，每部一页；其任何版本都不参与训练"),
+    "manga_holdout": (
+        "留出漫画作品数",
+        "留作评估的漫画作品数，每部一页；其任何版本都不参与训练",
+    ),
     "ref_scale": (
         "参考图缩放",
         "参考潜变量的边长 = 目标边长除以此值，取 16 的倍数（生成时用相同的值）",
@@ -190,6 +196,10 @@ FIELDS_CN: dict[str, tuple[str, str]] = {
         "稀疏标注数 + 1：embeds_v1 … embeds_v{variants-1} 为去掉部分标签的颜色标注（至少 2）",
     ),
     "tag_dropout": ("标签丢弃比例", "稀疏标注去掉的颜色标注标签比例"),
+    "vision": (
+        "视觉塔编码页面",
+        "页面经视觉塔进入文本编码器，排在每条标注之前；关闭 = 只编码标注，embeds_plain 为空提示词（文本丢弃）",
+    ),
 }
 
 # GenerateRequest fields whose name also exists on another request with a

@@ -7,6 +7,8 @@ Per held-out page, same seed, one arm per caption the LoRA trained on:
     lora_ocr     ``embeds``: the layout JSON with the page's OCR lines
     lora_sparse  ``embeds_v1``: a tag-dropped colour caption, no OCR
     lora_page    ``embeds_plain``: the page alone
+    lora_ocr_refskip  ``lora_ocr`` with the reference skipping the uncond's
+                 block 22 too (``ref_follows_skip``; an isolated-ref LoRA only)
 
 The LoRA arms get the page's reference latent; the cache's ``uncond.safetensors``
 is the empty prompt. ``index.json`` scores each arm: luma r against the target
@@ -49,7 +51,9 @@ ARMS = {
     "lora_ocr": ("embeds", 1.0),
     "lora_sparse": ("embeds_v1", 1.0),
     "lora_page": ("embeds_plain", 1.0),
+    "lora_ocr_refskip": ("embeds", 1.0),
 }
+DEFAULT_ARMS = "base,lora_ocr,lora_sparse,lora_page"
 
 
 def chroma_error(im: Image.Image, target: Image.Image) -> float:
@@ -71,7 +75,11 @@ def main() -> None:
     ap.add_argument("--steps", type=int, default=30)
     ap.add_argument("--cfg", type=float, default=3.0)
     ap.add_argument("--out", default="")
+    ap.add_argument("--arms", default=DEFAULT_ARMS, help=f"of {', '.join(ARMS)}")
     args = ap.parse_args()
+    arms = args.arms.split(",")
+    if unknown := set(arms) - set(ARMS):
+        raise SystemExit(f"unknown arms {sorted(unknown)}")
     lora = resolve_under_home(args.lora)
     cache = resolve_under_home(args.cache)
     out = resolve_under_home(args.out or f"output/tests/colorize_{lora.stem}")
@@ -99,12 +107,13 @@ def main() -> None:
             return base_dir / f"{item['stem']}_base_s{args.seed}_{base_tag}.safetensors"
         return out / "latents" / f"{item['stem']}_{arm}_s{args.seed}_{tag}.safetensors"
 
-    todo = [(it, a) for it in items for a in ARMS if not lat(it, a).exists()]
+    todo = [(it, a) for it in items for a in arms if not lat(it, a).exists()]
     if todo:
         tr, net = load_dit(lora, device)
         for it, arm in todo:
             key, mult = ARMS[arm]
             net.set_multiplier(mult)
+            tr.ref_follows_skip = arm == "lora_ocr_refskip"
             ref = load_file(it["ref"])["latent"][None] if mult else None
             z = render(
                 tr,
@@ -131,7 +140,7 @@ def main() -> None:
             ("page", Image.open(it["condition"]).convert("RGB")),
             ("target", target),
         ]
-        for arm in ARMS:
+        for arm in arms:
             im = decoded(lat(it, arm), vae, device)
             cells.append((arm, im))
             scores.setdefault(arm, {})[it["stem"]] = {

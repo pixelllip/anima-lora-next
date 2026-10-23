@@ -9,13 +9,15 @@ cache ``train.py`` reads unchanged:
     {stem}_{W}x{H}.moss_latent.safetensors   the colour target
     {stem}.moss_ref.safetensors              the page VAE-encoded at 1/``ref_scale``
                                              of the target's sides (multiples of 16)
-    {stem}.moss_te.safetensors               the page, then one of three captions:
+    {stem}.moss_te.safetensors               the page, then one of three captions
+                                             (``vision`` off: the caption alone):
         embeds        OCR caption: the colour caption's layout JSON plus one
                       ``{"label":"text",…,"bbox":…}`` item per OCR line
         embeds_v{k}   sparse caption: ``tag_dropout`` of the colour caption's
                       tags dropped, no OCR (k = 1 … ``variants`` - 1;
                       ``caption_variant_rate`` at training)
-        embeds_plain  the page alone (``plain_caption_rate`` at training)
+        embeds_plain  the page alone, or with ``vision`` off the empty prompt
+                      (``plain_caption_rate`` at training)
 
 The OCR reads the condition, never the target. Its floors are looser than the
 stage's (``LINE_MIN_DET`` 0.6, glyph 16): the detector scores horizontal English
@@ -27,8 +29,9 @@ line's glyph floor is ``LATIN_MIN_GLYPH``. Boxes are MOSS's ``abs_centralized``
 Every encode, ``<out>/uncond.safetensors`` included, uses ``text_encoder`` (fp8 by
 default; ``te_file`` overrides the catalog's file). Holdout (``holdout``
 illustration pairs, one page each of ``manga_holdout`` works, no edition of which
-trains) lands in ``<out>/holdout/`` with ``holdout.json``; OCR reads in
-``<out>/ocr.json``. A rerun reuses every file already written.
+trains; ``holdout_json`` names the pages instead) lands in ``<out>/holdout/`` with
+``holdout.json``; OCR reads in ``<out>/ocr.json``. A rerun reuses every file
+already written.
 
     make i2i-preprocess TASK=colorize MODEL=moss
 """
@@ -189,6 +192,19 @@ def run_colorize_cache(req) -> Path:
     )
     train += m_train
     holdout += m_holdout
+    if req.holdout_json:
+        rows = json.loads(resolve_under_home(req.holdout_json).read_text())
+        holdout = [(r["stem"], Path(r["condition"]), Path(r["target"])) for r in rows]
+        held = {stem for stem, _, _ in holdout}
+        works = {
+            s.split("__")[1].split("_")[0] for s in held if s.startswith("manga__")
+        }
+        train = [
+            p
+            for p in train
+            if p[0] not in held
+            and not (p[0].startswith("manga__") and p[2].stem.split("_")[0] in works)
+        ]
     print(f"{len(train)} train ({len(m_train)} manga), {len(holdout)} held out")
 
     def te_path(stem, held):
@@ -294,10 +310,14 @@ def run_colorize_cache(req) -> Path:
         t0 = time.time()
         for i, (stem, cond, _, held, (w, h)) in enumerate(todo, 1):
             colour, ocr, sparse = captions[stem]
-            page = moss_cache.fit(moss_cache.load_rgb(cond), w, h)
-            (embeds, n_img, prefix), (plain, _, _), *rest = encode_variants(
-                tok, te, page, [ocr, "", *sparse], w * h, device
-            )
+            texts = [ocr, "", *sparse]
+            if req.vision:
+                page = moss_cache.fit(moss_cache.load_rgb(cond), w, h)
+                encoded = encode_variants(tok, te, page, texts, w * h, device)
+            else:
+                # No shared page rows: each variant is stored whole (prefix 0).
+                encoded = [(*encode(tok, te, None, t, 0, device), 0) for t in texts]
+            (embeds, n_img, prefix), (plain, _, _), *rest = encoded
             var, var_meta = moss_cache.variant_entries(
                 [
                     (t, e.to("cpu", torch.bfloat16))
@@ -320,7 +340,9 @@ def run_colorize_cache(req) -> Path:
                     "n_image_tokens": str(n_img),
                     "condition": str(cond),
                     "source": str(target),
-                    "encoder": f"{encoder} + vision bf16, image then caption",
+                    "encoder": f"{encoder} + vision bf16, image then caption"
+                    if req.vision
+                    else f"{encoder}, caption only",
                     **var_meta,
                 },
             )

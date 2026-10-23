@@ -146,6 +146,30 @@ def test_ref_isolate_at_t0_reference_stream_is_step_free(tiny, ref_t, ref_iso):
 
 
 @torch.no_grad()
+def test_ref_isolate_skip_spares_the_reference(tiny, ref_t, ref_iso):
+    """A skipped block still runs the isolated reference, so the skip-22 uncond
+    reads the cond branch's reference; ``ref_follows_skip`` skips it too."""
+    ref_t(0.0)
+    x, e, _ = _inputs(batch=1)
+    tokens, rope = tiny.embed_sample(x, e, _ref(1))
+    mod, _ = tiny.time_conditioning(500.0, 1)
+    mod, span = tiny.ref_modulation(mod, 24, (2, 3))
+
+    def stream(skip):
+        out = tiny.run_layers(tokens, rope, mod, skip, n_img=24, ref_span=span)
+        return out[:, span[0] : span[1]]
+
+    full = stream(frozenset())
+    assert torch.allclose(stream(frozenset({2})), full, atol=1e-6)
+    assert torch.allclose(stream([frozenset({2})]), full, atol=1e-6)
+    tiny.ref_follows_skip = True
+    try:
+        assert not torch.allclose(stream(frozenset({2})), full, atol=1e-3)
+    finally:
+        tiny.ref_follows_skip = False
+
+
+@torch.no_grad()
 def test_ref_timestep_ignored_without_ref(tiny, ref_t):
     x, e, mask = _inputs()
     plain = tiny(x, 500.0, e, mask).sample

@@ -162,8 +162,21 @@ class ColorizeCacheRequest(Request):
         "sparse captions + 1: embeds_v1 … embeds_v{variants-1} hold tag-dropped "
         "colour captions (at least 2)",
     )
-    tag_dropout: float = _f(0.8, "share of the colour caption's tags a sparse caption drops")
+    tag_dropout: float = _f(
+        0.8, "share of the colour caption's tags a sparse caption drops"
+    )
+    vision: bool = _f(
+        True,
+        "the page enters the TE through the vision tower ahead of every caption; "
+        "off = the captions alone, embeds_plain the empty prompt (text dropout)",
+    )
     seed: int = _f(0, "RNG seed of the pair draw, holdout and sparse captions")
+    holdout_json: str = _f(
+        "",
+        "hold out the pages of this holdout.json (its stem / condition / target) "
+        "instead of the drawn ones; their stems and manga works never train",
+        advanced=True,
+    )
     staging: str = _f(
         "post_image_dataset/i2i/colorize/staging",
         "the mangafied pages (make i2i-stage TASK=colorize); each pairs with the same "
@@ -188,7 +201,9 @@ class ColorizeCacheRequest(Request):
         advanced=True,
     )
     te_file: str = _f(
-        "", "quantized TE file instead of the catalog's (fp8 / int8 only)", advanced=True
+        "",
+        "quantized TE file instead of the catalog's (fp8 / int8 only)",
+        advanced=True,
     )
     model_dir: str = _f("", _MODEL_DIR_HELP, advanced=True)
 

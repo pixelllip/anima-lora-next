@@ -21,6 +21,9 @@ Changes from the reference, all additive:
   ``ref_timestep`` (None = the image's timestep) gives the reference tokens their
   own block modulation, e.g. ``0`` for a clean latent. ``ref_isolate`` restricts
   the reference queries to the reference keys; image and text still read it.
+  Under ``ref_isolate`` a skipped block (``skip_layers``, e.g. the skip-22 uncond)
+  still runs the reference tokens, so every branch reads the same reference;
+  ``ref_follows_skip`` skips them with the image and text instead.
   ``library.moss.lora.load_for_inference`` sets both from the LoRA's metadata.
 - ``pack_latents`` / ``unpack_latents``: the FLUX.2 VAE ↔ DiT latent boundary
   (2×2 ``patchify`` + the VAE's BatchNorm statistics).
@@ -292,6 +295,7 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
         self.layer_hook = None
         self.ref_timestep = None
         self.ref_isolate = False
+        self.ref_follows_skip = False
 
     def load_training_state_dict(self, state_dict, *, prefix=""):
         """Load a consolidated raw/EMA model mapping, strictly; no silent key drops."""
@@ -380,18 +384,30 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
         sequence of frozensets, one per sample (rows skipping a block keep ``x``).
         ``n_img`` (leading image tokens) is what ``layer_hook`` sees. ``ref_span``
         and ``mod`` come from ``ref_modulation``; ``ref_isolate`` applies to that
-        span."""
+        span, and then a skipped block still runs it (``_ref_only``) unless
+        ``ref_follows_skip``."""
         per_sample = not isinstance(skip_layers, (frozenset, set))
         iso = self.ref_isolate and ref_span is not None
+        ref_runs = iso and not self.ref_follows_skip
         hook = self.layer_hook
         for index, layer in enumerate(self.layers):
             if per_sample:
                 active = [
                     b for b, skips in enumerate(skip_layers) if index not in skips
                 ]
-                if not active:
-                    continue
                 if len(active) < x.shape[0]:
+                    if ref_runs:
+                        idle = [b for b in range(x.shape[0]) if b not in active]
+                        x = self._ref_only(
+                            layer,
+                            x,
+                            rope,
+                            mod,
+                            ref_span,
+                            torch.tensor(idle, device=x.device),
+                        )
+                    if not active:
+                        continue
                     rows = torch.tensor(active, device=x.device)
                     sub = layer(
                         x[rows],
@@ -406,11 +422,27 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
                     x = x.index_copy(0, rows, sub)
                     continue
             elif index in skip_layers:
+                if ref_runs:
+                    x = self._ref_only(layer, x, rope, mod, ref_span)
                 continue
             x = layer(x, rope, mod, key_mask, ref_span, iso)
             if hook is not None:
                 x = hook(index, x, n_img)
         return x
+
+    @staticmethod
+    def _ref_only(layer, x, rope, mod, ref_span, rows=None):
+        """``x`` with the reference tokens of ``rows`` (None = all) through ``layer``
+        on their own: under ``ref_isolate`` what the whole block gives them."""
+        s, e = ref_span
+        if mod.ndim == 4:
+            mod = mod[:, :, 1]
+        sub, sub_rope, sub_mod = (
+            (x, rope, mod) if rows is None else (x[rows], rope[rows], mod[rows])
+        )
+        ref = layer(sub[:, s:e], sub_rope[:, s:e], sub_mod)
+        sub = torch.cat((sub[:, :s], ref, sub[:, e:]), 1)
+        return sub if rows is None else x.index_copy(0, rows, sub)
 
     def head(self, features, head_mod, height, width):
         """Image-token hidden state after the last block ``(B, H·W, D)`` →
