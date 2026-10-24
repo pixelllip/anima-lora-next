@@ -17,4 +17,4 @@ resolution = 1024
 ref_scale = 2
 variants = 3            # v1: tag_dropout of the colour tags, v2: all (OCR on both)
 tag_dropout = 0.8
-text_encoder = "fp8"
+text_encoder = "int8"

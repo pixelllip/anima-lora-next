@@ -9,7 +9,7 @@
 prompt = ""
 ref_scale = 2
 ref_vision = true
-text_encoder = "fp8"
+text_encoder = "int8"
 steps = 30
 spectrum = true
 out_dir = "output/tests/moss_i2i_colorize"

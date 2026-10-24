@@ -270,11 +270,18 @@ def run_colorize_cache(req) -> Path:
         from library.moss.loader import load_vae
         from library.moss.model import encode as vae_encode
 
-        vae = load_vae(req.model_dir, device=device)
-        for i, (stem, cond, _, held, (w, h)) in enumerate(todo, 1):
-            rw, rh = moss_cache.ref_size(w, h, req.ref_scale)
+        def load(job):
+            _, cond, _, _, (w, h) = job
             page = moss_cache.fit(moss_cache.load_rgb(cond), w, h)
-            latent = vae_encode(moss_cache.to_pixels(moss_cache.fit(page, rw, rh)), vae)
+            rw, rh = moss_cache.ref_size(w, h, req.ref_scale)
+            return moss_cache.to_pixels(moss_cache.fit(page, rw, rh))
+
+        vae = load_vae(req.model_dir, device=device)
+        for i, ((stem, cond, _, held, (w, h)), pixels) in enumerate(
+            moss_cache.prefetch(todo, load), 1
+        ):
+            rw, rh = moss_cache.ref_size(w, h, req.ref_scale)
+            latent = vae_encode(pixels, vae)
             save_file(
                 {"latent": latent[0].cpu().contiguous()},
                 str(ref_path(stem, held)),
@@ -349,7 +356,7 @@ def run_colorize_cache(req) -> Path:
             f" ({req.te_file})" if req.te_file else ""
         )
         t0 = time.time()
-        for i, (stem, cond, _, held, (w, h)) in enumerate(todo, 1):
+        for i, (stem, cond, target, held, (w, h)) in enumerate(todo, 1):
             colour, ocr, sparse = captions[stem]
             texts = [ocr, *([""] if req.vision else []), *sparse]
             if req.vision:

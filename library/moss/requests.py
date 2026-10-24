@@ -211,9 +211,9 @@ class ColorizeCacheRequest(Request):
         advanced=True,
     )
     text_encoder: str = _f(
-        "fp8",
+        "int8",
         f"Qwen3.5-9B weights for every encode, with the vision tower in bf16: {_TE_HELP}. "
-        "The shipped colorize recipe is fp8; generate with the same",
+        "v3 is int8 (v2 moss_colorize_3k_ocr was fp8); generate with the same",
         choices=TEXT_ENCODERS,
         advanced=True,
     )

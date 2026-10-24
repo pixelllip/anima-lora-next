@@ -68,6 +68,8 @@ import math
 import re
 import statistics
 import time
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -327,6 +329,18 @@ def to_pixels(image: Image.Image) -> torch.Tensor:
     """RGB PIL → ``(1, 3, H, W)`` fp32 in ``[-1, 1]``."""
     array = np.asarray(image, dtype=np.float32)
     return torch.from_numpy(array).permute(2, 0, 1)[None] / 127.5 - 1.0
+
+
+def prefetch(items, load, ahead: int = 8, workers: int = 4):
+    """Yield ``(item, load(item))`` in order while the next ``ahead`` loads run on
+    ``workers`` threads, so PNG decode and resize overlap the VAE encode."""
+    items = list(items)
+    with ThreadPoolExecutor(workers) as ex:
+        pending = deque(ex.submit(load, x) for x in items[:ahead])
+        for i, x in enumerate(items):
+            if i + ahead < len(items):
+                pending.append(ex.submit(load, items[i + ahead]))
+            yield x, pending.popleft().result()
 
 
 # ------------------------------------------------------------------ source
@@ -607,11 +621,18 @@ def cache_latents(
     torch.cuda.reset_peak_memory_stats()
     t1 = time.time()
     resampled = 0
-    for i, (p, size, w, h, path) in enumerate(plan, 1):
+
+    def load(job):
+        p, _, w, h, _ = job
         image = load_rgb(p.image)
         fitted = fit(image, w, h)
-        resampled += fitted is not image
-        latent = encode(to_pixels(fitted), vae)[0].cpu().contiguous()
+        return fitted, fitted is not image, to_pixels(fitted)
+
+    for i, ((p, size, w, h, path), (fitted, was_resampled, pixels)) in enumerate(
+        prefetch(plan, load), 1
+    ):
+        resampled += was_resampled
+        latent = encode(pixels, vae)[0].cpu().contiguous()
         for *_, old in latent_files(out_dir, p.stem):
             if old != path:
                 old.unlink()
@@ -625,7 +646,7 @@ def cache_latents(
                 "source_size": f"{size[0]}x{size[1]}",
                 "source_mtime": str(p.image.stat().st_mtime),
                 "vae_dtype": vae_dtype,
-                "resampled": str(fitted is not image),
+                "resampled": str(was_resampled),
             },
         )
         if save_crops:
@@ -682,10 +703,14 @@ def cache_refs(
     dtype = torch.float32 if vae_dtype == "fp32" else torch.bfloat16
     vae = load_vae(model_dir, dtype=dtype, device=device)
     t0 = time.time()
-    for i, (stem, cond, w, h, path) in enumerate(plan, 1):
+
+    def load(job):
+        _, cond, w, h, _ = job
+        return to_pixels(fit(fit(load_rgb(cond), w, h), *ref_size(w, h, ref_scale)))
+
+    for i, ((stem, cond, w, h, path), pixels) in enumerate(prefetch(plan, load), 1):
         rw, rh = ref_size(w, h, ref_scale)
-        image = fit(fit(load_rgb(cond), w, h), rw, rh)
-        latent = encode(to_pixels(image), vae)[0].cpu().contiguous()
+        latent = encode(pixels, vae)[0].cpu().contiguous()
         save_file(
             {"latent": latent},
             path,
