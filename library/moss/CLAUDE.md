@@ -1,8 +1,8 @@
 # CLAUDE.md — `library/moss/`
 
 **This is not Anima.** MOSS-Image (OpenMOSS, Apache-2.0) is a 5B single-stream DiT on a
-frozen Qwen3.5-9B text encoder and the frozen FLUX.2 VAE; most root `CLAUDE.md`
-invariants are wrong here. Shared with Anima: `library.runtime.{offloading,blockswap,dynamo}`,
+frozen Qwen3.5-9B text encoder and the frozen FLUX.2 VAE; the Anima
+invariants in the root `CLAUDE.md` are wrong here. Shared with Anima: `library.runtime.{offloading,blockswap,dynamo}`,
 `library.env`, the daemon, the ER-SDE sampler + CNS core (`library.inference.sampling`,
 `library.inference.corrections.cns_core`), `library.training.repa`. Shared with
 `library/qwen21/`: `library.lines` (`requests.py` request base, `adapters.py` LoRA / LoKr /
@@ -39,7 +39,7 @@ always load from Base. Research line: `project/moss_lora/`.
 
 ## What does NOT carry over
 
-| Root `CLAUDE.md` says | Here |
+| Root `CLAUDE.md` (Anima) says | Here |
 |---|---|
 | Latents are 5D `(B,C,T=1,H,W)`, singleton at **dim 2** | **4D packed `(B, 128, H/16, W/16)`** (FLUX.2's 32 ch 2×2-patchified), no frame axis; normalised by the VAE's BatchNorm buffers (`model.pack_latents` / `unpack_latents`) |
 | TE outputs **must** be max-padded; never mask padding | **Never pad.** Each prompt is encoded alone at its true length (Qwen3.5's GDN layers misbehave on padding); `forward_batched` masks padded keys. RoPE places the image at frame position = text length, so padding shifts the image |
