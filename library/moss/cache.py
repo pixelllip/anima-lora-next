@@ -428,7 +428,8 @@ def ref_size(width: int, height: int, ref_scale: int) -> tuple[int, int]:
 
 
 def is_layout_json(raw: str) -> bool:
-    """``raw`` is already a layout-JSON prompt (an object with ``summary``)."""
+    """``raw`` is already a layout-JSON prompt (an object with ``summary``). The MOSS
+    Toolkit's ``moss_layout.py`` carries a copy — change both together."""
     if not raw.startswith("{"):
         return False
     try:
