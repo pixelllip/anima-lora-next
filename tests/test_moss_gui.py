@@ -6,6 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 import torch
 from PIL import Image
 from safetensors.torch import save_file
@@ -51,20 +52,32 @@ def test_scan_counts_prefixed_stems_and_stale_captions(tmp_path):
     assert (c.text, c.latents, c.samples) == (2, 1, 1)
 
 
-def test_every_basic_field_has_chinese():
-    """The GUI's basic (non-advanced) fields all carry a Chinese label + help."""
+@pytest.mark.parametrize("lang", ["ko", "ja", "cn"])
+def test_every_basic_field_is_translated(lang):
+    """The GUI's basic (non-advanced) fields all carry a translated label + help."""
     import dataclasses
 
     from gui.moss.app import SPEC
     from library.moss.requests import I2I_CACHE
 
+    fields = SPEC.fields[lang]
+    fields_test = SPEC.fields_test[lang]
     classes = {SPEC.cache_cls, SPEC.train_cls, SPEC.test_cls, *I2I_CACHE.values()}
     missing = [
         f"{cls.__name__}.{f.name}"
         for cls in classes
         for f in dataclasses.fields(cls)
         if not f.metadata.get("advanced")
-        and f.name not in SPEC.fields_cn
-        and not (cls is SPEC.test_cls and f.name in SPEC.fields_cn_test)
+        and f.name not in fields
+        and not (cls is SPEC.test_cls and f.name in fields_test)
     ]
     assert not missing
+
+
+def test_ui_keys_match_english():
+    from gui.lines import strings as line_strings
+    from gui.moss.strings import UI
+
+    for table in (UI, line_strings.UI):
+        for lang, strings in table.items():
+            assert set(strings) == set(table["en"]), lang

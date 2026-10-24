@@ -34,11 +34,13 @@ def test_build_panel_maps_language_and_leaves_main_i18n(qapp, settings_file):
     i18n.set_language("ko")
     try:
         panel = window.build_panel(SPEC, "ko")
-        assert window._lang == "en"
+        assert window._lang == "ko"
         assert i18n.current_language() == "ko"
         assert not hasattr(panel, "lang_combo")
         window.build_panel(SPEC, "cn")
         assert window._lang == "cn"
+        window.build_panel(SPEC, "xx")
+        assert window._lang == "en"
     finally:
         i18n.set_language("en")
 

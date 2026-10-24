@@ -98,15 +98,25 @@ class LineSpec:
     # Run folder → [(image, multiplier, prompt)] to show; [] while it holds none.
     test_images: Callable[[Path], list[tuple[Path, float, str]]]
     ui: dict[str, dict[str, str]]  # line keys over gui.lines.strings.UI
-    fields_cn: dict[str, tuple[str, str]] = dataclasses.field(default_factory=dict)
+    # lang → field name → (label, help); English falls back to the field's metadata.
+    fields: dict[str, dict[str, tuple[str, str]]] = dataclasses.field(
+        default_factory=dict
+    )
     # Test-request fields whose name means something else on another request.
-    fields_cn_test: dict[str, tuple[str, str]] = dataclasses.field(default_factory=dict)
+    fields_test: dict[str, dict[str, tuple[str, str]]] = dataclasses.field(
+        default_factory=dict
+    )
     # Panel → the ``LinePage`` tabs to add after Train.
     extra_pages: Callable[[Any], list] | None = None
 
     @property
     def labels(self) -> tuple[str, str, str]:
         return (f"{self.key}-cache", f"{self.key}-train", f"{self.key}-test")
+
+    @property
+    def languages(self) -> list[str]:
+        """The codes this line has strings for, in ``LANGUAGES`` order."""
+        return [code for code in LANGUAGES if code in self.ui]
 
 
 _DIR_FIELDS = {"src", "out", "cache", "model_dir", "out_dir"}
@@ -138,11 +148,13 @@ def tr(key: str, **kwargs) -> str:
 
 
 def field_text(f: dataclasses.Field, cls) -> tuple[str, str]:
-    if _lang == "cn" and _spec is not None:
-        if cls is _spec.test_cls and f.name in _spec.fields_cn_test:
-            return _spec.fields_cn_test[f.name]
-        if f.name in _spec.fields_cn:
-            return _spec.fields_cn[f.name]
+    if _spec is not None:
+        test = _spec.fields_test.get(_lang, {})
+        if cls is _spec.test_cls and f.name in test:
+            return test[f.name]
+        fields = _spec.fields.get(_lang, {})
+        if f.name in fields:
+            return fields[f.name]
     return f.name, f.metadata.get("help") or ""
 
 
@@ -388,7 +400,7 @@ class LinePanel(DaemonJobMixin, QWidget):
 
     ``LineWindow`` wraps it standalone; the main GUI's MOSS mode embeds it
     (``build_panel``) and adds its own tabs beside Preprocess / Train
-    (``add_tab``). ``on_language`` adds the en/cn picker (standalone only).
+    (``add_tab``). ``on_language`` adds the language picker (standalone only).
     """
 
     def __init__(
@@ -409,9 +421,9 @@ class LinePanel(DaemonJobMixin, QWidget):
             top.addStretch(1)
             top.addWidget(QLabel(tr("language")))
             self.lang_combo = QComboBox()
-            for code, name in LANGUAGES.items():
-                self.lang_combo.addItem(name, code)
-            self.lang_combo.setCurrentIndex(list(LANGUAGES).index(_lang))
+            for code in spec.languages:
+                self.lang_combo.addItem(LANGUAGES[code], code)
+            self.lang_combo.setCurrentIndex(spec.languages.index(_lang))
             self.lang_combo.currentIndexChanged.connect(
                 lambda: on_language(self.lang_combo.currentData())
             )
@@ -921,7 +933,7 @@ class LineWindow(QMainWindow):
 
 def _set_language(code: str) -> None:
     global _lang
-    _lang = code if code in LANGUAGES else "en"
+    _lang = code if _spec is not None and code in _spec.languages else "en"
     # The job mixin's warnings use the main GUI's table.
     main_i18n.set_language(_lang)
 
@@ -930,11 +942,12 @@ _WINDOW: LineWindow | None = None
 
 
 def build_panel(spec: LineSpec, main_lang: str) -> LinePanel:
-    """The line's panel for embedding in the main GUI: cn when the main GUI is
-    cn, else en. Leaves the main GUI's i18n table alone."""
+    """The line's panel for embedding in the main GUI, in the main GUI's
+    language when the line has it, else en. Leaves the main GUI's i18n table
+    alone."""
     global _spec, _lang
     _spec = spec
-    _lang = "cn" if main_lang == "cn" else "en"
+    _lang = main_lang if main_lang in spec.languages else "en"
     return LinePanel(spec)
 
 
@@ -942,9 +955,7 @@ def run(spec: LineSpec) -> None:
     global _spec
     _spec = spec
     main_lang = main_i18n.load_language()
-    _set_language(
-        get_setting(f"{spec.key}_language") or ("cn" if main_lang == "cn" else "en")
-    )
+    _set_language(get_setting(f"{spec.key}_language") or main_lang)
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )

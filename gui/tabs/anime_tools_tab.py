@@ -20,12 +20,14 @@ from PySide6.QtGui import QColor, QDesktopServices
 from PySide6.QtWidgets import QLabel, QStackedWidget, QVBoxLayout, QWidget
 
 from gui.core import anime_tools_panel
-from gui.i18n import t
+from gui.i18n import current_language, t
 from gui.tabs.preprocess.knobs import DEFAULT_SOURCE_IMAGE_DIR
 from gui.theme import ACTION_COLORS, Pad, tok
 
 _POLL_MS = 400
 _START_TIMEOUT_S = 90.0
+# GUI language → the panel's locale id (``frontend/src/i18n/``).
+_PANEL_LOCALE = {"en": "en", "ko": "ko", "ja": "ja", "cn": "zh"}
 
 
 class AnimeToolsTab(QWidget):
@@ -69,7 +71,7 @@ class AnimeToolsTab(QWidget):
 
     def _make_view(self):
         try:
-            from PySide6.QtWebEngineCore import QWebEnginePage
+            from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineScript
             from PySide6.QtWebEngineWidgets import QWebEngineView
         except ImportError:
             return None
@@ -89,6 +91,7 @@ class AnimeToolsTab(QWidget):
 
         view = QWebEngineView()
         view.setPage(_Page(view))
+        view.page().scripts().insert(_locale_script(QWebEngineScript))
         # Chromium clears to white until the page paints; the view is also kept
         # off-stack until its first load lands (``_on_load_finished``).
         view.page().setBackgroundColor(QColor(tok("window")))
@@ -176,3 +179,18 @@ class AnimeToolsTab(QWidget):
         super().showEvent(event)
         if self._failed:
             self._start()
+
+
+def _locale_script(script_cls):
+    """Opens the panel in the GUI's language: writes the panel's saved-language
+    key (``lang`` in ``localStorage``) before its bundle reads it, on every load.
+    A switch inside the panel lasts until the next load."""
+    locale = _PANEL_LOCALE.get(current_language(), "en")
+    script = script_cls()
+    script.setName("anima-locale")
+    script.setInjectionPoint(script_cls.InjectionPoint.DocumentCreation)
+    script.setWorldId(script_cls.ScriptWorldId.MainWorld)
+    script.setSourceCode(
+        f"try {{ localStorage.setItem('lang', '{locale}'); }} catch (e) {{}}"
+    )
+    return script
