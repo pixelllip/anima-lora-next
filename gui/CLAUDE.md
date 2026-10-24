@@ -39,7 +39,8 @@ must not appear.
   Both are `gui/lines/window.py::LineWindow` (a window around one `LinePanel`) over a
   `LineSpec` built in `gui/<line>/app.py` (request classes, scan helpers, test passes,
   strings). Reuses `theme`, `jobs.daemon`, `DaemonJobMixin`, `widgets` only; strings
-  live in `gui/lines/strings.py` + `gui/<line>/strings.py`, not `gui/i18n/`. The same
+  live in `gui/lines/strings.py` + `gui/<line>/strings.py`, not `gui/i18n/` (MOSS splits
+  its table per language into `gui/moss/strings_{en,ko,ja,cn}.py`). The same
   MOSS panel also runs inside `make gui` (MOSS mode, below). `LineSpec.extra_pages` adds
   `LinePage` tabs after Train that submit through `LinePanel.submit([LineJob…])`, sharing
   the log, Stop and chain queue (unlike `add_tab`, which hides them); MOSS's are the two
