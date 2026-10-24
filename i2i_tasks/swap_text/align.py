@@ -126,11 +126,24 @@ def refine_ecc(src: np.ndarray, tw: np.ndarray, M: np.ndarray, work_px=1600):
     ``src`` at ``work_px``, composed onto ``M``. ORB's partial affine leaves a
     ~1 px misfit that lights every line in the diff; on 60 pages across the
     residual range ECC took the p90 residual from 10.0 to 6.5. Returns ``M``
-    unchanged when ECC fails or wanders past 2 % of the page."""
-    s = work_px / max(src.shape)
-    a = cv2.resize(src, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
-    w = cv2.warpAffine(tw, M, src.shape[::-1], flags=cv2.INTER_LINEAR)
-    b = cv2.resize(w, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
+    unchanged when ECC fails or wanders past 2 % of the page. A page already
+    under ``work_px`` is fit at its own size.
+
+    The fit is masked to where the warped twin covers the page: unmasked, a
+    twin that leaves an uncovered strip drags the fit toward its black border
+    (one such work: residual 6.6 before ECC, 8.5 after, 5.1 masked). ECC stops
+    when the correlation moves < 1e-3; at 1e-6 some works oscillated to the
+    iteration cap (~40 ms each) for < 0.03 px of change."""
+    s = min(1.0, work_px / max(src.shape))
+    size = src.shape[::-1]
+    a = src
+    b = cv2.warpAffine(tw, M, size, flags=cv2.INTER_LINEAR)
+    mask = cv2.warpAffine(np.full(tw.shape, 255, np.uint8), M, size)
+    mask = cv2.erode(mask, np.ones((15, 15), np.uint8))
+    if s < 1:
+        a = cv2.resize(a, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
+        b = cv2.resize(b, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
+        mask = cv2.resize(mask, a.shape[::-1], interpolation=cv2.INTER_NEAREST)
     R = np.eye(2, 3, dtype=np.float32)
     try:
         _, R = cv2.findTransformECC(
@@ -138,8 +151,8 @@ def refine_ecc(src: np.ndarray, tw: np.ndarray, M: np.ndarray, work_px=1600):
             b.astype(np.float32),
             R,
             cv2.MOTION_AFFINE,
-            (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 100, 1e-6),
-            None,
+            (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 1e-3),
+            mask,
             5,
         )
     except cv2.error:

@@ -7,8 +7,10 @@ same page with the translated lettering, and the caption lists the target's
 text. Three stages, each idempotent:
 
 1. **build** (CPU, ``--workers``) — per work × language: phash-align pages,
-   register the twin onto the JA page (ORB partial affine, refined by ECC),
-   drop unregistered and off-scale pages, diff out the lettering regions, warp
+   register the twin onto the JA page (ORB partial affine), drop unregistered
+   and off-scale pages; then, at the MOSS cache's ``target_size`` for
+   ``--resolution`` (so the cache encodes the staged pages as-is), refine the
+   registration by ECC, diff out the lettering regions, warp
    the twin into the JA frame, colour-match it there (``colour_match``) and
    fill the strip it does not cover from the JA page, then grow each region
    over the pixel diff connected to it (``grow_regions``). Regions whose grown
@@ -78,6 +80,7 @@ from align import (  # noqa: E402
 )
 
 from library.env import resolve_under_home  # noqa: E402
+from library.moss.cache import target_size  # noqa: E402
 
 LANG_TAG = {"en": "english text", "ko": "korean text"}
 # kana / CJK ideographs: in a translated edition's region these are the reader
@@ -259,6 +262,12 @@ def _group_metrics(groups, regions, labels, diff, dilate_frac, band=6, near_frac
     return out
 
 
+def _resize(img: np.ndarray, size: tuple[int, int]) -> np.ndarray:
+    if (img.shape[1], img.shape[0]) == size:
+        return img
+    return cv2.resize(img, size, interpolation=cv2.INTER_AREA)
+
+
 def _chroma(img: np.ndarray, keep: np.ndarray) -> float:
     return float(cv2.cvtColor(img, cv2.COLOR_BGR2HSV)[..., 1][keep].mean())
 
@@ -314,32 +323,30 @@ def _build_work(work: Path, lang: str, a) -> str:
         if abs(scale / work_scale - 1) > a.scale_tol:
             pages.append({**page, "status": "scale_outlier"})
             continue
-        M = refine_ecc(src_g[i], tw_g[j], M)
+        # ECC and everything after run at the staged size; the twin is warped
+        # at native size so both pages go through the same resize
         H, W = src_g[i].shape
+        size = target_size(W, H, a.resolution)
+        M = refine_ecc(src_g[i], tw_g[j], M, work_px=max(size))
         interp = cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR
-        warped_g = cv2.warpAffine(tw_g[j], M, (W, H), flags=interp)
+
+        def warp(img):
+            return _resize(cv2.warpAffine(img, M, (W, H), flags=interp), size)
+
         valid = cv2.warpAffine(np.full(tw_g[j].shape, 255, np.uint8), M, (W, H))
         valid = cv2.erode(valid, np.ones((15, 15), np.uint8))
-        regions, labels, changed = diff_regions(src_g[i], warped_g, valid)
+        valid = cv2.resize(valid, size, interpolation=cv2.INTER_NEAREST)
+        regions, labels, changed = diff_regions(
+            _resize(src_g[i], size), warp(tw_g[j]), valid
+        )
         page["changed_frac"] = round(changed, 4)
         if not regions:
             pages.append({**page, "status": "no_regions"})
             continue
 
-        src = cv2.imread(str(src_files[i]), cv2.IMREAD_COLOR)
-        tgt = cv2.warpAffine(
-            cv2.imread(str(tw_files[j]), cv2.IMREAD_COLOR), M, (W, H), flags=interp
-        )
+        src = _resize(cv2.imread(str(src_files[i]), cv2.IMREAD_COLOR), size)
+        tgt = warp(cv2.imread(str(tw_files[j]), cv2.IMREAD_COLOR))
         labels[valid == 0] = INVALID
-        s = min(1.0, a.max_edge / max(H, W))
-        if s < 1:
-            size = (round(W * s), round(H * s))
-            src = cv2.resize(src, size, interpolation=cv2.INTER_AREA)
-            tgt = cv2.resize(tgt, size, interpolation=cv2.INTER_AREA)
-            labels = cv2.resize(labels, size, interpolation=cv2.INTER_NEAREST)
-            for r in regions:
-                r["box"] = [round(v * s) for v in r["box"]]
-                r["area"] = round(r["area"] * s * s)
         keep = labels == 0
         if abs(_chroma(src, keep) - _chroma(tgt, keep)) > a.max_chroma_gap:
             pages.append({**page, "status": "chroma_mismatch"})
@@ -671,7 +678,13 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=0, help="works per language (build)")
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--force", action="store_true", help="rebuild built works")
-    ap.add_argument("--max_edge", type=int, default=2048, help="staged long edge cap")
+    ap.add_argument(
+        "--resolution",
+        type=int,
+        default=1024,
+        help="staged size: the MOSS cache's target_size at this resolution, so the "
+        "cache encodes the pages as-is; the build diffs at this size too",
+    )
     ap.add_argument("--min_inliers", type=int, default=50)
     ap.add_argument(
         "--scale_tol", type=float, default=0.02, help="max |scale / work median - 1|"
