@@ -3,8 +3,8 @@
 
 Every hitocrawl work is the same pages lettered in JA and in a translated
 edition (``en/``, ``ko/``). The condition is the JA page; the target is the
-same page with the translated lettering, and the caption lists the target's
-text. Three stages, each idempotent:
+same page with its translated lettering pasted where the OCR can read it, and
+the caption lists the text read off that target. Four stages, each idempotent:
 
 1. **build** (CPU, ``--workers``) — per work × language: phash-align pages,
    register the twin onto the JA page (ORB partial affine), drop unregistered
@@ -14,7 +14,7 @@ text. Three stages, each idempotent:
    the twin into the JA frame, colour-match it there (``colour_match``) and
    fill the strip it does not cover from the JA page, then grow each region
    over the pixel diff connected to it (``grow_regions``). Regions whose grown
-   labels touch form a *group*, the unit a partial swap pastes. Each page
+   labels touch form a *group*, the unit a swap pastes. Each page
    records ``resid`` (mean |src − tgt| outside the lettering) and
    ``uncovered``; each group its ``seam`` (the same just outside its paste
    mask) and ``leftover`` (strong diff connected to the paste mask but outside
@@ -22,34 +22,41 @@ text. Three stages, each idempotent:
    ``<root>/work/<lang>/<anchor>/{page}.src.webp`` / ``.tgt.webp`` /
    ``.lab.png`` (region ``k`` as ``k + 1``, 255 outside the warped twin) and
    ``pages.json``, the work's completion marker.
-2. **ocr** (GPU) — reads every ``.tgt.webp`` with regions through the
-   anime_tools reader, with the MOSS caption helper's floors
+2. **ocr** (GPU) — reads every twin ``.tgt.webp`` within ``--max_resid`` /
+   ``--max_uncovered`` through the anime_tools
+   reader, with the MOSS caption helper's floors
    (``library.moss.colorize.readable``), into ``<root>/ocr.json``.
 3. **assemble** (CPU) — drops pages past ``--max_resid`` (another scan, not
-   a relettering) or ``--max_uncovered``, and assigns each OCR line to the
+   a relettering) or ``--max_uncovered``, and assigns each twin OCR line to the
    region its centre falls in. A line holding kana or CJK ideographs
-   (``JA_SCRIPT``) inside a region is a misread of the translated lettering
-   and never captions. Two modes:
+   (``JA_SCRIPT``) inside a region is a misread of the translated lettering.
+   A group is *clean* when a non-misread line landed in it, none misread, its
+   ``seam`` ≤ ``--max_seam`` and ``leftover`` ≤ ``--max_leftover``; a page
+   with none drops. Every target is the JA page with groups pasted from the
+   twin — lettering the reader cannot read, or that a paste would tear, stays
+   JA:
 
-   * **full** — the target is the whole translated page; the caption lists
-     every line on it.
-   * **partial** (``--partial_ratio`` of the pairs) — the target is the JA
-     page with a random subset of the *clean* groups pasted from the twin
-     (captioned, no misread line, ``seam`` ≤ ``--max_seam``, ``leftover`` ≤
-     ``--max_leftover``), at least one group left JA; the caption lists the
-     pasted groups' lines only, so whatever it does not name stays the source.
+   * **full** — every clean group pasted.
+   * **partial** (``--partial_ratio`` of the pairs) — a random proper subset
+     of the clean groups.
 
-   The caption is layout JSON: ``{"summary": {"caption": "comic, english
-   text"}, "items": [one text item per line]}``. Writes
-   ``<root>/staging/<lang>/{stem}`` (``.tgt.webp``, ``.txt``, ``.src.webp``
-   symlink; a full target is a symlink too), ``pairs.jsonl`` and
-   ``stats.json``; reruns rewrite the whole tree.
+   Writes ``<root>/staging/<lang>/{stem}`` (``.tgt.webp``, ``.src.webp``
+   symlink), ``plan.jsonl`` and ``stats.json``; reruns rewrite the tree.
+4. **caption** — captions each target with the twin read's lines in its
+   pasted groups (CPU), or with ``--caption_ocr`` (GPU) with a second read of
+   the staged target itself (``<root>/ocr_staged.json``, keyed by page and
+   pasted regions); either way only lines holding no kana or CJK ideograph, so
+   JA lettering — left by the translator or by a partial swap — is never named
+   and stays the source; a target with no such line drops. The caption is layout JSON:
+   ``{"summary": {"caption": "comic, english text"}, "items": [one text item
+   (text + bbox) per line]}``. Writes ``{stem}.txt``, ``pairs.jsonl`` and the
+   final ``stats.json``.
 
 Stems are ``{anchor}_{page}_{lang}``; ``pairs.jsonl`` rows carry ``work`` so a
 holdout can split by work (the same work appears in both languages).
 
     make i2i-stage TASK=swap_text ARGS="--limit 4"
-    make daemon-run ARGS="i2i_tasks/swap_text/prep.py --stages ocr assemble"
+    make daemon-run ARGS="i2i_tasks/swap_text/prep.py --stages ocr assemble caption"
 """
 
 from __future__ import annotations
@@ -437,7 +444,9 @@ def ok_pages(a) -> list[dict]:
 # ------------------------------------------------------------------ ocr
 
 
-def stage_ocr(a) -> None:
+def _ocr_reader(a):
+    """``(engine, readable)``: the anime_tools reader with the MOSS caption
+    helper's floors (``library.moss.colorize.readable``)."""
     from anime_tools.ocr import load_ocr
     from anime_tools.ocr.animetext import DEFAULT_CONF
     from anime_tools.ocr.reread import RereadEngine
@@ -445,12 +454,6 @@ def stage_ocr(a) -> None:
 
     from library.moss.colorize import readable
 
-    path = a.root / "ocr.json"
-    reads = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    todo = [p for p in ok_pages(a) if p["key"] not in reads]
-    print(f"ocr: {len(todo)} pages to read ({len(reads)} already read)", flush=True)
-    if not todo:
-        return
     reader = SfxReader.load(device=a.device)
     engine = RereadEngine(
         engine=load_ocr(device=a.device),
@@ -459,18 +462,84 @@ def stage_ocr(a) -> None:
         skip_en=False,
         min_det=DEFAULT_CONF,
     )
-    paths = [p["dir"] / f"{p['page']}.tgt.webp" for p in todo]
-    t0 = time.time()
-    for k, (p, lines) in enumerate(zip(todo, engine.read_iter(paths)), 1):
-        reads[p["key"]] = [[ln.text, list(ln.box)] for ln in lines if readable(ln)]
-        if k % 200 == 0 or k == len(todo):
-            _write_text(path, json.dumps(reads, ensure_ascii=False))
+    return engine, readable
+
+
+def _read_into(a, path: Path, todo: list, paths: list[Path], label: str) -> dict:
+    """Read ``paths`` into the ``{key: [[text, box], ...]}`` cache at ``path``;
+    ``todo`` holds each path's key. Returns the whole cache.
+
+    ``--ocr_procs`` > 1 splits the unread pages over that many processes, each
+    with its own reader and its own ``{stem}.{i}of{n}.json``: the VL re-read
+    decodes one page's boxes at a time, so one process leaves the GPU idle
+    between launches. Shard files left by an interrupted run fold in first."""
+    reads = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    shards = sorted(path.parent.glob(f"{path.stem}.*of*.json"))
+    for sp in shards:
+        reads.update(json.loads(sp.read_text(encoding="utf-8")))
+    if shards:
+        _write_text(path, json.dumps(reads, ensure_ascii=False))
+        for sp in shards:
+            sp.unlink()
+    keep = [(k, p) for k, p in zip(todo, paths) if k not in reads]
+    print(f"{label}: {len(keep)} pages to read ({len(reads)} cached)", flush=True)
+    if not keep:
+        return reads
+    n = max(1, min(a.ocr_procs, len(keep)))
+    if n == 1:
+        reads.update(_read_shard((a, path, keep, label)))
+        _write_text(path, json.dumps(reads, ensure_ascii=False))
+        return reads
+    import multiprocessing as mp
+
+    jobs = [
+        (a, path.with_name(f"{path.stem}.{i}of{n}.json"), keep[i::n], f"{label}[{i}]")
+        for i in range(n)
+    ]
+    with mp.get_context("spawn").Pool(n) as pool:
+        for part in pool.imap_unordered(_read_shard, jobs):
+            reads.update(part)
+    _write_text(path, json.dumps(reads, ensure_ascii=False))
+    for _, sp, _, _ in jobs:
+        sp.unlink(missing_ok=True)
+    return reads
+
+
+def _read_shard(job) -> dict:
+    """Read ``keep`` (``[(key, path)]``), checkpointing to ``out`` every 200
+    pages and reporting every 50."""
+    a, out, keep, label = job
+    engine, readable = _ocr_reader(a)
+    reads, t0 = {}, time.time()
+    lines_iter = engine.read_iter([p for _, p in keep])
+    for k, ((key, _), lines) in enumerate(zip(keep, lines_iter), 1):
+        reads[key] = [[ln.text, list(ln.box)] for ln in lines if readable(ln)]
+        if k % 200 == 0 or k == len(keep):
+            _write_text(out, json.dumps(reads, ensure_ascii=False))
+        # the daemon kills a job silent for 120 s; a shard does ~1 page/s
+        if k % 50 == 0 or k == len(keep):
             rate = k / (time.time() - t0)
             print(
-                f"  ocr {k}/{len(todo)}, {rate:.2f} page/s, "
-                f"eta {(len(todo) - k) / rate / 60:.0f} min",
+                f"  {label} {k}/{len(keep)}, {rate:.2f} page/s, "
+                f"eta {(len(keep) - k) / rate / 60:.0f} min",
                 flush=True,
             )
+    return reads
+
+
+def stage_ocr(a) -> None:
+    pages = [
+        p
+        for p in ok_pages(a)
+        if p["resid"] <= a.max_resid and p["uncovered"] <= a.max_uncovered
+    ]
+    _read_into(
+        a,
+        a.root / "ocr.json",
+        [p["key"] for p in pages],
+        [p["dir"] / f"{p['page']}.tgt.webp" for p in pages],
+        "ocr",
+    )
 
 
 # ------------------------------------------------------------------ assemble
@@ -514,34 +583,25 @@ def caption(lang: str, lines: list, size) -> str:
 
 
 def compose_job(job) -> None:
-    """Write one pair: the target (a symlink for a full pair, else the
-    composite), its caption, the source symlink."""
-    p, chosen, lines, root, dilate, feather = job
+    """Write one pair's composite target and source symlink."""
+    p, chosen, root, dilate, feather = job
     stem = f"{p['anchor']}_{p['page']}_{p['lang']}"
     base = root / "staging" / p["lang"]
     base.mkdir(parents=True, exist_ok=True)
-
-    def link(name, target):
-        (base / name).unlink(missing_ok=True)
-        (base / name).symlink_to(os.path.relpath(target, base))
-
-    if chosen is None:
-        link(f"{stem}.tgt.webp", p["dir"] / f"{p['page']}.tgt.webp")
-    else:
-        src = cv2.imread(str(p["dir"] / f"{p['page']}.src.webp"), cv2.IMREAD_COLOR)
-        tgt = cv2.imread(str(p["dir"] / f"{p['page']}.tgt.webp"), cv2.IMREAD_COLOR)
-        labels = cv2.imread(
-            str(p["dir"] / f"{p['page']}.lab.png"), cv2.IMREAD_UNCHANGED
-        )
-        mask = paste_mask(labels, chosen, dilate)
-        alpha = mask.astype(np.float32)
-        if feather:
-            alpha = cv2.GaussianBlur(alpha, (0, 0), feather) * mask
-        alpha = alpha[..., None]
-        out = np.clip(src * (1 - alpha) + tgt * alpha + 0.5, 0, 255).astype(np.uint8)
-        _imwrite(base / f"{stem}.tgt.webp", out, WEBP)
-    _write_text(base / f"{stem}.txt", caption(p["lang"], lines, p["size"]))
-    link(f"{stem}.src.webp", p["dir"] / f"{p['page']}.src.webp")
+    src = cv2.imread(str(p["dir"] / f"{p['page']}.src.webp"), cv2.IMREAD_COLOR)
+    tgt = cv2.imread(str(p["dir"] / f"{p['page']}.tgt.webp"), cv2.IMREAD_COLOR)
+    labels = cv2.imread(str(p["dir"] / f"{p['page']}.lab.png"), cv2.IMREAD_UNCHANGED)
+    mask = paste_mask(labels, chosen, dilate)
+    alpha = mask.astype(np.float32)
+    if feather:
+        alpha = cv2.GaussianBlur(alpha, (0, 0), feather) * mask
+    alpha = alpha[..., None]
+    out = np.clip(src * (1 - alpha) + tgt * alpha + 0.5, 0, 255).astype(np.uint8)
+    _imwrite(base / f"{stem}.tgt.webp", out, WEBP)
+    (base / f"{stem}.src.webp").unlink(missing_ok=True)
+    (base / f"{stem}.src.webp").symlink_to(
+        os.path.relpath(p["dir"] / f"{p['page']}.src.webp", base)
+    )
 
 
 def stage_assemble(a) -> None:
@@ -551,16 +611,16 @@ def stage_assemble(a) -> None:
         ["unread", "resid", "uncovered", "uncaptioned", "misread_lines"], 0
     )
     for p in ok_pages(a):
-        if p["key"] not in reads:
-            n["unread"] += 1
-            continue
         if p["resid"] > a.max_resid:
             n["resid"] += 1
             continue
         if p["uncovered"] > a.max_uncovered:
             n["uncovered"] += 1
             continue
-        lines = [[t.replace('"', "”").strip(), b] for t, b in reads[p["key"]]]
+        if p["key"] not in reads:
+            n["unread"] += 1
+            continue
+        lines = [[t.strip(), b] for t, b in reads[p["key"]]]
         lines = [ln for ln in lines if ln[0]]
         owner = assign_lines(lines, p["regions"], a.pad_frac)
         misread = [
@@ -569,15 +629,10 @@ def stage_assemble(a) -> None:
         ]
         n["misread_lines"] += sum(misread)
         bad = {k for k, m in zip(owner, misread) if m}
-        lines, owner = (
-            [ln for ln, m in zip(lines, misread) if not m],
-            [k for k, m in zip(owner, misread) if not m],
-        )
-        if all(k is None for k in owner):
-            n["uncaptioned"] += 1
-            continue
         group_of = {k: gi for gi, g in enumerate(p["groups"]) for k in g["regions"]}
-        has_line = {group_of[k] for k in owner if k is not None}
+        has_line = {
+            group_of[k] for k, m in zip(owner, misread) if k is not None and not m
+        }
         clean = [
             gi
             for gi, g in enumerate(p["groups"])
@@ -586,36 +641,33 @@ def stage_assemble(a) -> None:
             and g["seam"] <= a.max_seam
             and g["leftover"] <= a.max_leftover
         ]
-        pages.append((p, lines, owner, group_of, clean))
+        if not clean:
+            n["uncaptioned"] += 1
+            continue
+        lines = [
+            (ln, group_of[k])
+            for ln, k, m in zip(lines, owner, misread)
+            if k is not None and not m
+        ]
+        pages.append((p, clean, lines))
 
-    def eligible(p, clean):
-        return bool(clean) and len(p["groups"]) >= 2
-
-    n_eligible = sum(eligible(p, c) for p, *_, c in pages)
+    n_eligible = sum(len(c) >= 2 for _, c, _ in pages)
     p_partial = min(1.0, a.partial_ratio * len(pages) / max(n_eligible, 1))
-    for p, lines, owner, group_of, clean in pages:
+    for p, clean, lines in pages:
         stem = f"{p['anchor']}_{p['page']}_{p['lang']}"
         rng = random.Random(_stable_seed(f"{a.seed}:{stem}"))
-        if eligible(p, clean) and rng.random() < p_partial:
-            k = rng.randint(1, min(len(clean), len(p["groups"]) - 1))
-            groups = sorted(rng.sample(clean, k))
-            chosen = sorted(r for gi in groups for r in p["groups"][gi]["regions"])
-            keep = [
-                ln
-                for ln, r in zip(lines, owner)
-                if r is not None and group_of[r] in groups
-            ]
-            plans.append((p, stem, chosen, keep, len(groups)))
-        else:
-            plans.append((p, stem, None, lines, len(p["groups"])))
+        groups = clean
+        if len(clean) >= 2 and rng.random() < p_partial:
+            groups = sorted(rng.sample(clean, rng.randint(1, len(clean) - 1)))
+        chosen = sorted(r for gi in groups for r in p["groups"][gi]["regions"])
+        keep = [ln for ln, gi in lines if gi in groups]
+        plans.append((p, stem, chosen, keep, len(groups), len(clean)))
 
     staging = a.root / "staging"
     for f in staging.glob("*/*"):
         f.unlink()
-    jobs = [
-        (p, chosen, keep, a.root, a.dilate_frac, a.feather)
-        for p, _, chosen, keep, _ in plans
-    ]
+    (staging / "pairs.jsonl").unlink(missing_ok=True)
+    jobs = [(p, chosen, a.root, a.dilate_frac, a.feather) for p, _, chosen, *_ in plans]
     t0 = time.time()
     with Pool(a.workers, initializer=_single_thread) as pool:
         for k, _ in enumerate(pool.imap_unordered(compose_job, jobs, chunksize=4), 1):
@@ -627,36 +679,103 @@ def stage_assemble(a) -> None:
     rows = [
         {
             "stem": stem,
-            "target": f"{p['lang']}/{stem}.tgt.webp",
-            "cond": f"{p['lang']}/{stem}.src.webp",
-            "caption": f"{p['lang']}/{stem}.txt",
+            "key": p["key"],
             "work": p["anchor"],
             "lang": p["lang"],
-            "mode": "full" if chosen is None else "partial",
+            "size": p["size"],
+            "mode": "full" if n_swapped == n_clean else "partial",
             "groups": len(p["groups"]),
+            "clean_groups": n_clean,
             "swapped_groups": n_swapped,
-            "lines": len(keep),
+            "chosen": chosen,
+            "lines": keep,
         }
-        for p, stem, chosen, keep, n_swapped in plans
+        for p, stem, chosen, keep, n_swapped, n_clean in plans
     ]
     _write_text(
-        staging / "pairs.jsonl",
+        staging / "plan.jsonl",
         "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows),
     )
     stats = {
-        "pairs": len(rows),
-        "by_lang": {lang: sum(r["lang"] == lang for r in rows) for lang in a.langs},
-        "partial": sum(r["mode"] == "partial" for r in rows),
+        "planned": len(rows),
         "partial_eligible": n_eligible,
-        "works": len({r["work"] for r in rows}),
         **{f"dropped_{k}": v for k, v in n.items() if k != "misread_lines"},
         "misread_lines": n["misread_lines"],
         "clean_group_frac": round(
-            sum(len(c) for *_, c in pages)
+            sum(len(c) for _, c, _ in pages)
             / max(sum(len(p["groups"]) for p, *_ in pages), 1),
             3,
         ),
     }
+    _write_text(staging / "stats.json", json.dumps(stats, indent=1))
+    print(json.dumps(stats, indent=1), flush=True)
+
+
+# ------------------------------------------------------------------ caption
+
+
+def stage_caption(a) -> None:
+    staging = a.root / "staging"
+    plan = [
+        json.loads(ln)
+        for ln in (staging / "plan.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+
+    def key(r):
+        return f"{r['key']}:{','.join(map(str, r['chosen']))}"
+
+    if a.caption_ocr:
+        reads = _read_into(
+            a,
+            a.root / "ocr_staged.json",
+            [key(r) for r in plan],
+            [staging / r["lang"] / f"{r['stem']}.tgt.webp" for r in plan],
+            "caption ocr",
+        )
+    rows, n_ja, n_empty = [], 0, 0
+    for r in plan:
+        base = staging / r["lang"]
+        read = reads[key(r)] if a.caption_ocr else r["lines"]
+        lines = [[t.replace('"', "”").strip(), b] for t, b in read]
+        lines = [ln for ln in lines if ln[0]]
+        keep = [ln for ln in lines if not JA_SCRIPT.search(ln[0])]
+        n_ja += len(lines) - len(keep)
+        if not keep:
+            n_empty += 1
+            for ext in (".tgt.webp", ".src.webp", ".txt"):
+                (base / f"{r['stem']}{ext}").unlink(missing_ok=True)
+            continue
+        _write_text(base / f"{r['stem']}.txt", caption(r["lang"], keep, r["size"]))
+        rows.append(
+            {
+                "stem": r["stem"],
+                "target": f"{r['lang']}/{r['stem']}.tgt.webp",
+                "cond": f"{r['lang']}/{r['stem']}.src.webp",
+                "caption": f"{r['lang']}/{r['stem']}.txt",
+                "work": r["work"],
+                "lang": r["lang"],
+                "mode": r["mode"],
+                "groups": r["groups"],
+                "clean_groups": r["clean_groups"],
+                "swapped_groups": r["swapped_groups"],
+                "lines": len(keep),
+            }
+        )
+    _write_text(
+        staging / "pairs.jsonl",
+        "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows),
+    )
+    stats = json.loads((staging / "stats.json").read_text(encoding="utf-8"))
+    stats.update(
+        {
+            "pairs": len(rows),
+            "by_lang": {lang: sum(r["lang"] == lang for r in rows) for lang in a.langs},
+            "partial": sum(r["mode"] == "partial" for r in rows),
+            "works": len({r["work"] for r in rows}),
+            "dropped_unread_target": n_empty,
+            "ja_lines_dropped": n_ja,
+        }
+    )
     _write_text(staging / "stats.json", json.dumps(stats, indent=1))
     print(json.dumps(stats, indent=1), flush=True)
 
@@ -668,8 +787,8 @@ def main() -> None:
     ap.add_argument(
         "--stages",
         nargs="+",
-        default=["build", "ocr", "assemble"],
-        choices=["build", "ocr", "assemble"],
+        default=["build", "ocr", "assemble", "caption"],
+        choices=["build", "ocr", "assemble", "caption"],
     )
     ap.add_argument("--hito", type=Path, default=Path.home() / "hitocrawl/retrieved")
     ap.add_argument("--root", default="post_image_dataset/i2i/swap_text")
@@ -696,6 +815,18 @@ def main() -> None:
         help="mean HSV saturation gap above which a colour / B&W edition pair drops",
     )
     ap.add_argument("--device", default="cuda")
+    ap.add_argument(
+        "--caption_ocr",
+        action="store_true",
+        help="caption from a second read of each staged target (GPU) instead of "
+        "the twin read's lines in the pasted groups",
+    )
+    ap.add_argument(
+        "--ocr_procs",
+        type=int,
+        default=2,
+        help="OCR processes sharing the GPU (each loads its own reader)",
+    )
     ap.add_argument(
         "--partial_ratio",
         type=float,
@@ -744,7 +875,12 @@ def main() -> None:
     a.root = resolve_under_home(a.root)
     a.works = set(a.works or [])
     for stage in a.stages:
-        {"build": stage_build, "ocr": stage_ocr, "assemble": stage_assemble}[stage](a)
+        {
+            "build": stage_build,
+            "ocr": stage_ocr,
+            "assemble": stage_assemble,
+            "caption": stage_caption,
+        }[stage](a)
 
 
 if __name__ == "__main__":

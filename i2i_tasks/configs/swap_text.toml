@@ -4,7 +4,7 @@ name = "swap_text"
 # edition twins; i2i_tasks/swap_text/prep.py). MOSS-only — the staging tree's
 # pairs.jsonl feeds configs/moss/i2i/swap_text/cache.toml.
 #
-#   make i2i-stage TASK=swap_text ARGS="--limit 4"      # build + ocr (GPU) + assemble
+#   make i2i-stage TASK=swap_text ARGS="--limit 4"      # build + ocr (GPU) + assemble + caption
 #   make i2i-preprocess TASK=swap_text MODEL=moss
 
 [staging]
