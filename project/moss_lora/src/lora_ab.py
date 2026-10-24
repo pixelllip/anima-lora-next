@@ -33,7 +33,7 @@ from _render import (
 from library.env import resolve_under_home
 from library.moss.cache import caption_converter
 from library.moss.cns import MossCNS
-from library.moss.loader import empty_cache, load_vae
+from library.moss.loader import TE_PRECISIONS, empty_cache, load_vae
 from library.moss.model import snapped_sigmas
 
 PROMPTS = [
@@ -56,6 +56,11 @@ def main() -> None:
         "--artist",
         default="@channel (caststation)",
         help="artist tag substituted into PROMPTS (the LoRA's trigger)",
+    )
+    ap.add_argument(
+        "--prompts_file",
+        default="",
+        help="one prompt per line ({artist} substituted) in place of PROMPTS",
     )
     ap.add_argument("--variants", default="base,sft")
     ap.add_argument("--seeds", default="1,2")
@@ -91,6 +96,12 @@ def main() -> None:
         help="encode PROMPTS as typed or mapped to layout JSON (match the LoRA's cache)",
     )
     ap.add_argument(
+        "--te_precision",
+        default="bf16",
+        choices=TE_PRECISIONS,
+        help="prompt TE weights (match the LoRA's cache encoder)",
+    )
+    ap.add_argument(
         "--out", default="", help="default: output/tests/ab_<lora stem>_<steps>st"
     )
     args = ap.parse_args()
@@ -102,13 +113,17 @@ def main() -> None:
     )
     out.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda")
+    templates = PROMPTS
+    if args.prompts_file:
+        lines = resolve_under_home(args.prompts_file).read_text().splitlines()
+        templates = [line for line in lines if line.strip()]
     prompts = [
         caption_converter(args.prompt_format)(p.format(artist=args.artist))
-        for p in PROMPTS
+        for p in templates
     ]
 
     lora = resolve_under_home(args.lora)
-    embeds, uncond, uncond_mask = uncond_embeds(device, prompts)
+    embeds, uncond, uncond_mask = uncond_embeds(device, prompts, args.te_precision)
     sigmas = snapped_sigmas(args.steps)
     tag = settings_tag(
         lora=lora_id(lora),
@@ -118,6 +133,8 @@ def main() -> None:
         size=args.size,
         compile=args.compile,
         spectrum=spectrum_settings(args.spectrum),
+        # bf16 stays out of the digest so latents rendered before the flag resume.
+        **({"te": args.te_precision} if args.te_precision != "bf16" else {}),
     )
     cns_tag = settings_tag(base=tag, cns_gamma=args.cns_gamma)
     lat_dir = out / "latents"
