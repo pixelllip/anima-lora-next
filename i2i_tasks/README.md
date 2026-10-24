@@ -31,6 +31,7 @@ OCR captions). The MOSS task list is `library.moss.requests.I2I_CACHE`; the GUI'
 | `near_twins`, `sanitize` | `tools/near_twins/` | in-artist near-twin pair tree |
 | `subject`, `subject_edit` | `tools/subject_pairs.py`, `tools/subject_edit_pairs.py` | subject pairs |
 | `phash_edit` | `tools/phash_edit_pairs.py` | perceptual-hash aligned edit pairs |
+| `swap_text` | `swap_text/` | hitocrawl JA page → translated-edition lettering, registered + composited; target-side OCR captions, half the pairs swap only some regions (MOSS-only) |
 
 The task registry is `_EASY_ADAPTERS` in `scripts/tasks/training.py` (a `stage` and a
 `preprocess` body per task); knobs are the `[staging]` table of

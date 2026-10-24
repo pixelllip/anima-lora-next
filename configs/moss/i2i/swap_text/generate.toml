@@ -1,0 +1,14 @@
+# MOSS i2i test for the swap_text task — GenerateRequest fields.
+#
+#   make daemon-run ARGS="scripts/moss/generate.py --config configs/moss/i2i/swap_text/generate.toml \
+#       --lora output/ckpt_moss/moss_i2i_swap_text.safetensors --ref_image <JA page> --prompt '<layout JSON>'"
+#
+# The prompt is the staged caption's shape: one text item per line to letter, its
+# bbox in the reference's abs_centralized yxyx pixels; a balloon left out stays JA.
+# The placeholder below is one line on a 1024 × 1448 page; the JA page is the
+# full-size reference.
+
+prompt = '{"summary":{"caption":"comic, english text"},"items":[{"label":"text","caption":"text","text":"WHAT ARE YOU DOING?","bbox":[-600,250,-420,400]}],"bbox_coord_space":"abs_centralized","bbox_format":"yxyx"}'
+prompt_format = "text"
+ref_scale = 1
+out_dir = "output/tests/moss_i2i_swap_text"

@@ -648,6 +648,7 @@ I2I_CONFIG_DIR = "configs/moss/i2i"
 I2I_CACHE: dict[str, type[Request]] = {
     "colorize": ColorizeCacheRequest,
     "sanitize": CacheRequest,
+    "swap_text": CacheRequest,
 }
 
 

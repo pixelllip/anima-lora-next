@@ -1234,6 +1234,30 @@ def _twin_edit_stage(adapter: str, cfg: dict, base: str, extra) -> None:
     )
 
 
+def _swap_text_stage(adapter: str, cfg: dict, base: str, extra) -> None:
+    """swap_text staging: hitocrawl JA ↔ translated twins → registered pairs,
+    OCR captions (GPU) and composite targets under ``{base}``. Knobs come from
+    the descriptor's ``[staging]`` table."""
+    knobs = _toml_table_to_argv(cfg.get("staging") or {})
+    run(
+        [
+            PY,
+            "i2i_tasks/swap_text/prep.py",
+            "--root",
+            base,
+            *knobs,
+            *list(extra or []),
+        ]
+    )
+
+
+def _moss_only_preprocess(adapter: str, cfg: dict, base: str, extra) -> None:
+    raise SystemExit(
+        f"{adapter} has no EasyControl encode: "
+        f"make i2i-preprocess TASK={adapter} MODEL=moss"
+    )
+
+
 # Per-adapter materialization bodies (training is generic via _easy_train_extra);
 # only `stage` (data gen) + `preprocess` (VAE/TE caching) differ per adapter.
 # Both receive ``(adapter, cfg, base, extra)``.
@@ -1262,6 +1286,8 @@ _EASY_ADAPTERS = {
     # over the curated one. Bespoke preprocess: the miner stages a deduplicated
     # pool and the pair views are symlinks, so each image is encoded ONCE.
     "phash_edit": {"stage": _phash_edit_stage, "preprocess": _phash_edit_preprocess},
+    # JA page → translated lettering from hitocrawl edition twins (MOSS-only).
+    "swap_text": {"stage": _swap_text_stage, "preprocess": _moss_only_preprocess},
 }
 
 
