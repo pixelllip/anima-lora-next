@@ -62,8 +62,9 @@ int8 became the default re-encodes on the next `cache` run unless it passes
 ## Training
 
 - **Defaults**: `--rank 32`, alpha 128 for `lora` (scale 4; `lokr` / `loha` use
-  alpha = rank), `--lr 5e-5`, `--channel_scaling_alpha 0.5`, `--dc_isolate`,
-  `--down_init weight_svd`. On caststation (20 epochs) this stayed clean and on-prompt at
+  alpha = rank), `--optimizer muon`, `--lr 5e-5`, `--channel_scaling_alpha 0.5`,
+  `--down_init weight_svd` (`--dc_isolate` off; it was the AdamW default, and `lokr` /
+  `loha` still train with AdamW). On caststation (20 epochs) this stayed clean and on-prompt at
   the style strength of lr 1e-4, where a plain LoRA at lr 1e-4 added things the prompt
   never asked for. Mechanism and the lr / alpha history: `docs/moss/channel_scaling.md`.
 - **Time**: 30 images × 20 epochs (600 steps) takes about 18–21 min on a 5070 Ti. The

@@ -116,14 +116,16 @@ make download-model ARGS=moss-sft
 | `algo` | `lora` | `lokr` / `loha`: §4.1 |
 | `rank` | `32` | ランク 16 でパラメータ 37.2 M（以前のデフォルト） |
 | `alpha` | `lora` は `128`（ランク 32 で scale 4）、`lokr` / `loha` は = rank | scale = alpha / rank |
-| `lr` | `5e-5` | AdamW、5 % の線形ウォームアップ |
+| `lr` | `5e-5` | 5 % の線形ウォームアップ |
+| `optimizer` | `muon` | `adamw` は以前のデフォルト。`lokr` / `loha` は常に AdamW を使う |
 | `channel_scaling_alpha` | `0.5` | `lora` のみ。`0` で無効 |
-| `dc_isolate` | オン | `lora` のみ。入力の定数オフセット用に LoRA のランク 1 行を割り当てる |
+| `dc_isolate` | オフ | `lora` のみ。入力の定数オフセット用に LoRA のランク 1 行を割り当てる。`adamw` と併用 |
 | `down_init` | `weight_svd` | `weight_svd` または `kaiming` |
 | `epochs` | `8` | 計測した学習は 20 |
 | `plain_caption_rate` | `0.2` | `layout_json` キャッシュのみ: layout JSON の代わりに通常の Anima キャプションで学習するステップの割合 |
 
-- **lr、チャンネルスケーリング、DC 分離**: FFN の入力では 1 つの入力チャンネルだけが他よりはるかに大きくなっています。チャンネルスケーリングと `dc_isolate` は、LoRA がそのチャンネルを通じて全体的なシフトに更新を使ってしまうのを防ぎます（開始時の出力は変わらず、ファイルは通常の LoRA です）。lr 5e-5 ではこの 2 つにより、lr 1e-4 と同等のスタイル強度でクリーンかつプロンプトに沿った結果になりました。以前のデフォルトと各変更の根拠となった比較: `docs/moss/channel_scaling.md`。
+- **lr、チャンネルスケーリング、DC 分離**: FFN の入力では 1 つの入力チャンネルだけが他よりはるかに大きくなっています。チャンネルスケーリングと `dc_isolate` は、LoRA がそのチャンネルを通じて全体的なシフトに更新を使ってしまうのを防ぎます（開始時の出力は変わらず、ファイルは通常の LoRA です）。AdamW で lr 5e-5 のとき、この 2 つにより、lr 1e-4 と同等のスタイル強度でクリーンかつプロンプトに沿った結果になりました。以前のデフォルトと各変更の根拠となった比較: `docs/moss/channel_scaling.md`。
+- **optimizer**: Muon（MOSS の事前学習に使われたオプティマイザ）は、同じ lr で AdamW と同じ大きさだけ LoRA を動かしつつ、より多くの方向に分散させ、同じシードでより良く見えました。`dc_isolate` の役割をそれ自体で果たすため、Muon では `dc_isolate` をオフにします。`docs/moss/findings/muon_lora.md`。
 - **down_init**: `weight_svd` は LoRA の down 行列をベース重みの上位特異ベクトルから始め、`kaiming` はランダム初期化です。目視では `weight_svd` のほうが絵師のスタイルをよく保ちました。2 つの初期化は同じシードでも別のサンプルになり、その差はシードを変えた程度です。
 - **epochs**: 20 エポック中 10 エポック時点の結果はゆるく多様で、20 エポックではより整って均一になる一方、正面・中央の上半身構図へ少し寄りました。`save_every_epochs` を設定すれば 1 回の学習で両方を比べられます。
 - **sigma_\***（Advanced）: デフォルトは MOSS の最終事前学習段階のノイズ分布です。Anima の分布（`sigma_mu 0`、`sigma_s 1`、`sigma_cutoff 1.0`、`sigma_uniform 0`）は全設定の中で転写が最も弱くなりました。

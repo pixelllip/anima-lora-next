@@ -441,13 +441,14 @@ class TrainRequest(Request):
         advanced=True,
     )
     dc_isolate: bool = _f(
-        True,
+        False,
         "lora only: put the calibrated input DC direction (token-mean x̄ per target) "
         "into one rank row of down and keep the other rows orthogonal to it, so only "
         "one up column learns the token-independent bias and the rest of the up "
         "gradient is centered. Same output at init, plain LoRA on disk, composes "
-        "with channel scaling. Pairs with lr 5e-5; at lr 1e-4 it over-fits (text "
-        "artifacts)",
+        "with channel scaling. Made for AdamW (pairs with lr 5e-5; at 1e-4 it "
+        "over-fits). Under muon the dedicated row doubles the output DC shift, so "
+        "it is off by default (docs/moss/findings/muon_lora.md)",
     )
     channel_mean: str = _f(
         "library/moss/calibration/channel_mean.safetensors",
@@ -457,8 +458,17 @@ class TrainRequest(Request):
     )
     lr: float = _f(
         5e-5,
-        "AdamW learning rate (5e-5 for rank 32 / alpha 128 with channel scaling + "
-        "dc_isolate; 1e-4 over-fits with dc_isolate and suits training without it)",
+        "learning rate (5e-5 for rank 32 / alpha 128 with channel scaling, under "
+        "muon or AdamW + dc_isolate; AdamW at 1e-4 over-fits with dc_isolate)",
+    )
+    optimizer: str = _f(
+        "muon",
+        "muon: Newton–Schulz-orthogonalised updates on the adapter matrices "
+        "(Moonlight lr scaling 0.2·sqrt(max(m, n)), so AdamW's lr carries over; "
+        "MOSS was pretrained with Muon–AdamW; needs 2D adapter weights, so "
+        "lokr / loha take adamw). adamw: the earlier default, best with dc_isolate",
+        choices=("adamw", "muon"),
+        advanced=True,
     )
     warmup_ratio: float = _f(0.05, "linear warmup, as a fraction of all steps")
     grad_accum: int = _f(

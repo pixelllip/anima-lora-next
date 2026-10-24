@@ -480,7 +480,20 @@ def train(
     print(f"free VRAM before training: {free_vram_gb():.2f} GB", flush=True)
 
     params = list(network.parameters())
-    optimizer = torch.optim.AdamW(params, lr=req.lr)
+    optimizer_name = req.optimizer
+    if optimizer_name == "muon" and req.algo != "lora":
+        print(
+            f"muon is measured on lora only; {req.algo} trains with adamw", flush=True
+        )
+        optimizer_name = "adamw"
+    if optimizer_name == "muon":
+        # weight_decay = torch's AdamW default, so only the update rule changes.
+        optimizer = torch.optim.Muon(
+            params, lr=req.lr, weight_decay=0.01, adjust_lr_fn="match_rms_adamw"
+        )
+        print(f"muon on {len(params)} matrices", flush=True)
+    else:
+        optimizer = torch.optim.AdamW(params, lr=req.lr)
     total = req.epochs * len(samples)
     if req.max_steps:
         total = min(total, req.max_steps) if req.epochs else req.max_steps
@@ -517,6 +530,7 @@ def train(
     }
     if accum > 1:
         meta["grad_accum"] = accum
+    meta["optimizer"] = optimizer_name
     if n_refs:
         meta["ref_timestep"] = req.ref_timestep
         if req.ref_isolate:

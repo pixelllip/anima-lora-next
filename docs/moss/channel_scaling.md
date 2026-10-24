@@ -5,8 +5,8 @@ than every other channel at the FFN input, and AdamW turns it into a bias knob t
 reaches for first. Channel scaling rebalances the optimizer's step per input channel. The
 forward output is unchanged and the saved file is a plain LoRA.
 
-**On by default** (`channel_scaling_alpha = 0.5`, together with `dc_isolate` and lr 5e-5 at
-rank 32 / alpha 128). `--channel_scaling_alpha 0` turns it off. GUI: Train step →
+**On by default** (`channel_scaling_alpha = 0.5`, with the Muon optimizer and lr 5e-5 at
+rank 32 / alpha 128; `dc_isolate` is off since the switch to Muon). `--channel_scaling_alpha 0` turns it off. GUI: Train step →
 `channel_scaling_alpha`. `lora` only; the trainer skips it for `lokr` / `loha`.
 
 | α | effect on the loudest channel's step |
@@ -84,7 +84,7 @@ arXiv:2505.20355, describes). α does nothing to it.
 
 ![bias share of the up gradient: plain LoRA, full fine-tune, dc_isolate](assets/channel_scaling_up_gradient.png)
 
-`--dc_isolate` (**on by default**, `--no-dc_isolate` to turn off) makes the calibrated DC
+`--dc_isolate` (**off by default** since the switch to Muon, see below) makes the calibrated DC
 direction of the input one rank row of `down` and keeps the other 31 rows orthogonal to it
 (re-projected after every optimizer step), so one `up` column learns the bias and the rest
 get a centered gradient. The bias share on the other 31 columns drops to 5–12 %. It wants a
@@ -104,7 +104,12 @@ raising the scale (alpha / rank) raises the effective lr of `up` by the same fac
 2. **Rank 32, alpha 128, lr 2e-5, no channel scaling.** lr 1e-4 pushed the style hard but
    lost prompt details on the complex gallery prompts; lr 2e-5 kept them.
 3. **Channel scaling α 0.5, lr 1e-4**: strong style, on-prompt.
-4. **Plus `dc_isolate`, lr 5e-5**: the current default.
+4. **Plus `dc_isolate`, lr 5e-5**: the AdamW default.
+5. **Muon, `dc_isolate` off, lr 5e-5**: the current default. Muon at the same lr moves the
+   adapter by the same Frobenius norm as AdamW but spreads it over ~3× the rank directions;
+   by eye it beat AdamW on the same seed. Under Muon the
+   `dc_isolate` row is a bias channel: the token-mean output shift is 2.57 with it and 1.24
+   without (AdamW + `dc_isolate`: 1.98). `docs/moss/findings/muon_lora.md`.
 
 ## Calibration
 

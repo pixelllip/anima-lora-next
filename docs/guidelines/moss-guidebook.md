@@ -116,14 +116,16 @@ The comparisons ran on 30 images of one artist (`@channel (caststation)`), Base,
 | `algo` | `lora` | `lokr` / `loha`: §4.1 |
 | `rank` | `32` | 37.2 M parameters at rank 16 (the earlier default) |
 | `alpha` | `128` for `lora` (scale 4 at rank 32); = rank for `lokr` / `loha` | scale = alpha / rank |
-| `lr` | `5e-5` | AdamW, 5 % linear warmup |
+| `lr` | `5e-5` | 5 % linear warmup |
+| `optimizer` | `muon` | `adamw` is the earlier default; `lokr` / `loha` always use AdamW |
 | `channel_scaling_alpha` | `0.5` | `lora` only; `0` turns it off |
-| `dc_isolate` | on | `lora` only; one LoRA rank row for the input's constant offset |
+| `dc_isolate` | off | `lora` only; one LoRA rank row for the input's constant offset. Use it with `adamw` |
 | `down_init` | `weight_svd` | `weight_svd` or `kaiming` |
 | `epochs` | `8` | the measured run used 20 |
 | `plain_caption_rate` | `0.2` | `layout_json` caches only: share of steps trained on the plain Anima caption instead of its layout JSON |
 
-- **lr, channel scaling, DC isolation**: one input channel is far louder than the rest at the FFN input; channel scaling and `dc_isolate` keep the LoRA from spending its updates on a global shift through it (the output at the start is unchanged, and the file is an ordinary LoRA). At lr 5e-5 the two stayed clean and on-prompt at the style strength of lr 1e-4. Earlier defaults and the comparisons behind each change: `docs/moss/channel_scaling.md`.
+- **lr, channel scaling, DC isolation**: one input channel is far louder than the rest at the FFN input; channel scaling and `dc_isolate` keep the LoRA from spending its updates on a global shift through it (the output at the start is unchanged, and the file is an ordinary LoRA). Under AdamW at lr 5e-5 the two stayed clean and on-prompt at the style strength of lr 1e-4. Earlier defaults and the comparisons behind each change: `docs/moss/channel_scaling.md`.
+- **optimizer**: Muon (the optimizer MOSS was pretrained with) at the same lr moves the LoRA by the same amount as AdamW, spread over more directions, and looked better on the same seed. It does the job of `dc_isolate` on its own, so `dc_isolate` is off with it. `docs/moss/findings/muon_lora.md`.
 - **down_init**: `weight_svd` starts the LoRA's down projection on the base weight's top singular vectors; `kaiming` is the random init. `weight_svd` kept the artist's style better by eye. The two inits give different samples at the same seed, about as different as a seed change.
 - **epochs**: at 10 of 20 epochs the results were looser and more varied; at 20 they were cleaner and more uniform, with a mild drift toward frontal, centred upper bodies. Set `save_every_epochs` to compare both from one run.
 - **sigma_\*** (Advanced): the defaults are MOSS's final pretraining noise schedule. Anima's schedule (`sigma_mu 0`, `sigma_s 1`, `sigma_cutoff 1.0`, `sigma_uniform 0`) gave the weakest transfer of every arm.
