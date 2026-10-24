@@ -1,17 +1,3 @@
-name = "sanitize"
-
-[staging]
-tag_any = ["speech bubble", "thought bubble", "blank speech bubble", "spoken text", "english text", "japanese text", "sound effects", "text focus", "zzz", "company name", "character name"]
-
-image_dirs = ["{CAPTION_CORPUS_DIR}/retrieved"]
-sim_min = 0.85
-match_frac_min = 0.3
-cell_match_min = 0.9
-max_extra_diff = 25
-
-add_identity_pairs = 0.25
-identity_saturation_min = 0.4
-
 [preprocess]
 recursive = true
 vae = 'models/vae/qwen_image_vae.safetensors'
@@ -70,7 +56,7 @@ cond_diff_loss = true
 # So the adapter learns: given a text-bearing panel as the reference, regenerate
 # the clean version. `path_pattern` keeps only the `_no_tags` members as targets;
 # the `_tags` members enter solely as the condition via cond_cache_dir.
-# `{name}` below interpolates from the top-level `name` key at train time.
+# `{name}` below interpolates from the i2i task file's `name` at train time.
 
 [general]
 caption_extension = '.txt'

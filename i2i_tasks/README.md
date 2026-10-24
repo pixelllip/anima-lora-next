@@ -28,14 +28,31 @@ OCR captions). The MOSS task list is `library.moss.requests.I2I_CACHE`; the GUI'
 | `colorize` | `colorization/` | mangafied B&W page per colour image (`mangafy`, `wb`); colour-only captions (`color_caption.py`) |
 | `inpaint` | `inpainting/` | masked condition per image |
 | `region` | `region/` | SAM3 masks → paint-to-character condition + positioned captions |
-| `near_twins`, `sanitize` | `tools/near_twins/` | in-artist near-twin pair tree |
+| `near_twins`, `sanitize` | `tools/near_twins/` (`stage = "near_twins"`) | in-artist near-twin pair tree |
 | `subject`, `subject_edit` | `tools/subject_pairs.py`, `tools/subject_edit_pairs.py` | subject pairs |
 | `phash_edit` | `tools/phash_edit_pairs.py` | perceptual-hash aligned edit pairs |
 | `swap_text` | `swap_text/` | hitocrawl JA page → translated-edition lettering, registered + composited; target-side OCR captions, half the pairs swap only some regions (MOSS-only) |
 
-The task registry is `_EASY_ADAPTERS` in `scripts/tasks/training.py` (a `stage` and a
-`preprocess` body per task); knobs are the `[staging]` table of
-`configs/easycontrol/<task>.toml`, whose `name` picks `post_image_dataset/i2i/<name>/`.
+A task is a file, `configs/<task>.toml`:
+
+```toml
+name = "sanitize"        # post_image_dataset/i2i/<name>/ (default: the file stem)
+stage = "near_twins"     # staging tool (default: the task id)
+
+[staging]                # that tool's knobs; ARGS on the command line override them
+tag_any = ["speech bubble", "english text", "japanese text"]
+```
+
+`stage` names a row of `_I2I_STAGES` in `scripts/tasks/training.py` (a `stage` body and an
+EasyControl `preprocess` body, `None` for MOSS-only kinds): `near_twins`, `colorize`,
+`inpaint`, `region`, `subject`, `subject_edit`, `phash_edit`, `swap_text`. A new task on
+an existing tool is one file, e.g. a local, untracked `configs/uncensor.toml` with
+`stage = "near_twins"` and censor tags runs as `make i2i-stage TASK=uncensor`.
+
+The EasyControl side of a task (`[preprocess]` / `[training]` knobs, the `[[datasets]]`
+blueprint, the GUI `[variant]` block) is `configs/easycontrol/<task>.toml`; the miners
+(`near_twins`, `subject*`, `phash_edit`) rewrite its blueprint tail on every stage, and
+`near_twins` scaffolds it on a first run. MOSS-only tasks (`swap_text`) have none.
 `make easycontrol-staging EASYADAPTER=<task>` is an alias of `i2i-stage`.
 `post_image_dataset/easycontrol` is a symlink to `post_image_dataset/i2i` so pre-rename
 paths in configs and caches still resolve.

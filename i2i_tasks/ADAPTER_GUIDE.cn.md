@@ -23,7 +23,7 @@ EasyControl 使用一张**参考图像**来引导生成。参考图像经过 VAE
 
 colorize 的做法——你可以复用的思路：**真实的黑白漫画没有彩色版本可供学习**，所以你无法收集 `(黑白, 彩色)` 配对。因此反转方向——把你已有的彩色图像作为目标（那是你想要的结果），并从每张图像**生成**黑白参考（线稿 + 网点，用算法实现）。关键是生成的黑白图像要看起来像你在推理时实际输入的黑白图像。如果你要构建 `depth → image` 或 `pose → image`，那么"生成参考"这一步就是在训练图像上运行深度估计器或姿态检测器。
 
-所以你的全部工作是：**编写一个函数 `target_image → reference_image`，缓存其输出，让数据集指向它，再加上一个 config 和一行名称注册。**
+所以你的全部工作是：**编写一个函数 `target_image → reference_image`，缓存其输出，让数据集指向它，在描述符中描述数据集，并注册任务名称。**
 
 ---
 
@@ -34,9 +34,9 @@ colorize 的做法——你可以复用的思路：**真实的黑白漫画没有
 | # | 内容 | colorize 版本 | 作用 |
 |---|---------|-------------------|--------------|
 | 1 | `i2i_tasks/<task>/` 项目 | `colorization/`（`mangafy*.py`、`color_caption.py`、`prep.py`） | 构建并缓存参考图像（以及可选的较短文本缓存） |
-| 2 | `configs/datasets/<task>.toml` | `configs/easycontrol/colorize.toml` | 通过 **cond_cache_dir** 将每个目标与参考配对的数据集 |
-| 3 | `configs/methods/<task>.toml`（+ `configs/gui-methods/<task>.toml`） | `configs/easycontrol/colorize.toml` | config——指向数据集，设置 LR / epochs / `network_args` |
-| 4 | `scripts/tasks/{training,inference}.py` | `_EASYADAPTERS = {"colorize"}` + 分支 | 让 `EASYADAPTER=<task>` 在 `make easycontrol*` 命令中正常工作 |
+| 2 | `i2i_tasks/configs/<task>.toml` + `configs/easycontrol/<task>.toml` | `i2i_tasks/configs/colorize.toml` + `configs/easycontrol/colorize.toml` | 任务文件（`name` 标识符、可选的 `stage`、`[staging]`）和 EasyControl 描述符（`[preprocess]` / `[training]` 表、`[[datasets]]` 蓝图、可选的 `[variant]`） |
+| 3 | `scripts/tasks/training.py` 中的 `_I2I_STAGES` | `"colorize": {"stage": _colorize_stage, "preprocess": _colorize_preprocess}` | 让 `TASK=<task>` 在 `make i2i-stage` 中、`EASYADAPTER=<task>` 在 `easycontrol-preprocess` / `easycontrol` 中正常工作 |
+| 4 | `cmd_test_easycontrol` 中的 `_ADAPTERS`（`scripts/tasks/inference.py`） | `"colorize"` 那一行 | `make test-easycontrol` 用的检查点前缀、输出文件夹、参考图回退文件夹、空提示默认值 |
 
 我们按顺序逐一讲解。这里没有任何内容需要改动 `networks/`。
 
@@ -102,176 +102,151 @@ DiT 运行在 Anima 的**原生形状分桶**上（两个 token 数家族，4032
 
 ---
 
-## 4. 第二件事——数据集（`configs/datasets/<task>.toml`）
+## 4. 第二件事——任务文件与描述符
 
-这个文件使参考与目标不同。它是一个普通数据集（`[general]` + `[[datasets]]` + `[[datasets.subsets]]`），只多了**一个额外旋钮**：`cond_cache_dir`（以及可选的 `text_cache_dir`）。
+两个文件承载所有任务相关的设置（参见 `i2i_tasks/configs/colorize.toml` 和
+`configs/easycontrol/colorize.toml`）。与模型无关的任务文件
+`i2i_tasks/configs/<task>.toml` 包含 `name`、`stage` 和 `[staging]`；
+其余内容在 EasyControl 描述符 `configs/easycontrol/<task>.toml` 中：
 
-colorize（`configs/easycontrol/colorize.toml`），带注释：
+- 任务文件顶层 **`name`**——标识符（slug）。目录树位于
+  `post_image_dataset/i2i/<name>/` 下，`output_name` 默认为
+  `anima_easycontrol_<name>`。
+- 任务文件 **`stage`**——`_I2I_STAGES` 中的键（默认：任务 id）。
+- **`[staging]`**（任务文件）/ **`[preprocess]`**（描述符）——扁平表，由你的 stage/preprocess
+  函数转换为 `prep.py` 的参数（`_toml_table_to_argv`：`--key value`，
+  列表展开，`true` → 不带值的 `--flag`，`false` → 省略）。
+- **`[training]`**——作为 CLI 覆盖项叠加到基础 `easycontrol` 方法上传给 `train.py`。
+- **`[general]` / `[[datasets]]`**——数据集蓝图。由于 `train.py` 的数据集校验器会拒绝其他顶层键，
+  `make easycontrol` 会将其（代入 `{name}`）写入标识符目录下生成的 `dataset_config.toml`。
+- **`[variant]`**（可选）——`family = "easycontrol"`、`label`、`description`、
+  `order`；带有此块的描述符会出现在 GUI 的 EasyControl 标签页中。
+
+colorize 蓝图的子集：
 
 ```toml
-[general]
-caption_extension = '.txt'
-keep_tokens = 3
-
-[[datasets]]
-batch_size = 1
-validation_split = 0.005
-validation_seed = 42
-
   [[datasets.subsets]]
-  image_dir = 'post_image_dataset/resized'        # the COLOR targets
-  cache_dir = 'post_image_dataset/lora'           # target latents + text — REUSED, not rebuilt
-  cond_cache_dir = 'post_image_dataset/i2i/colorize/cond'   # ← the reference latents (from prep.py)
-  text_cache_dir = 'post_image_dataset/i2i/colorize/text'   # ← color-only text cache (from prep.py)
+  image_dir = 'post_image_dataset/resized'                         # the color targets
+  cache_dir = 'post_image_dataset/lora'                            # shared TE/PE cache, reused
+  cond_cache_dir = 'post_image_dataset/i2i/{name}/cond'    # reference latents (prep.py)
+  text_cache_dir = 'post_image_dataset/i2i/{name}/text'    # color-only text cache (prep.py)
+  latent_cache_dir = 'post_image_dataset/i2i/{name}/target' # WB target latents (prep.py)
   recursive = true
-  flip_aug = false        # latents can't be flipped after the fact, and there's no flipped reference
+  flip_aug = false
   num_repeats = 1
 ```
 
-各重定向的作用：
+- **`cond_cache_dir`**——这使它成为控制任务。加载器按 stem 将每个目标与参考 latent 匹配，
+  并只保留有参考的目标。
+- **`text_cache_dir`**——只重定向文本缓存。省略则使用共享文本缓存并跳过文本阶段。
+- **`latent_cache_dir`**——只重定向目标 latent。省略则使用 `cache_dir`。
+  此处缺失的 latent 会从未校正的原图重新编码（并给出警告），因此训练前请先生成好。
+- **`flip_aug = false`**——必须设置。cond 缓存中没有翻转后的 latent，
+  开启翻转时加载器会报错。
 
-- **`cond_cache_dir`** — 使这成为控制任务的唯一旋钮。加载器在这里通过 stem 将每个目标与参考 latent 匹配。这是 EasyControl 双流前向传播所使用的参考。
-- **`text_cache_dir`** — **只**重定向文本缓存（latent 仍来自 `cache_dir`）。如果你保留完整标注，可以完全省略它——这样加载器会使用共享文本缓存，你也可以跳过 `prep.py` 的文本阶段。
-- **`flip_aug = false`** — 必须。翻转后的目标需要翻转后的参考 latent，而你没有缓存那个。保持翻转关闭。
+`[training]` 中需要考虑的参数：
 
-注意 colorize**复用**共享的 `post_image_dataset/lora` 缓存作为目标 latent 和文本——`make preprocess` 已经构建了它们，没有任何东西被重新编码。你的适配器只需添加*参考*缓存（以及可能的较短文本缓存）。
-
----
-
-## 5. 第三件事——方法 config（`configs/methods/<task>.toml`）
-
-这几乎是 `configs/easycontrol/easycontrol.toml` 的副本。唯一的结构性改动是 `dataset_config` 指向你的数据集；其余都是超参数。
-
-colorize（`configs/easycontrol/colorize.toml`），重要的几行：
-
-```toml
-dataset_config = "configs/easycontrol/colorize.toml"   # ← your dataset from §4
-
-network_module = "networks.methods.easycontrol"     # SHARED — same network as plain EasyControl
-
-network_dim = 32
-network_alpha = 32
-network_args = [
-    "b_cond_init=-6.0",     # how strongly the reference starts out (see below)
-    "cond_scale=1.0",
-    "apply_ffn_lora=1",     # 0 → drop the FFN LoRA, about half the trainable params
-]
-
-output_name = "anima_colorize_full"   # ← checkpoint name; the inference selector looks for this
-
-use_easycontrol = true
-easycontrol_drop_p = 0.0              # reference dropout for image-CFG; default 0.1, colorize wants 0
-masked_loss = false
-
-caption_dropout_rate = 0.05           # auto-color floor (§2b)
-use_shuffled_caption_variants = true  # full-vs-partial balance (§2b)
-easycontrol_cond_noise_max = 0.02     # small — too much noise erases the line art
-learning_rate = 2e-5
-max_train_epochs = 3
-blocks_to_swap = 0                    # recommended for EasyControl
-gradient_checkpointing = true
-unsloth_offload_checkpointing = true
-```
-
-为你的任务需要考虑的旋钮：
-
-- **`b_cond_init`** — 训练开始时参考的影响程度。`-10` 表示参考在 step 0 时几乎不起作用（模型一开始像普通 DiT 一样运行，然后逐渐学会依赖参考）；`docs/experimental/easycontrol.md` 中的"Step-0 baseline equivalence"解释了原因。colorize 将其放宽到 `-6`，让参考更早发挥作用——对于参考信号强的任务这是合理的。无论哪种情况，它都是可学习的。
-- **`easycontrol_cond_noise_max`** — 训练过程中添加到参考上的噪声量（σ 从 `U(0, max)` 采样，以 `cond + σ·ε` 形式应用）。`0` 表示将参考视为完美的蓝图；较大的值会将其降级为粗略的"提示"，迫使文本承载缺失的细节。colorize 使用 `0.02`（非常小——线稿*本身就是*信号）。默认的 easycontrol.toml 使用 `0.3`。
-- **`easycontrol_drop_p`** — 用于图像 CFG 的参考 dropout 频率。colorize 使用 `0`（总是需要参考）；默认值是 `0.1`。
-- **`output_name`** — 必须唯一；推理步骤通过此名称找到最新的检查点（§6）。
-
-你也可以添加 `configs/gui-methods/<task>.toml`——一个独立版本（无切换块），带有 `[variant]` 块（`family = "easycontrol"`、`label`、`description`、`order`），使其出现在 GUI 的 EasyControl 下拉菜单中。参见 `configs/gui-methods/easycontrol.toml`。如果你只从命令行运行，可以跳过这一步。
+- **`network_args`**——`b_cond_init` 决定第 0 步时参考的贡献程度
+  （`-10` ≈ 第 0 步时等同于基础 DiT；参见 `docs/experimental/easycontrol.md` 中的
+  "Step-0 baseline equivalence"；colorize 放宽了该值，让参考更早起作用；
+  两种方式都可学习）、`cond_scale`、`apply_ffn_lora`（`0` 会去掉 FFN LoRA，
+  约减少一半可训练参数）、`cond_res_scale`。
+- **`easycontrol_cond_noise_max`**——训练时加到参考上的噪声
+  （σ ~ `U(0, max)`，`cond + σ·ε`）。`0` 把参考当作精确蓝图；
+  值越大，参考越像粗略提示，细节更多交给文本。
+- **`easycontrol_drop_p`**——为 image-CFG 而整体丢弃参考的频率。
+  始终带参考的任务设为 `0`。
+- **`output_name`**——推理选择器按此前缀查找你最新的检查点（§5）。
+- **`blocks_to_swap = 0`**——随附的描述符使用的值。
 
 ---
 
-## 6. 第四件事——让 `EASYADAPTER=<task>` 工作
+## 5. 第三、四件事——注册任务
 
-`make easycontrol*` 命令通过 `EASYADAPTER` 环境变量进行切换。三处小改动可以让 `EASYADAPTER=<task>` 使用你的 config、prep 和检查点。
-
-**在 `scripts/tasks/training.py` 中：**
-
-1. 将名称添加到允许列表：
-   ```python
-   _EASYADAPTERS = {"colorize", "<task>"}   # was {"colorize"}
-   ```
-   （`_easyadapter()` 会对照此集合进行校验，拼写错误时报错。）
-
-2. 在 `cmd_easycontrol_preprocess` 中将预处理路由到你的 `prep.py`：
-   ```python
-   adapter = _easyadapter()
-   if adapter == "colorize":
-       run([PY, "i2i_tasks/colorization/prep.py", *extra]); return
-   if adapter == "<task>":
-       run([PY, "i2i_tasks/<task>/prep.py", *extra]); return
-   ```
-
-3. 训练本身**无需**改动——`cmd_easycontrol` 已经调用了 `train(_easyadapter() or "easycontrol", extra)`，所以只要名称进入允许列表，`EASYADAPTER=<task>` 就会自动运行 `configs/methods/<task>.toml`。
-**在 `scripts/tasks/inference.py`**（`cmd_test_easycontrol`）中：选择器目前硬编码了 colorize。将几个 colorize 专属的值针对你的任务进行泛化——检查点名称、输出文件夹、备用参考文件夹和空提示默认值：
+**`scripts/tasks/training.py`：** 编写两个签名为 `(adapter, cfg, base, extra)` 的函数，
+并将它们加入 `_I2I_STAGES`（以 stage 类型为键）：
 
 ```python
-adapter = (os.environ.get("EASYADAPTER") or "").strip()
-is_colorize = adapter == "colorize"
-weight_name = "anima_colorize" if is_colorize else "anima_easycontrol"
-out_sub     = "colorize"       if is_colorize else "easycontrol"
-ref_fallback_dir = (ROOT/"post_image_dataset"/"resized") if is_colorize else (ROOT/"easycontrol-dataset")
+_I2I_STAGES = {
+    ...
+    "colorize": {"stage": _colorize_stage, "preprocess": _colorize_preprocess},
+    "<task>": {"stage": _task_stage, "preprocess": _task_preprocess},
+}
 ```
 
-在旁边添加你的 `adapter == "<task>"` 分支（权重名必须与你 config 的 `output_name` 匹配）。如果你的任务像 colorize 一样需要空提示默认值和来自特定文件夹的参考，也请复制下方的 `is_colorize` 分支。
+`_colorize_stage` / `_colorize_preprocess` 是范例：它们各自带上 stage 跳过参数、
+由标识符派生的路径（`_colorize_prep_paths(base)`）和表中的参数来运行
+`i2i_tasks/colorization/prep.py`，并把 `extra` 放在最后，使用户的 `ARGS` 优先。
+`_easyadapter()` 会拒绝没有 `i2i_tasks/configs/<task>.toml` 的任务；任务文件的 `stage` 若不在此 dict 中，则在 stage 时报错。
+`make easycontrol EASYADAPTER=<task>` 无需其他改动。
+
+**`scripts/tasks/inference.py`**（`cmd_test_easycontrol`）：在 `_ADAPTERS` 中添加一行：
+
+```python
+"<task>": {
+    "weight": "anima_easycontrol_<task>",   # prefix of output_name
+    "out": "<task>",                         # output/tests/<out>/
+    "ref_dir": ROOT / "post_image_dataset" / "resized",  # random ref if none given
+    "empty_prompt": False,                   # True → default to --prompt ""
+},
+```
 
 ---
 
-## 7. 运行它
+## 6. 运行它
 
 ```bash
-# 1. Build the reference cache (build + VAE-encode). Idempotent.
-make easycontrol-preprocess EASYADAPTER=<task>
-#    Check a few first:
-python i2i_tasks/<task>/prep.py --limit 8
-#    Eyeball the staged reference PNGs under post_image_dataset/<task>_staging/
+# First time only: shared target latents + text cache in post_image_dataset/lora.
+make preprocess
 
-# 2. Train (DiT frozen, adapter only).
+# 1. Build the reference tree. QA a few first, then eyeball the PNGs under
+#    post_image_dataset/i2i/<name>/staging/.
+make i2i-stage TASK=<task> ARGS="--limit 8"
+make i2i-stage TASK=<task>
+
+# 2. Encode the caches. Idempotent.
+make easycontrol-preprocess EASYADAPTER=<task>
+
+# 3. Train (DiT frozen, adapter only).
 make easycontrol EASYADAPTER=<task>
 
-# 3. Inference — give it a real, in-distribution reference image.
+# 4. Inference — give it a real, in-distribution reference image.
 REF_IMAGE=path/to/condition.png make test-easycontrol EASYADAPTER=<task>
 #    Steer with text:  ... ARGS='--prompt "..."'
 ```
 
-前置条件：先运行一次 `make preprocess`，使共享的目标 latent 和文本缓存存在于 `post_image_dataset/lora`（你的适配器会复用它们）。
+### 推理说明
 
-### 推理技巧（来自 colorize 的经验）
-
-- **提供真实的分布内参考图像。** 推理时参考图像原样经过 VAE 编码——没有构建步骤。colorize 输入真实的带网点黑白页面；普通的灰度照片不在分布内，效果会更差。你的构建器*模仿的*是什么，推理时就期望接收什么。
-- **`--easycontrol_image_match_size`** — 选择与参考图像宽高比匹配的 token 桶，避免竖版页面被压扁。colorize 强制开启此项。
-- **`--easycontrol_scale`**（`EC_SCALE=`，对参考的遵循程度）——训练默认值为 `1.0`；如果参考影响过强则调高（1.1–1.2），想要更宽松的输出则调低（0.7–0.8）。
-- **`--guidance_scale`** — 与你的文本设置共同作用。colorize：空提示 → 低 CFG（1.0–1.5，没有目标可以推向）；文本提示 → 较高（3.0–4.5，正是这让提示真正起作用）。
-
----
-
-## 8. 检查清单
-
-- [ ] `i2i_tasks/<task>/`，包含一个确定性、原子写入的构建器
-      （`(img, seed) → reference`，相同尺寸）和一个幂等的 `prep.py`
-      （构建 → 编码 → 可选文本）。
-- [ ] 参考按**原生尺寸**编码，使 token 数与目标桶匹配（§3）。
-- [ ] `configs/datasets/<task>.toml`，带 `cond_cache_dir`（+ 可选的
-      `text_cache_dir`）、`flip_aug = false`，并复用共享的目标缓存。
-- [ ] `configs/methods/<task>.toml` → 指向数据集，唯一的
-      `output_name`，`network_module = "networks.methods.easycontrol"`，
-      `use_easycontrol = true`。（可选 GUI 变体。）
-- [ ] `EASYADAPTER=<task>` 已添加到 `_EASYADAPTERS` + 一个预处理分支
-      （training.py）+ inference.py 中泛化的检查点/输出/备用路径。
-- [ ] 在完整运行前，先用 `--limit 8` 的暂存批次目视确认过。
+- 推理时参考图按原样做 VAE 编码，没有构建步骤。请输入你的构建器所模仿的对象
+  （colorize：真实带网点的页面，而不是灰度照片）。
+- `make test-easycontrol` 总是传入 `--easycontrol_image_match_size`，
+  它会选择与参考图宽高比匹配的 token 桶。
+- `--easycontrol_scale`（`EC_SCALE=`）决定输出对参考的遵循程度；
+  `1.0` 是训练时的默认值。
+- colorize 调好的 `--guidance_scale` / scale / 步数范围见
+  `colorization/README.md`（"Inference settings"）。
 
 ---
 
-## 9. 进一步阅读
+## 7. 检查清单
 
-- **`i2i_tasks/colorization/README.md`** — 完整的 colorize 设计笔记
-  （标注策略、网点频段、Phase B 路线图）。上文所有内容的参考实现。
-- **`docs/experimental/easycontrol.md`** — 网络本身：双流前向传播、`b_cond` step-0
-  基准、推理缓存、内存使用、限制。改动 `network_args` 前请先阅读。
-- **`networks/methods/easycontrol.py`** — `EasyControlNetwork` 和打了补丁的
-  `Block.forward`。对于新适配器，你**不应该**需要编辑它；如果你觉得需要，请重新确认
-  任务的真正区别是否确实在于参考图像。
-- **`networks/CLAUDE.md`** — 逐模块映射和分发规则。
+- [ ] `i2i_tasks/<task>/` 中有确定性、原子写入的构建器
+      （`(img, seed) → reference`，尺寸相同）和幂等的 `prep.py`。
+- [ ] 参考图按**原始尺寸**编码（§3）。
+- [ ] `i2i_tasks/configs/<task>.toml`：`name`、`[staging]`；以及
+      `configs/easycontrol/<task>.toml`：`[preprocess]` / `[training]`，带有 `cond_cache_dir`（+ 可选的
+      `text_cache_dir` / `latent_cache_dir`）和 `flip_aug = false` 的蓝图。
+- [ ] `_I2I_STAGES` 条目（training.py）和 `_ADAPTERS` 行（inference.py）。
+- [ ] 完整运行前，先目检一批 `--limit 8` 的暂存结果。
+
+---
+
+## 8. 延伸阅读
+
+- **`i2i_tasks/colorization/README.md`**——colorize 参考实现：
+  caption 策略、网点（screentone）分档、标签切片、推理设置。
+- **`docs/experimental/easycontrol.md`**——网络本身：双流前向、
+  `b_cond` 第 0 步基准、`cond_res_scale`、推理缓存、内存、限制。
+- **`networks/methods/easycontrol.py`**——`EasyControlNetwork` 与被 patch 的
+  `Block.forward`。
+- **`networks/CLAUDE.md`**——按模块的映射与分发规则。

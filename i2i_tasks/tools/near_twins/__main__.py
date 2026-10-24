@@ -139,8 +139,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     p.add_argument(
         "--config",
-        default="configs/easycontrol/near_twins.toml",
-        help="toml with a [staging] table of run knobs (CLI flags override it; '' disables)",
+        default="i2i_tasks/configs/near_twins.toml",
+        help="i2i task file: `name` + a [staging] table of run knobs (CLI flags "
+        "override it; '' disables)",
     )
     p.add_argument(
         "--name",
@@ -285,7 +286,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--config-out",
         default="configs/easycontrol/near_twins.toml",
-        help="dataset blueprint written for the export tree (empty string disables)",
+        help="EasyControl descriptor whose dataset blueprint tail is rewritten for "
+        "the export tree (empty string disables)",
     )
     p.add_argument(
         "--batch-size", type=int, default=16, help="PE-Spatial embed batch size"

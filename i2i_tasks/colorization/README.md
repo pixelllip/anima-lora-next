@@ -68,8 +68,9 @@ no hair/eye/costume color, so it guesses); a **color prompt**
 | `prep.py` | mangafy → encode cond latents → WB target latents → color-only text |
 | `pool_from_tags.py` | carve a tag slice out of a raw crawl pool into a symlink tree (see *Appending a tag slice*) |
 
-Config: `configs/easycontrol/colorize.toml` — a self-contained descriptor
-(top-level `name` + `[staging]` / `[preprocess]` / `[training]` tables + a
+Config: two files. `i2i_tasks/configs/colorize.toml` is the model-agnostic task
+file (top-level `name` + `[staging]`); `configs/easycontrol/colorize.toml` is the
+EasyControl descriptor (`[preprocess]` / `[training]` tables + a
 `[general]`/`[[datasets]]` blueprint). Colorize trains the base `easycontrol`
 method with `[training]` folded in as CLI overrides; the staging/preprocess
 tables drive `prep.py`.
@@ -139,7 +140,7 @@ Then add the slice as another `[[datasets.subsets]]` in
 `configs/easycontrol/colorize.toml` (already wired for `korean/`), pointing
 `image_dir`/`cond_cache_dir`/`text_cache_dir`/`latent_cache_dir` at the trees
 above. Only targets with a cached cond latent train, so
-`[staging].exclude_data_includes` + `target_drop_sat` still pair out the
+`[staging].exclude_data_includes` (in `i2i_tasks/configs/colorize.toml`) + `target_drop_sat` still pair out the
 slice's monochrome pages.
 
 Before raising `num_repeats` on such a slice: a crawl slice is usually

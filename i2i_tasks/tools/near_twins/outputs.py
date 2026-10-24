@@ -152,42 +152,26 @@ def _write_mask(p: PairRecord, out: Path) -> None:
 
 # The miner rewrites everything BELOW this sentinel (the output dataset
 # blueprint) on every run, and leaves everything above it — the user's
-# [staging] / [preprocess] knobs + comments — untouched. So one file is both the
-# run config (input, read via --config) and the generated subset blueprint (output).
+# [preprocess] / [training] knobs + comments — untouched. The run knobs
+# (`name` + [staging]) live in the i2i task file read via --config.
 _BLUEPRINT_SENTINEL = (
     "# === generated dataset blueprint (rewritten by the miner; do not edit below) ==="
 )
 
-_DEFAULT_STAGING_HEADER = """\
-# near-twin tag-gap miner config. Edit the [staging] table, then run the two
-# pipeline steps (knobs for each live in their own table here):
-#   make i2i-stage TASK=near_twins   # [staging] → mine pair tree
-#   make easycontrol-preprocess EASYADAPTER=near_twins   # [preprocess] → VAE/TE caches
+_DEFAULT_EASYCONTROL_HEADER = """\
+# EasyControl descriptor for a near-twin pair tree, scaffolded by the miner. The
+# task's `name` and [staging] knobs live in i2i_tasks/configs/<task>.toml; the
+# pipeline lives under post_image_dataset/i2i/<name>/{staging,resized,cache,cond}
+# and checkpoints save as anima_easycontrol_<name>.
+#   make i2i-stage TASK=<task>                       # mine pair tree
+#   make easycontrol-preprocess EASYADAPTER=<task>   # [preprocess] → VAE/TE caches
 # CLI flags override these. Paths support {CAPTION_CORPUS_DIR}/$VARS/~ expansion.
 
-# Output slug — the single source of truth for every derived path. The whole
-# pipeline lives under post_image_dataset/i2i/<name>/{staging,resized,
-# cache,cond} and checkpoints save as anima_easycontrol_<name>. Change it (e.g.
-# name = "sanitize") and re-run staging → preprocess → train; no other path edit.
-name = "near_twins"
-
-# Mining run knobs (legacy name [miner] still accepted). Any --flag dest works.
-[staging]
-# Discriminator — set exactly one of: tag_any / tag / region (bool) / signal.
-tag_any = ["speech bubble", "thought bubble", "blank speech bubble"]
-# Source trees (<dir>/<artist>/<id>.<ext>).
-image_dirs = ["{CAPTION_CORPUS_DIR}/retrieved"]
-# Stage/threshold knobs (any --flag dest works here):
-sim_min = 0.85
-match_frac_min = 0.66
-cell_match_min = 0.9
-max_extra_diff = 6
-
 # Resize + VAE/TE caching pass over the mined pair tree (read by
-# `make easycontrol-preprocess EASYADAPTER=near_twin`). Native-res staging is
+# `make easycontrol-preprocess EASYADAPTER=<task>`). Native-res staging is
 # resized into constant-token buckets under resized_dir (the training image_dir),
 # then VAE/TE-encoded into cache_dir. The image_dir/resized_dir/cache_dir/cond_dir
-# default to easycontrol/<name>/{staging,resized,cache,cond} (set `name` above) —
+# default to i2i/<name>/{staging,resized,cache,cond} (`name` in the task file) —
 # only add a path key here to point one elsewhere.
 [preprocess]
 target_res = [1024]  # bucket tiers (512 768 1024 1280 1536); must match training
@@ -200,7 +184,7 @@ dit = 'models/diffusion_models/anima-base-v1.0.safetensors'
 caption_shuffle_variants = 4
 caption_tag_dropout_rate = 0.1
 
-# Training overrides for `make easycontrol EASYADAPTER=near_twin` (optional).
+# Training overrides for `make easycontrol EASYADAPTER=<task>` (optional).
 # Each key is folded in as a `--key value` CLI override on top of
 # configs/easycontrol/easycontrol.toml; `--dataset_config` is injected automatically.
 # output_name defaults to anima_easycontrol_<name>; omit the table to train with
@@ -216,8 +200,8 @@ easycontrol_cond_noise_max = 0.0
 
 def _blueprint_text(export_dir: Path) -> str:
     # Subset paths are written as `{name}` placeholders (not the resolved slug):
-    # `make easycontrol EASYADAPTER=near_twins` interpolates `{name}` from the
-    # config's top-level `name` key when it generates the dataset-config sidecar,
+    # `make easycontrol EASYADAPTER=<task>` interpolates `{name}` from the
+    # task file's `name` key when it generates the dataset-config sidecar,
     # so changing `name` reroutes everything without touching this tail.
     # Training reads the bucket-resized tree (the preprocess pass resizes the
     # native-res `staging/` export into `resized/` before VAE-encoding), so the
@@ -236,7 +220,7 @@ def _blueprint_text(export_dir: Path) -> str:
 # So the adapter learns: given a text-bearing panel as the reference, regenerate
 # the clean version. `path_pattern` keeps only the `_no_tags` members as targets;
 # the `_tags` members enter solely as the condition via cond_cache_dir.
-# `{{name}}` below interpolates from the top-level `name` key at train time.
+# `{{name}}` below interpolates from the i2i task file's `name` at train time.
 
 [general]
 caption_extension = '.txt'
@@ -256,8 +240,7 @@ batch_size = 1
 
 
 # Blueprint section headers ([general] / [[datasets]] / [[datasets.subsets]]).
-# These never appear in the head (the head only carries [staging]/[preprocess]/
-# [training]), so the first one marks where the generated blueprint begins — the
+# These never appear in the head (the head only carries [preprocess]/[training]), so the first one marks where the generated blueprint begins — the
 # fallback boundary when the sentinel comment has been hand-edited away.
 _BLUEPRINT_HEADER_RE = re.compile(r"^\s*\[\[?(?:general|datasets)\b")
 
@@ -290,7 +273,7 @@ def _strip_blueprint(existing: str) -> str:
 def write_dataset_config(export_dir: Path, config_path: Path) -> None:
     """Rewrite the blueprint tail of ``config_path``, preserving the head tables.
 
-    First creation scaffolds a ``[staging]`` + ``[preprocess]`` template; re-runs
+    First creation scaffolds a ``[preprocess]`` + ``[training]`` template; re-runs
     keep everything above the sentinel (the user's edited run knobs) verbatim.
     """
     blueprint = _blueprint_text(export_dir)
@@ -298,6 +281,6 @@ def write_dataset_config(export_dir: Path, config_path: Path) -> None:
         head = _strip_blueprint(config_path.read_text(encoding="utf-8"))
         content = f"{head}\n\n{blueprint}" if head else blueprint
     else:
-        content = f"{_DEFAULT_STAGING_HEADER}\n{blueprint}"
+        content = f"{_DEFAULT_EASYCONTROL_HEADER}\n{blueprint}"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(content, encoding="utf-8")

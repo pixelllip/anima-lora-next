@@ -237,9 +237,10 @@ projects live under `i2i_tasks/`.
 | default      | (unset)       | the reference image itself (cond == target) | `configs/easycontrol/easycontrol.toml` | —                                    |
 | colorize     | `colorize`    | synthetic mangafied B&W (XDoG + screentone) | `configs/easycontrol/colorize.toml`†  | `i2i_tasks/colorization/` |
 
-† colorize is a self-contained descriptor (top-level `name` + `[staging]` /
-`[preprocess]` / `[training]` knob tables + a `[general]`/`[[datasets]]` blueprint,
-same shape as `near_twins.toml`). It trains the base `easycontrol` method with its
+† colorize's EasyControl descriptor holds the `[preprocess]` / `[training]` knob
+tables + a `[general]`/`[[datasets]]` blueprint (same shape as `near_twins.toml`);
+its `name` + `[staging]` live in the model-agnostic task file
+`i2i_tasks/configs/colorize.toml`. It trains the base `easycontrol` method with its
 `[training]` table folded in as CLI overrides — there's no standalone `colorize`
 method/dataset file anymore.
 
@@ -265,9 +266,9 @@ REF_IMAGE=page.png make test-easycontrol EASYADAPTER=colorize   # inference
 ```
 
 In the GUI, the EasyControl experimental tab lists Colorize in its Variant
-dropdown as a descriptor variant: a file-edited launcher (no in-GUI form — the
-tab shows a pointer note to edit `configs/easycontrol/colorize.toml` directly, like
-near_twins). Its Preprocess button runs staging + preprocess in one shot
+dropdown as a descriptor variant: the tab renders an in-GUI form editing both
+`i2i_tasks/configs/colorize.toml` and `configs/easycontrol/colorize.toml`, like
+near_twins. Its Preprocess button runs staging + preprocess in one shot
 (`--no-skip_mangafy`); its Train button trains the base `easycontrol` method with
 the descriptor's blueprint + `[training]` overrides folded in (via the daemon, so
 it survives the GUI closing).
@@ -311,7 +312,7 @@ near-twins, colorize):
   For ref==target subject control it would instead reward layout copying — use
   with care. Needs `{stem}_anima_pe_spatial.safetensors` sidecars (near_twins:
   `[preprocess] pe_encoder = "pe_spatial"` → re-run
-  `make easycontrol-preprocess EASYADAPTER=near_twin`); the loader walks a
+  `make easycontrol-preprocess EASYADAPTER=near_twins`); the loader walks a
   fallback chain (`_repa_pe_sidecar_candidates`) so the colorize
   `text_cache_dir` redirect still finds the sidecars in the shared latent cache.
   On cond-dropped steps the term has no trainable path (frozen target stream) —
@@ -474,6 +475,6 @@ cond_scale)` change; subsequent KSampler steps use the cache automatically.
 | `networks/methods/easycontrol.py`                 | `EasyControlNetwork` + patched `Block.forward` closure |
 | `configs/easycontrol/easycontrol.toml`              | Method config (default ref==target)                    |
 | `configs/gui-methods/easycontrol.toml`          | GUI-friendly self-contained variant                    |
-| `configs/easycontrol/colorize.toml`             | Colorize descriptor — `name` + `[staging]`/`[preprocess]`/`[training]` tables + blueprint + `[variant]` GUI metadata (the single source of truth; folds onto the base easycontrol method) |
-| `configs/easycontrol/near_twins.toml`           | Near-twins descriptor (same shape; text-removal control task)          |
+| `configs/easycontrol/colorize.toml`             | Colorize EasyControl descriptor — `[preprocess]`/`[training]` tables + blueprint + `[variant]` GUI metadata (`name`/`[staging]` are in `i2i_tasks/configs/colorize.toml`; folds onto the base easycontrol method) |
+| `configs/easycontrol/near_twins.toml`           | Near-twins EasyControl descriptor (same shape; text-removal control task)          |
 | `i2i_tasks/colorization/`            | Colorize project — mangafy + `prep.py` + color-caption filter + README |

@@ -54,7 +54,6 @@ _logs/
 node.zip
 _archive/
 gui/gui_settings.json
-near_twins_temp.toml
 sincos_decensored/
 # ResShift SR sidecar (finished — lives under project/finished/sr/, whose own
 # .gitignore drops its venv / weights / data); the external clone is gone.

@@ -38,10 +38,11 @@ encode it once per pair and direction); only the delta captions are TE-encoded.
 
 Contract (mirrors ``near_twins`` / ``subject_edit_pairs``):
   * reads ``[staging]`` + ``name`` from ``--config`` (default
-    ``configs/easycontrol/phash_edit.toml``); explicit CLI flags win.
+    ``i2i_tasks/configs/phash_edit.toml``); explicit CLI flags win.
   * ``{CAPTION_CORPUS_DIR}`` / ``$CAPTION_CORPUS_DIR`` expand inside path knobs.
   * emits ``pool/<artist>/`` + ``pairs.json`` and rewrites the blueprint tail
-    of the config in place.
+    of the EasyControl descriptor (``--config-out``, default
+    ``configs/easycontrol/<config stem>.toml``).
 
 Instruction format (``--instruction_format``)
 ---------------------------------------------
@@ -87,7 +88,7 @@ except ImportError:  # soft dependency — plain env vars still work
         return False
 
 
-DEFAULT_CONFIG = "configs/easycontrol/phash_edit.toml"
+DEFAULT_CONFIG = "i2i_tasks/configs/phash_edit.toml"
 IMAGE_EXTS = (".png", ".webp", ".jpg", ".jpeg", ".gif")
 HASH_CACHE = ".hash_cache.json"
 
@@ -450,7 +451,7 @@ def build_identity_pairs(
     latent, so the sample teaches "empty instruction → reproduce the cond".
     Deliberately a *small* share: the twin_edit arm showed that empty-instruction
     identity pairs, given enough mass, harden into a copy-lock that swallows
-    small edits (see the note in configs/easycontrol/phash_edit.toml).
+    small edits (see the note in i2i_tasks/configs/phash_edit.toml).
     """
     if n <= 0:
         return []
@@ -627,7 +628,7 @@ def blueprint_text() -> str:
 #
 # `path_pattern` keeps only the `_no_tags` views as targets — the resized pool
 # members are not denoising targets and carry no caption.
-# `{{name}}` below interpolates from the top-level `name` key at train time.
+# `{{name}}` below interpolates from the i2i task file's `name` at train time.
 
 [general]
 caption_extension = '.txt'
@@ -669,13 +670,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--config",
         default=DEFAULT_CONFIG,
-        help="toml with a [staging] table of run knobs (CLI wins; '' disables)",
+        help="i2i task file: `name` + a [staging] table of run knobs (CLI wins; "
+        "'' disables)",
     )
     p.add_argument(
         "--config-out",
         dest="config_out",
         default=None,
-        help="write the regenerated blueprint here instead of --config",
+        help="EasyControl descriptor whose blueprint tail is rewritten "
+        "(default configs/easycontrol/<config stem>.toml)",
     )
     p.add_argument(
         "--name",
@@ -924,7 +927,8 @@ def main() -> None:
         "pairs": pairs,
     }
     (base / "pairs.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
-    cfg_out = Path(args.config_out or args.config or DEFAULT_CONFIG)
+    stem = Path(args.config or DEFAULT_CONFIG).stem
+    cfg_out = Path(args.config_out or f"configs/easycontrol/{stem}.toml")
     write_dataset_config(cfg_out if cfg_out.is_absolute() else REPO_ROOT / cfg_out)
     print(
         f"[phash_edit] pooled {n_pool:,} distinct images → {base / 'pool'}  "

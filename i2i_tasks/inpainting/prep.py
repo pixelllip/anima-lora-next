@@ -35,7 +35,8 @@ loader's ``cond_cache_dir`` subset knob (stem-matched); the variant text by
     python i2i_tasks/inpainting/prep.py --limit 8  # quick QA batch
 
 Via the task runner the stages are split across two targets (knobs come from the
-``[staging]`` / ``[preprocess]`` tables of ``configs/easycontrol/inpaint.toml``)::
+``[staging]`` table of ``i2i_tasks/configs/inpaint.toml`` and the ``[preprocess]``
+table of ``configs/easycontrol/inpaint.toml``)::
 
     make i2i-stage TASK=inpaint   # stage 1 (mask)
     make easycontrol-preprocess EASYADAPTER=inpaint   # stages 2-3 (encode + text)

@@ -44,8 +44,8 @@ the dataset in a descriptor, and register the task name.**
 | # | Thing | colorize version | what it's for |
 |---|-------|------------------|---------------|
 | 1 | `i2i_tasks/<task>/` | `colorization/` (`mangafy*.py`, `wb.py`, `color_caption.py`, `prep.py`) | builds and caches the reference (and optionally a task-specific text cache) |
-| 2 | `configs/easycontrol/<task>.toml` | `configs/easycontrol/colorize.toml` | the descriptor: `name` slug, `[staging]` / `[preprocess]` / `[training]` tables, `[[datasets]]` blueprint, optional `[variant]` |
-| 3 | `_EASY_ADAPTERS` in `scripts/tasks/training.py` | `"colorize": {"stage": _colorize_stage, "preprocess": _colorize_preprocess}` | makes `TASK=<task>` work for `make i2i-stage` and `EASYADAPTER=<task>` for `easycontrol-preprocess` / `easycontrol` |
+| 2 | `i2i_tasks/configs/<task>.toml` + `configs/easycontrol/<task>.toml` | `i2i_tasks/configs/colorize.toml` + `configs/easycontrol/colorize.toml` | the task file (`name` slug, optional `stage`, `[staging]`) and the EasyControl descriptor (`[preprocess]` / `[training]` tables, `[[datasets]]` blueprint, optional `[variant]`) |
+| 3 | `_I2I_STAGES` in `scripts/tasks/training.py` | `"colorize": {"stage": _colorize_stage, "preprocess": _colorize_preprocess}` | makes `TASK=<task>` work for `make i2i-stage` and `EASYADAPTER=<task>` for `easycontrol-preprocess` / `easycontrol` |
 | 4 | `_ADAPTERS` in `cmd_test_easycontrol` (`scripts/tasks/inference.py`) | the `"colorize"` row | checkpoint prefix, output folder, reference fallback folder, empty-prompt default for `make test-easycontrol` |
 
 ---
@@ -150,14 +150,18 @@ the latent still lands on a real bucket.
 
 ---
 
-## 4. Thing 2 — the descriptor (`configs/easycontrol/<task>.toml`)
+## 4. Thing 2 — the task file and descriptor
 
-One file holds everything task-specific (see `configs/easycontrol/colorize.toml`):
+Two files hold everything task-specific (see `i2i_tasks/configs/colorize.toml` and
+`configs/easycontrol/colorize.toml`). The model-agnostic task file
+`i2i_tasks/configs/<task>.toml` carries `name`, `stage` and `[staging]`; the
+EasyControl descriptor `configs/easycontrol/<task>.toml` carries the rest:
 
-- top-level **`name`** — the slug. Trees live under
+- task file top-level **`name`** — the slug. Trees live under
   `post_image_dataset/i2i/<name>/`, and `output_name` defaults to
   `anima_easycontrol_<name>`.
-- **`[staging]`** / **`[preprocess]`** — flat tables your stage/preprocess
+- task file **`stage`** — a `_I2I_STAGES` key (default: the task id).
+- **`[staging]`** (task file) / **`[preprocess]`** (descriptor) — flat tables your stage/preprocess
   functions turn into `prep.py` flags (`_toml_table_to_argv`: `--key value`,
   lists spread, `true` → bare `--flag`, `false` → omitted).
 - **`[training]`** — folded into `train.py` as CLI overrides on the base
@@ -214,10 +218,10 @@ colorize's blueprint subset:
 ## 5. Things 3 and 4 — register the task
 
 **`scripts/tasks/training.py`:** write two functions with the signature
-`(adapter, cfg, base, extra)` and add them to `_EASY_ADAPTERS`:
+`(adapter, cfg, base, extra)` and add them to `_I2I_STAGES` (keyed by stage kind):
 
 ```python
-_EASY_ADAPTERS = {
+_I2I_STAGES = {
     ...
     "colorize": {"stage": _colorize_stage, "preprocess": _colorize_preprocess},
     "<task>": {"stage": _task_stage, "preprocess": _task_preprocess},
@@ -227,7 +231,7 @@ _EASY_ADAPTERS = {
 `_colorize_stage` / `_colorize_preprocess` are the model: each runs
 `i2i_tasks/colorization/prep.py` with stage-skip flags, the
 slug-derived paths (`_colorize_prep_paths(base)`), the table knobs, and `extra`
-last so user `ARGS` win. `_easyadapter()` rejects names missing from this dict.
+last so user `ARGS` win. `_easyadapter()` rejects tasks with no `i2i_tasks/configs/<task>.toml`, and a task file whose `stage` is missing from this dict fails at stage time.
 `make easycontrol EASYADAPTER=<task>` needs no further edit.
 
 **`scripts/tasks/inference.py`** (`cmd_test_easycontrol`): add a row to
@@ -285,10 +289,10 @@ REF_IMAGE=path/to/condition.png make test-easycontrol EASYADAPTER=<task>
 - [ ] `i2i_tasks/<task>/` with a deterministic, atomic-writing builder
       (`(img, seed) → reference`, same size) and an idempotent `prep.py`.
 - [ ] References encoded at **native size** (§3).
-- [ ] `configs/easycontrol/<task>.toml`: `name`, `[staging]` / `[preprocess]` /
-      `[training]`, blueprint with `cond_cache_dir` (+ optional
+- [ ] `i2i_tasks/configs/<task>.toml`: `name`, `[staging]`; and
+      `configs/easycontrol/<task>.toml`: `[preprocess]` / `[training]`, blueprint with `cond_cache_dir` (+ optional
       `text_cache_dir` / `latent_cache_dir`) and `flip_aug = false`.
-- [ ] `_EASY_ADAPTERS` entry (training.py) and `_ADAPTERS` row (inference.py).
+- [ ] `_I2I_STAGES` entry (training.py) and `_ADAPTERS` row (inference.py).
 - [ ] Eyeballed a `--limit 8` staging batch before the full run.
 
 ---

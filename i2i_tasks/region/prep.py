@@ -82,7 +82,8 @@ targets. Run from the repo root::
     python i2i_tasks/region/prep.py \
         --skip_select --skip_sam --skip_cond --skip_captions               # preprocess (GPU: VAE+TE)
 
-Via the task runner (knobs from ``configs/easycontrol/region.toml``)::
+Via the task runner (knobs from ``i2i_tasks/configs/region.toml`` [staging] and
+``configs/easycontrol/region.toml`` [preprocess])::
 
     make i2i-stage TASK=region   # stages 1-4
     make easycontrol-preprocess EASYADAPTER=region   # stages 5-6

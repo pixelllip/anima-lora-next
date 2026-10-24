@@ -1,0 +1,6 @@
+name = "colorize"
+
+[staging]
+engine = "gpu"
+only_data_includes=[]
+exclude_data_includes = ["monochrome", "greyscale"]

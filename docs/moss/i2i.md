@@ -48,7 +48,7 @@ Removes text, SFX, speech-bubble text and watermarks and repaints what was under
 
 **Data.** `make i2i-stage TASK=sanitize` mines in-artist near-twins
 (`i2i_tasks/tools/near_twins/`, knobs in the `[staging]` table of
-`configs/easycontrol/sanitize.toml`): a texted image (`{id}_tags`, the condition) and its
+`i2i_tasks/configs/sanitize.toml`): a texted image (`{id}_tags`, the condition) and its
 clean twin (`{id}_no_tags`, the target), listed in `staging/pairs.jsonl`. `add_identity_pairs`
 adds some clean → clean pairs.
 

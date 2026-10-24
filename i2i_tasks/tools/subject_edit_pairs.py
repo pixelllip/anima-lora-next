@@ -19,11 +19,12 @@ dropped (tiny = nothing to learn, huge = unrelated images + caption noise).
 
 Contract (mirrors ``subject_pairs``):
   * reads ``[staging]`` + ``name`` from ``--config``
-    (default ``configs/easycontrol/subject_edit.toml``); CLI wins.
+    (default ``i2i_tasks/configs/subject_edit.toml``); CLI wins.
   * emits ``staging/<artist>/<stem>.png`` symlinks + **real** ``.txt`` files
     holding the delta caption (NOT symlinks — the prompt is new text), a
     ``pairs.json`` manifest, the ``cond/`` latent tree, and rewrites the
-    blueprint tail in place.
+    blueprint tail of the EasyControl descriptor (``--config-out``, default
+    ``configs/easycontrol/<config stem>.toml``).
   * ``--cond-only`` rebuilds ``cond/`` from the manifest (idempotent).
 
 The delta captions are new text, so the shared LoRA TE cache does NOT apply:
@@ -54,7 +55,7 @@ from i2i_tasks.tools.subject_pairs import (  # noqa: E402
     load_staging_config,
 )
 
-DEFAULT_CONFIG = "configs/easycontrol/subject_edit.toml"
+DEFAULT_CONFIG = "i2i_tasks/configs/subject_edit.toml"
 
 
 def _blueprint_text() -> str:
@@ -349,8 +350,8 @@ def main() -> None:
     )
     build_cond_tree(base, lora_cache_dir)
 
-    out = args.config_out
-    write_dataset_config(REPO_ROOT / out if out else config_path)
+    out = args.config_out or f"configs/easycontrol/{config_path.stem}.toml"
+    write_dataset_config(REPO_ROOT / out)
     print(
         f"[subject_edit] {len(pairs)} pairs over {len(characters)} characters "
         f"({same} same-artist, median delta {med_delta} tags) → {base}"

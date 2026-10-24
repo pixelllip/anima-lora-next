@@ -1,0 +1,33 @@
+name = "region"
+
+# Staged by i2i_tasks/region/prep.py: solo-1girl + 1girl1boy
+# selection → SAM3 masks (girl / girl-minus-boy, boy, face; low threshold) →
+# gated + augmented paint cond tree + flat/positioned caption variants. Keys
+# here become prep.py CLI flags (lists spread as-is, bools as bare flags).
+[staging]
+pairs = true            # 1girl1boy slice: girl painted, boy visible (one-figure paint)
+face = true             # SAM head pass (level "face" = paint the head — face + hair — only, body visible)
+threshold = 0.4
+min_coverage = 0.03
+max_coverage = 0.85
+min_dominance = 0.75
+max_hole_frac = 0.05
+pair_max_hole_frac = 0.25   # girl-minus-boy carves real holes where they overlap
+max_raggedness = 20.0
+min_partner_visible = 0.5   # pairs: ≥50% of the boy must stay outside the paint
+min_face_frac = 0.004       # face level needs a face ≥0.4% of the image (else → slack)
+# v3: paint over the REAL image (character-inpaint framing — fill the paint
+# with the character, reproduce the scene). Mid-gray 128 follows the inpaint
+# adapter's convention (~0 in [-1,1]); black collides with legitimately-dark
+# art now that the background is real. (v1/v2 white-canvas era used black.)
+cond_background = "image"
+paint_color = [128, 128, 128]
+# Augment levels: exact / smooth / blob / wobble / slack / face. v4 (tight
+# supersets only, [0.25 0.35 0.30 0.10]) filled every paint edge-to-edge with
+# character (bench area_ratio ≈ iou); "slack" (oversized, off-center paint with
+# the real background as target under the rest) is the harmonize lever,
+# "face" the concentrate lever.
+aug_weights = [0.15, 0.20, 0.15, 0.10, 0.25, 0.15]
+slack_grow = [1.5, 3.0]     # slack paint area target, × the character bbox (grows toward free sides)
+max_slack_coverage = 0.7    # slack paint may cover ≤70% of the image; no room → a tight level
+sam_batch_size = 4

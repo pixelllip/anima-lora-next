@@ -1,0 +1,5 @@
+name = "inpaint"
+
+[staging]
+min_frac = 0.10
+max_frac = 0.40

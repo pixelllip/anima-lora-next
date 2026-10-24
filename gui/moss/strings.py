@@ -37,7 +37,7 @@ UI: dict[str, dict[str, str]] = {
         "i2i_stage_group": "1 · Stage",
         "i2i_stage_hint": "Builds the task's pair tree under post_image_dataset/i2i/ "
         "from the dataset (make i2i-stage TASK={task}; knobs in the [staging] table "
-        "of configs/easycontrol/{task}.toml). EasyControl reads the same tree.",
+        "of i2i_tasks/configs/{task}.toml). EasyControl reads the same tree.",
         "run_stage": "Stage",
         "i2i_cache_group": "2 · Preprocess",
         "i2i_train_group": "3 · Train",
@@ -78,7 +78,7 @@ UI: dict[str, dict[str, str]] = {
         "测试时提示词用该页的标注，去掉文字相关标签。",
         "i2i_stage_group": "1 · 准备配对",
         "i2i_stage_hint": "从数据集在 post_image_dataset/i2i/ 下生成该任务的配对目录"
-        "（make i2i-stage TASK={task}；参数在 configs/easycontrol/{task}.toml 的 "
+        "（make i2i-stage TASK={task}；参数在 i2i_tasks/configs/{task}.toml 的 "
         "[staging] 表中）。EasyControl 读取同一目录。",
         "run_stage": "准备配对",
         "i2i_cache_group": "2 · 预处理",

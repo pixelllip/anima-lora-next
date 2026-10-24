@@ -23,7 +23,7 @@ EasyControl은 **레퍼런스 이미지**를 사용해 생성을 안내합니다
 
 colorize의 방식 — 재사용할 수 있는 아이디어입니다: **실제 흑백 망가에는 컬러 버전이 없으므로** `(흑백, 컬러)` 쌍을 수집해 만들 수 없습니다. 그래서 방향을 뒤집습니다 — 이미 보유한 컬러 이미지를 타깃으로 삼고(그것이 원하는 결과이므로), 각 이미지로부터 흑백 레퍼런스를 **직접 만듭니다**(선화 + 스크린톤, 알고리즘으로). 핵심은 만든 흑백이 인퍼런스 시 실제로 넣을 흑백처럼 보여야 한다는 것입니다. `depth → image`나 `pose → image`를 만든다면, "레퍼런스 만들기" 단계는 학습 이미지에 대해 실행하는 depth estimator나 pose detector가 될 것입니다.
 
-즉, 할 일은: **함수 `target_image → reference_image`를 작성하고, 그 출력을 캐시하고, 데이터셋이 그것을 가리키게 하고, config와 한 줄짜리 이름 등록을 추가하는 것**입니다.
+즉, 할 일은: **함수 `target_image → reference_image`를 작성하고, 그 출력을 캐시하고, 데이터셋이 그것을 가리키게 하고, 디스크립터에 데이터셋을 기술하고, 태스크 이름을 등록하는 것**입니다.
 
 ---
 
@@ -34,9 +34,9 @@ colorize의 방식 — 재사용할 수 있는 아이디어입니다: **실제 �
 | # | 항목 | colorize 버전 | 역할 |
 |---|---------|-------------------|--------------|
 | 1 | `i2i_tasks/<task>/` 프로젝트 | `colorization/` (`mangafy*.py`, `color_caption.py`, `prep.py`) | 레퍼런스 이미지를 만들고 캐시 (선택적으로 짧은 텍스트 캐시도) |
-| 2 | `configs/datasets/<task>.toml` | `configs/easycontrol/colorize.toml` | 각 타깃을 레퍼런스와 **cond_cache_dir**로 짝짓는 데이터셋 |
-| 3 | `configs/methods/<task>.toml` (+ `configs/gui-methods/<task>.toml`) | `configs/easycontrol/colorize.toml` | config — 데이터셋을 가리키고 LR / epochs / `network_args` 설정 |
-| 4 | `scripts/tasks/{training,inference}.py` | `_EASYADAPTERS = {"colorize"}` + 분기 | `EASYADAPTER=<task>`가 `make easycontrol*` 명령에서 작동하게 함 |
+| 2 | `i2i_tasks/configs/<task>.toml` + `configs/easycontrol/<task>.toml` | `i2i_tasks/configs/colorize.toml` + `configs/easycontrol/colorize.toml` | 태스크 파일(`name` 슬러그, 선택적 `stage`, `[staging]`)과 EasyControl 디스크립터(`[preprocess]` / `[training]` 테이블, `[[datasets]]` 블루프린트, 선택적 `[variant]`) |
+| 3 | `scripts/tasks/training.py`의 `_I2I_STAGES` | `"colorize": {"stage": _colorize_stage, "preprocess": _colorize_preprocess}` | `make i2i-stage`에서 `TASK=<task>`가, `easycontrol-preprocess` / `easycontrol`에서 `EASYADAPTER=<task>`가 작동하게 함 |
+| 4 | `cmd_test_easycontrol`의 `_ADAPTERS` (`scripts/tasks/inference.py`) | `"colorize"` 행 | `make test-easycontrol`용 체크포인트 접두사, 출력 폴더, 레퍼런스 폴백 폴더, 빈 프롬프트 기본값 |
 
 순서대로 살펴봅니다. 어느 것도 `networks/`를 건드리지 않습니다.
 
@@ -102,176 +102,155 @@ DiT는 Anima의 **원본 형태 버킷팅**으로 동작합니다(두 개의 토
 
 ---
 
-## 4. 항목 2 — 데이터셋 (`configs/datasets/<task>.toml`)
+## 4. 항목 2 — 태스크 파일과 디스크립터
 
-이 파일이 레퍼런스를 타깃과 다르게 만듭니다. 평범한 데이터셋(`[general]` + `[[datasets]]` + `[[datasets.subsets]]`)에 **추가 노브 하나**를 더한 것입니다: `cond_cache_dir` (그리고 선택적으로 `text_cache_dir`).
+두 파일이 태스크별 설정을 모두 담습니다 (`i2i_tasks/configs/colorize.toml`과
+`configs/easycontrol/colorize.toml` 참조). 모델과 무관한 태스크 파일
+`i2i_tasks/configs/<task>.toml`에는 `name`, `stage`, `[staging]`이 들어가고,
+나머지는 EasyControl 디스크립터 `configs/easycontrol/<task>.toml`에 들어갑니다:
 
-colorize(`configs/easycontrol/colorize.toml`), 주석 포함:
+- 태스크 파일 최상위 **`name`** — 슬러그. 트리는
+  `post_image_dataset/i2i/<name>/` 아래에 만들어지며, `output_name`의 기본값은
+  `anima_easycontrol_<name>`입니다.
+- 태스크 파일 **`stage`** — `_I2I_STAGES`의 키 (기본값: 태스크 id).
+- **`[staging]`** (태스크 파일) / **`[preprocess]`** (디스크립터) — stage/preprocess
+  함수가 `prep.py` 플래그로 바꿔 주는 평평한 테이블 (`_toml_table_to_argv`: `--key value`,
+  리스트는 펼침, `true` → 값 없는 `--flag`, `false` → 생략).
+- **`[training]`** — 기본 `easycontrol` 메서드 위에 `train.py` CLI 오버라이드로
+  병합됩니다.
+- **`[general]` / `[[datasets]]`** — 데이터셋 블루프린트. `train.py`의 데이터셋 검증기가 다른
+  최상위 키를 거부하므로, `make easycontrol`은 이를 (`{name}`을 치환해) 슬러그 디렉터리 아래의
+  생성된 `dataset_config.toml`로 기록합니다.
+- **`[variant]`** (선택) — `family = "easycontrol"`, `label`, `description`,
+  `order`; 이 블록이 있는 디스크립터는 GUI의 EasyControl 탭에 나타납니다.
+
+colorize 블루프린트의 서브셋:
 
 ```toml
-[general]
-caption_extension = '.txt'
-keep_tokens = 3
-
-[[datasets]]
-batch_size = 1
-validation_split = 0.005
-validation_seed = 42
-
   [[datasets.subsets]]
-  image_dir = 'post_image_dataset/resized'        # the COLOR targets
-  cache_dir = 'post_image_dataset/lora'           # target latents + text — REUSED, not rebuilt
-  cond_cache_dir = 'post_image_dataset/i2i/colorize/cond'   # ← the reference latents (from prep.py)
-  text_cache_dir = 'post_image_dataset/i2i/colorize/text'   # ← color-only text cache (from prep.py)
+  image_dir = 'post_image_dataset/resized'                         # the color targets
+  cache_dir = 'post_image_dataset/lora'                            # shared TE/PE cache, reused
+  cond_cache_dir = 'post_image_dataset/i2i/{name}/cond'    # reference latents (prep.py)
+  text_cache_dir = 'post_image_dataset/i2i/{name}/text'    # color-only text cache (prep.py)
+  latent_cache_dir = 'post_image_dataset/i2i/{name}/target' # WB target latents (prep.py)
   recursive = true
-  flip_aug = false        # latents can't be flipped after the fact, and there's no flipped reference
+  flip_aug = false
   num_repeats = 1
 ```
 
-각 리다이렉트가 하는 일:
+- **`cond_cache_dir`** — 이것이 컨트롤 태스크로 만들어 줍니다. 로더는 각 타깃을
+  stem으로 레퍼런스 레이턴트와 매칭하고, 레퍼런스가 있는 타깃만 남깁니다.
+- **`text_cache_dir`** — 텍스트 캐시만 리다이렉트합니다. 생략하면 공유 텍스트 캐시를
+  사용하고 텍스트 단계를 건너뜁니다.
+- **`latent_cache_dir`** — 타깃 레이턴트만 리다이렉트합니다. 생략하면
+  `cache_dir`을 사용합니다. 여기에 없는 레이턴트는 보정되지 않은 원본 이미지에서 (경고와 함께)
+  다시 인코딩되므로, 학습 전에 채워 두세요.
+- **`flip_aug = false`** — 필수입니다. cond 캐시에는 뒤집힌 레이턴트가 없고,
+  플립이 켜져 있으면 로더가 에러를 냅니다.
 
-- **`cond_cache_dir`** — 이것이 컨트롤 태스크로 만들어 주는 유일한 노브입니다. 로더는 여기서 각 타깃을 stem으로 레퍼런스 레이턴트와 매칭합니다. EasyControl의 2-스트림 포워드가 레퍼런스로 사용하는 것입니다.
-- **`text_cache_dir`** — **텍스트 캐시만** 리다이렉트합니다(레이턴트는 여전히 `cache_dir`에서 옵니다). 전체 캡션을 유지한다면 완전히 생략하세요 — 그러면 로더가 공유 텍스트 캐시를 사용하고 `prep.py`의 텍스트 단계를 건너뛸 수 있습니다.
-- **`flip_aug = false`** — 필수입니다. 뒤집힌 타깃에는 뒤집힌 레퍼런스 레이턴트가 필요한데, 그것은 캐시하지 않았습니다. 플립은 꺼 두세요.
+고민할 `[training]` 노브들:
 
-colorize가 타깃 레이턴트와 텍스트에 **공유** `post_image_dataset/lora` 캐시를 재사용한다는 점에 유의하세요 — `make preprocess`가 이미 만들어 놓았고, 아무것도 다시 인코딩하지 않습니다. 어댑터는 *레퍼런스* 캐시(그리고 어쩌면 짧은 텍스트 캐시)만 추가합니다.
-
----
-
-## 5. 항목 3 — 메서드 config (`configs/methods/<task>.toml`)
-
-`configs/easycontrol/easycontrol.toml`의 거의 복사본입니다. 유일한 구조적 변경은 자신의 데이터셋을 가리키는 `dataset_config`이며, 나머지는 하이퍼파라미터입니다.
-
-colorize(`configs/easycontrol/colorize.toml`), 중요한 라인들:
-
-```toml
-dataset_config = "configs/easycontrol/colorize.toml"   # ← your dataset from §4
-
-network_module = "networks.methods.easycontrol"     # SHARED — same network as plain EasyControl
-
-network_dim = 32
-network_alpha = 32
-network_args = [
-    "b_cond_init=-6.0",     # how strongly the reference starts out (see below)
-    "cond_scale=1.0",
-    "apply_ffn_lora=1",     # 0 → drop the FFN LoRA, about half the trainable params
-]
-
-output_name = "anima_colorize_full"   # ← checkpoint name; the inference selector looks for this
-
-use_easycontrol = true
-easycontrol_drop_p = 0.0              # reference dropout for image-CFG; default 0.1, colorize wants 0
-masked_loss = false
-
-caption_dropout_rate = 0.05           # auto-color floor (§2b)
-use_shuffled_caption_variants = true  # full-vs-partial balance (§2b)
-easycontrol_cond_noise_max = 0.02     # small — too much noise erases the line art
-learning_rate = 2e-5
-max_train_epochs = 3
-blocks_to_swap = 0                    # recommended for EasyControl
-gradient_checkpointing = true
-unsloth_offload_checkpointing = true
-```
-
-자신의 태스크를 위해 고민할 노브들:
-
-- **`b_cond_init`** — 학습 시작 시 레퍼런스가 얼마나 영향을 미치는가. `-10`은 step 0에서 레퍼런스가 거의 기여하지 않음을 뜻합니다(모델이 처음에는 기본 DiT처럼 작동하다가 점점 레퍼런스에 의존하는 법을 배웁니다). `docs/experimental/easycontrol.md` "Step-0 baseline equivalence"에서 이유를 설명합니다. colorize는 레퍼런스가 더 빨리 작동하도록 `-6`으로 완화합니다 — 레퍼런스가 강한 태스크에서는 그럴 여유가 있습니다. 어느 쪽이든 학습 가능합니다.
-- **`easycontrol_cond_noise_max`** — 학습 중 레퍼런스에 추가하는 노이즈 양(σ는 `U(0, max)`에서 샘플, `cond + σ·ε`로 적용). `0`은 레퍼런스를 완벽한 청사진으로 취급합니다; 높은 값은 레퍼런스를 "대략적인 힌트"로 만들어 텍스트가 나머지 디테일을 담도록 강제합니다. colorize는 `0.02`를 사용합니다(아주 작음 — 선화 *자체*가 신호입니다). 기본 easycontrol.toml은 `0.3`을 사용합니다.
-- **`easycontrol_drop_p`** — image-CFG를 위한 레퍼런스 드롭아웃 빈도. colorize는 `0`을 사용합니다(항상 레퍼런스를 원합니다); 기본값은 `0.1`입니다.
-- **`output_name`** — 고유해야 합니다; 인퍼런스 단계가 이 이름으로 최신 체크포인트를 찾습니다(§6).
-
-`configs/gui-methods/<task>.toml`도 추가할 수 있습니다 — `[variant]` 블록(`family = "easycontrol"`, `label`, `description`, `order`)을 가진 독립형 버전(토글 블록 없음)으로, GUI의 EasyControl 드롭다운에 나타납니다. `configs/gui-methods/easycontrol.toml`을 참조하세요. CLI에서만 실행한다면 건너뛰세요.
+- **`network_args`** — `b_cond_init`은 step 0에서 레퍼런스가 얼마나 기여하는지 정합니다
+  (`-10` ≈ step 0에서 기본 DiT와 동일; `docs/experimental/easycontrol.md`의
+  "Step-0 baseline equivalence" 참조; colorize는 레퍼런스가 더 빨리 작동하도록 완화합니다;
+  어느 쪽이든 학습 가능), `cond_scale`, `apply_ffn_lora` (`0`이면 FFN LoRA를 제거,
+  학습 파라미터의 약 절반), `cond_res_scale`.
+- **`easycontrol_cond_noise_max`** — 학습 중 레퍼런스에 더하는 노이즈
+  (σ ~ `U(0, max)`, `cond + σ·ε`). `0`은 레퍼런스를 정확한 청사진으로 취급하고,
+  높은 값은 대략적인 힌트로 만들어 디테일을 텍스트로 넘깁니다.
+- **`easycontrol_drop_p`** — image-CFG를 위해 레퍼런스 전체를 드롭하는 빈도.
+  항상 레퍼런스가 있는 태스크는 `0`으로 설정합니다.
+- **`output_name`** — 인퍼런스 selector가 이 접두사로 최신 체크포인트를 찾습니다 (§5).
+- **`blocks_to_swap = 0`** — 배포된 디스크립터들이 사용하는 값입니다.
 
 ---
 
-## 6. 항목 4 — `EASYADAPTER=<task>` 작동시키기
+## 5. 항목 3, 4 — 태스크 등록
 
-`make easycontrol*` 명령은 `EASYADAPTER` 환경 변수로 전환됩니다. 세 가지 작은 편집으로 `EASYADAPTER=<task>`가 자신의 config, prep, 체크포인트를 사용하게 됩니다.
-
-**`scripts/tasks/training.py`에서:**
-
-1. 허용목록에 이름을 추가합니다:
-   ```python
-   _EASYADAPTERS = {"colorize", "<task>"}   # was {"colorize"}
-   ```
-   (`_easyadapter()`가 이 집합에 대해 검증하고 오타에 에러를 냅니다.)
-
-2. `cmd_easycontrol_preprocess`에서 전처리를 자신의 `prep.py`로 라우팅합니다:
-   ```python
-   adapter = _easyadapter()
-   if adapter == "colorize":
-       run([PY, "i2i_tasks/colorization/prep.py", *extra]); return
-   if adapter == "<task>":
-       run([PY, "i2i_tasks/<task>/prep.py", *extra]); return
-   ```
-
-3. 학습 자체는 **편집이 필요 없습니다** — `cmd_easycontrol`이 이미 `train(_easyadapter() or "easycontrol", extra)`를 호출하므로, 이름이 허용목록에 들어가면 `EASYADAPTER=<task>`가 자동으로 `configs/methods/<task>.toml`을 실행합니다.
-**`scripts/tasks/inference.py`**(`cmd_test_easycontrol`)에서: selector가 현재 colorize를 하드코딩하고 있습니다. 자신의 태스크에 맞게 몇 가지 colorize 전용 값을 일반화하세요 — 체크포인트 이름, 출력 폴더, 폴백 레퍼런스 폴더, 빈 프롬프트 기본값:
+**`scripts/tasks/training.py`:** 시그니처가 `(adapter, cfg, base, extra)`인 함수 두 개를 작성하고
+`_I2I_STAGES`(stage 종류를 키로 사용)에 추가합니다:
 
 ```python
-adapter = (os.environ.get("EASYADAPTER") or "").strip()
-is_colorize = adapter == "colorize"
-weight_name = "anima_colorize" if is_colorize else "anima_easycontrol"
-out_sub     = "colorize"       if is_colorize else "easycontrol"
-ref_fallback_dir = (ROOT/"post_image_dataset"/"resized") if is_colorize else (ROOT/"easycontrol-dataset")
+_I2I_STAGES = {
+    ...
+    "colorize": {"stage": _colorize_stage, "preprocess": _colorize_preprocess},
+    "<task>": {"stage": _task_stage, "preprocess": _task_preprocess},
+}
 ```
 
-자신의 `adapter == "<task>"` 케이스를 나란히 추가하세요(weight 이름은 config의 `output_name`과 일치해야 합니다). 자신의 태스크가 colorize처럼 빈 프롬프트 기본값과 특정 폴더의 레퍼런스를 원한다면, 아래쪽의 `is_colorize` 분기들도 그대로 따라 하세요.
+`_colorize_stage` / `_colorize_preprocess`가 모범 예시입니다: 각각 stage 건너뛰기 플래그,
+슬러그에서 파생된 경로(`_colorize_prep_paths(base)`), 테이블 노브를 붙여
+`i2i_tasks/colorization/prep.py`를 실행하며, `extra`를 맨 뒤에 붙여 사용자 `ARGS`가 우선하도록 합니다.
+`_easyadapter()`는 `i2i_tasks/configs/<task>.toml`이 없는 태스크를 거부하고, 태스크 파일의 `stage`가 이 dict에 없으면 stage 시점에 실패합니다.
+`make easycontrol EASYADAPTER=<task>`는 더 이상 편집할 필요가 없습니다.
+
+**`scripts/tasks/inference.py`** (`cmd_test_easycontrol`): `_ADAPTERS`에 행을 추가합니다:
+
+```python
+"<task>": {
+    "weight": "anima_easycontrol_<task>",   # prefix of output_name
+    "out": "<task>",                         # output/tests/<out>/
+    "ref_dir": ROOT / "post_image_dataset" / "resized",  # random ref if none given
+    "empty_prompt": False,                   # True → default to --prompt ""
+},
+```
 
 ---
 
-## 7. 실행하기
+## 6. 실행하기
 
 ```bash
-# 1. Build the reference cache (build + VAE-encode). Idempotent.
-make easycontrol-preprocess EASYADAPTER=<task>
-#    Check a few first:
-python i2i_tasks/<task>/prep.py --limit 8
-#    Eyeball the staged reference PNGs under post_image_dataset/<task>_staging/
+# First time only: shared target latents + text cache in post_image_dataset/lora.
+make preprocess
 
-# 2. Train (DiT frozen, adapter only).
+# 1. Build the reference tree. QA a few first, then eyeball the PNGs under
+#    post_image_dataset/i2i/<name>/staging/.
+make i2i-stage TASK=<task> ARGS="--limit 8"
+make i2i-stage TASK=<task>
+
+# 2. Encode the caches. Idempotent.
+make easycontrol-preprocess EASYADAPTER=<task>
+
+# 3. Train (DiT frozen, adapter only).
 make easycontrol EASYADAPTER=<task>
 
-# 3. Inference — give it a real, in-distribution reference image.
+# 4. Inference — give it a real, in-distribution reference image.
 REF_IMAGE=path/to/condition.png make test-easycontrol EASYADAPTER=<task>
 #    Steer with text:  ... ARGS='--prompt "..."'
 ```
 
-사전 준비: `make preprocess`를 한 번 실행하여 공유 타깃 레이턴트와 텍스트 캐시가 `post_image_dataset/lora`에 존재해야 합니다(어댑터가 이를 재사용합니다).
+### 인퍼런스 노트
 
-### 인퍼런스 팁 (colorize에서 배운 것들)
-
-- **실제 in-distribution 레퍼런스를 입력하세요.** 인퍼런스 시 레퍼런스는 있는 그대로 VAE 인코딩됩니다 — 빌드 단계가 없습니다. colorize는 실제 스크린톤이 입혀진 흑백 페이지를 입력합니다; 밋밋한 그레이스케일 사진은 분포를 벗어나 품질이 떨어집니다. 빌더가 *흉내 내려 했던* 것이 곧 인퍼런스가 받기를 기대하는 것입니다.
-- **`--easycontrol_image_match_size`** — 레퍼런스의 종횡비에 맞는 토큰 버킷을 선택하여, 세로로 긴 페이지가 찌그러지지 않게 합니다. colorize는 이를 강제로 켭니다.
-- **`--easycontrol_scale`** (`EC_SCALE=`, 레퍼런스를 얼마나 따를지) — 학습 기본값은 `1.0`; 레퍼런스가 너무 강하게 보이면 올리고(1.1–1.2), 더 느슨한 출력을 원하면 내리세요(0.7–0.8).
-- **`--guidance_scale`** — 텍스트 설정과 함께 작용합니다. colorize: 빈 프롬프트 → 낮은 CFG(1.0–1.5, 밀어붙일 것이 없음); 텍스트 프롬프트 → 높게(3.0–4.5, 프롬프트가 실제로 작용하게 만드는 것).
+- 인퍼런스 시 레퍼런스는 빌드 단계 없이 그대로 VAE 인코딩됩니다. 빌더가 흉내 내려 했던 것을 입력하세요
+  (colorize: 실제 스크린톤이 입혀진 페이지이지, 그레이스케일 사진이 아닙니다).
+- `make test-easycontrol`은 항상 `--easycontrol_image_match_size`를 전달하며, 이는
+  레퍼런스의 종횡비에 맞는 토큰 버킷을 선택합니다.
+- `--easycontrol_scale` (`EC_SCALE=`)은 출력이 레퍼런스를 얼마나 따를지 정합니다;
+  `1.0`이 학습 기본값입니다.
+- colorize의 튜닝된 `--guidance_scale` / scale / 스텝 범위는
+  `colorization/README.md`("Inference settings")에 있습니다.
 
 ---
 
-## 8. 체크리스트
+## 7. 체크리스트
 
 - [ ] `i2i_tasks/<task>/`에 결정론적이고 원자적으로 쓰는 빌더
-      (`(img, seed) → reference`, 같은 크기)와 멱등 `prep.py`
-      (build → encode → 선택적 text).
-- [ ] 레퍼런스를 **원본 크기**로 인코딩하여 토큰 카운트가 타깃 버킷과 일치하도록(§3).
-- [ ] `configs/datasets/<task>.toml`에 `cond_cache_dir`(+ 선택적
-      `text_cache_dir`), `flip_aug = false`, 공유 타깃 캐시 재사용.
-- [ ] `configs/methods/<task>.toml` → 데이터셋을 가리키고, 고유한
-      `output_name`, `network_module = "networks.methods.easycontrol"`,
-      `use_easycontrol = true`. (선택적 GUI 변형.)
-- [ ] `EASYADAPTER=<task>`를 `_EASYADAPTERS`에 추가 + 전처리 분기
-      (training.py) + inference.py의 일반화된 checkpoint/output/fallback.
+      (`(img, seed) → reference`, 같은 크기)와 멱등 `prep.py`.
+- [ ] 레퍼런스를 **원본 크기**로 인코딩 (§3).
+- [ ] `i2i_tasks/configs/<task>.toml`: `name`, `[staging]`; 그리고
+      `configs/easycontrol/<task>.toml`: `[preprocess]` / `[training]`, `cond_cache_dir`(+ 선택적
+      `text_cache_dir` / `latent_cache_dir`)와 `flip_aug = false`를 가진 블루프린트.
+- [ ] `_I2I_STAGES` 항목 (training.py)과 `_ADAPTERS` 행 (inference.py).
 - [ ] 전체 실행 전에 `--limit 8` 스테이징 배치를 눈으로 확인.
 
 ---
 
-## 9. 더 읽을 곳
+## 8. 더 읽을 곳
 
-- **`i2i_tasks/colorization/README.md`** — colorize 설계 노트 전문
-  (캡션 정책, 스크린톤 밴드, Phase B 로드맵). 위 모든 것의 레퍼런스 구현.
+- **`i2i_tasks/colorization/README.md`** — colorize 레퍼런스 구현:
+  캡션 정책, 스크린톤 밴드, 태그 슬라이스, 인퍼런스 설정.
 - **`docs/experimental/easycontrol.md`** — 네트워크 자체: 2-스트림 포워드,
-  `b_cond` step-0 벤치, 인퍼런스 캐시, 메모리 사용, 한계. `network_args`를
-  건드리기 전에 읽으세요.
+  `b_cond` step-0 벤치, `cond_res_scale`, 인퍼런스 캐시, 메모리, 한계.
 - **`networks/methods/easycontrol.py`** — `EasyControlNetwork`와 패치된
-  `Block.forward`. 새 어댑터를 위해 이것을 편집할 **필요는 없을** 것입니다; 편집이 필요하다고 생각된다면, 태스크의 실제 차이가 레퍼런스 이미지에 있는 것인지 다시 확인하세요.
+  `Block.forward`.
 - **`networks/CLAUDE.md`** — 모듈별 맵과 디스패치 규칙.

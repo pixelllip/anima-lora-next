@@ -11,10 +11,11 @@ so staging is pure symlinks.
 
 Contract (mirrors ``i2i_tasks.tools.near_twins``):
   * reads its ``[staging]`` table + top-level ``name`` slug from
-    ``--config`` (default ``configs/easycontrol/subject.toml``); CLI wins.
+    ``--config`` (default ``i2i_tasks/configs/subject.toml``); CLI wins.
   * emits ``post_image_dataset/i2i/<name>/staging/<artist>/<stem>.png``
     (+ ``.txt``) symlinks for every *target*, a ``pairs.json`` manifest beside
-    it, and rewrites the descriptor's ``[[datasets]]`` blueprint tail in place.
+    it, and rewrites the ``[[datasets]]`` blueprint tail of the EasyControl
+    descriptor (``--config-out``, default ``configs/easycontrol/<config stem>.toml``).
   * ``--cond-only`` (the ``easycontrol-preprocess`` step) skips mining and
     (re)builds ``cond/`` from the manifest: for each pair, the cond member's
     shared-cache latent is symlinked under the TARGET's stem at the COND's
@@ -45,11 +46,11 @@ from i2i_tasks.tools.near_twins.outputs import (  # noqa: E402
     _strip_blueprint,
 )
 
-DEFAULT_CONFIG = "configs/easycontrol/subject.toml"
+DEFAULT_CONFIG = "i2i_tasks/configs/subject.toml"
 
 
 def _blueprint_text() -> str:
-    # `{name}` placeholders interpolate from the descriptor's top-level `name`
+    # `{name}` placeholders interpolate from the i2i task file's `name`
     # at train time (see _resolve_blueprint_path). cache_dir points at the
     # SHARED corpus cache on purpose — both pair members are ordinary corpus
     # images, so target latents + TE/PE variants are reused, not re-encoded
@@ -305,8 +306,8 @@ def main() -> None:
     )
     build_cond_tree(base, lora_cache_dir)
 
-    out = args.config_out
-    write_dataset_config(REPO_ROOT / out if out else config_path)
+    out = args.config_out or f"configs/easycontrol/{config_path.stem}.toml"
+    write_dataset_config(REPO_ROOT / out)
     print(
         f"[subject_pairs] {len(pairs)} pairs over {len(characters)} characters "
         f"({cross} cross-artist) → {base}"

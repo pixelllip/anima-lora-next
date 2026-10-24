@@ -82,7 +82,7 @@ present (default `methods` subdir only — `gui-methods` stays flat); `--method 
 it up with no extra flag.
 
 EasyControl uses it: `configs/easycontrol/easycontrol.toml`, with the miner-generated
-descriptor blueprints `near_twins.toml` / `colorize.toml` in the same dir.
+descriptors `near_twins.toml` / `colorize.toml` in the same dir (the task's `name`/`[staging]` live in `i2i_tasks/configs/<task>.toml`).
 `configs/gui-methods/easycontrol.toml` still points at the standalone
 `configs/datasets/easycontrol.toml` — keep the inline subset in sync until gui-methods is
 migrated.

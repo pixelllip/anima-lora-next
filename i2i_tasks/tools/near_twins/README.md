@@ -14,8 +14,9 @@ seconds.
 
 ## Quick start
 
-The miner is step 1 of a three-step EasyControl flow, driven by one config
-(`configs/easycontrol/near_twins.toml`) and selected with `EASYADAPTER`:
+The miner is step 1 of a three-step EasyControl flow, driven by a task file
+(`i2i_tasks/configs/near_twins.toml`, plus the EasyControl descriptor
+`configs/easycontrol/near_twins.toml`) and selected with `EASYADAPTER`:
 
 ```bash
 # 1. Mine the pair tree + (re)write the dataset blueprint
@@ -27,7 +28,7 @@ make easycontrol            EASYADAPTER=near_twins
 ```
 
 Everything routes under `post_image_dataset/i2i/<name>/{staging,resized,
-cache,cond}` where `<name>` is the top-level `name` key in the config (ships as
+cache,cond}` where `<name>` is the top-level `name` key in the task file (ships as
 `name = "sanitize"`). Change `name`, re-run preprocess → train, and the whole
 pipeline reroutes with no path edits.
 
@@ -41,7 +42,7 @@ python -m i2i_tasks.tools.near_twins \
 ```
 
 CLI flags override the `[staging]` table in `--config`
-(`configs/easycontrol/near_twins.toml` by default; `--config ''` disables it).
+(`i2i_tasks/configs/near_twins.toml` by default; `--config ''` disables it).
 
 ## How it works
 
@@ -94,18 +95,18 @@ The single training-shaped artifact is the **materialized pair tree** under
 
 Images are **symlinked** from the source tree by default (`--copy` to copy).
 Alongside it, `--config-out` (re)writes the EasyControl dataset blueprint into
-the config's tail: the clean `_no_tags` member is the denoising **target**
+the EasyControl descriptor's tail: the clean `_no_tags` member is the denoising **target**
 (`cache_dir`); its `_tags` twin rides in as the **condition** (`cond_cache_dir`),
 symlinked under the `_no_tags` stem by the preprocess step. The adapter thus
 learns: *given a text-bearing panel as the reference, regenerate the clean one.*
 The blueprint write preserves everything above its sentinel, so your edited
-`[staging]` / `[preprocess]` tables survive re-runs.
+`[preprocess]` / `[training]` tables survive re-runs (`[staging]` lives in the task file, which is never rewritten).
 
 ## Key knobs
 
 | Flag | Default | Meaning |
 |---|---|---|
-| `--config` | `configs/easycontrol/near_twins.toml` | `[staging]` table of run knobs (CLI overrides; `''` disables) |
+| `--config` | `i2i_tasks/configs/near_twins.toml` | task file: `name` + `[staging]` table of run knobs (CLI overrides; `''` disables) |
 | `--name` | config `name` / `near_twins` | output slug; reroutes the whole export/cache tree |
 | `--tag` / `--tag-any` / `--region` | — | discriminator (exactly one) |
 | `--image-dirs` | `$CAPTION_CORPUS_DIR/{retrieved,selected}` | source trees (`{VAR}`/`$VAR`/`~` expansion) |

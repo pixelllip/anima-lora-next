@@ -1,14 +1,3 @@
-name = "sanitize"
-
-[staging]
-tag_any = ["speech bubble", "thought bubble", "blank speech bubble", "spoken text", "english text", "japanese text", "sound effects", "text focus"]
-
-image_dirs = ["{CAPTION_CORPUS_DIR}/retrieved"]
-sim_min = 0.85
-match_frac_min = 0.3
-cell_match_min = 0.9
-max_extra_diff = 25
-
 [preprocess]
 recursive = true
 vae = 'models/vae/qwen_image_vae.safetensors'
