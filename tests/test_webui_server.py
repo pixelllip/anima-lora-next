@@ -151,6 +151,44 @@ def test_allowlist_helper():
     assert not webui._allowed("GET", "/secrets")
 
 
+def test_optional_token_gates_the_whole_page(tmp_path):
+    """绑 0.0.0.0 给手机用时：首跳 token → Cookie，之后 JS/图片/SSE 自动带。"""
+    import http.client
+
+    httpd = webui.serve("127.0.0.1", 0, tmp_path, token="s3cret")
+    t = threading.Thread(target=httpd.serve_forever, daemon=True)
+    t.start()
+    port = httpd.server_address[1]
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    try:
+        conn.request("GET", "/")
+        r = conn.getresponse()
+        assert r.status == 401
+        r.read()
+
+        conn.request("GET", "/?token=s3cret")
+        r = conn.getresponse()
+        assert r.status == 302
+        assert r.getheader("Location") == "/"
+        cookie = r.getheader("Set-Cookie") or ""
+        assert webui.TOKEN_COOKIE in cookie
+        r.read()
+
+        conn.request("GET", "/", headers={"Cookie": f"{webui.TOKEN_COOKIE}=s3cret"})
+        r = conn.getresponse()
+        assert r.status == 200
+        assert b"Anima" in r.read()
+
+        conn.request("GET", "/?token=wrong")
+        r = conn.getresponse()
+        assert r.status == 401
+        r.read()
+    finally:
+        conn.close()
+        httpd.shutdown()
+        httpd.server_close()
+
+
 def test_daemon_pidfile_override(tmp_path, monkeypatch):
     override = tmp_path / "custom.json"
     monkeypatch.setenv("ANIMA_DAEMON_PIDFILE", str(override))

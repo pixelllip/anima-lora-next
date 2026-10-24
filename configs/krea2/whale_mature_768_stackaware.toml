@@ -1,0 +1,59 @@
+# Krea-2 line —— 鲸鱼娘成熟版人物 LoRA（style-in-the-loop，768 档）
+#
+# 目的：人物 LoRA 叠画风 LoRA 时不再丢细节（鳍耳/瞳色/尾巴/服装）。
+# 训练时挂冻结画风 LoRA，人物残差直接在画风特征上优化。
+#
+# 为什么是 pinned（不是按概率随机开）：
+#   数据集只有一种画风、caption 不描述画风 ⟹ 「身份」和「画风」对 loss 是同一团
+#   没被解释的残差。prob<1 时，关掉画风的那些步逼着人物 delta 自己补画风，最优解
+#   是折中 α·画风（α>0）；推理时 α 随强度一起涨，于是「开 1 压画风、开低丢细节」。
+#   pinned = 画风每步都在、强度钉死在实际出图那一档 ⟹ 人物 delta 里的画风成分
+#   变成纯重复计算，被梯度压掉，只剩画风 LoRA 解释不了的身份 + 场景。
+#   ⚠️ 因此 warmup 必须是 0（任何一步没画风都会把画风吃回去）。
+#
+# 口径：264 (official_gate) + r16/alpha16 + lr1e-4 constant + swap26 + 全梯度检查点。
+#
+# 启动：
+#   $env:PYTORCH_CUDA_ALLOC_CONF="backend:cudaMallocAsync"
+#   python -m library.krea2.train --config configs/krea2/whale_mature_768_stackaware.toml
+# （或按本仓 scripts 的 Krea-2 CLI 入口调用）
+
+cache = "D:/myProject/krea2-webui/post_image_dataset/whale/mature_lora"
+output = "output/ckpt_krea2/whale_mature_krea2_stackaware.safetensors"
+output_name = "whale_mature_krea2_stackaware"
+model = "D:/myProject/krea2-webui/models/diffusion_models/krea2_raw_nf4_self_contained.safetensors"
+
+rank = 16
+alpha = 16.0
+target_preset = "official_gate"   # 264 = 官方 232 + 32 个 mlp.gate
+dropout = 0.0
+
+# ── style-in-the-loop ────────────────────────────────────────────────────────
+# 逗号/分号分隔；顺序必须与 stack_lora_strengths 一一对应。
+stack_lora_paths = "D:/Comfy-Desktop/ComfyUI-Installs/ComfyUI/ComfyUI/models/loras/KNP_000003000.safetensors;D:/Comfy-Desktop/ComfyUI-Installs/ComfyUI/ComfyUI/models/loras/twinbox_late_krea2_r264_r16_tagnotes_lr3e4-step00001100.safetensors"
+stack_lora_mode = "pinned"
+stack_lora_strengths = "1.25;1.0"  # 你出图时的强度，逐条对应
+stack_lora_strength_jitter = 0.05  # ±5%，避免只认死一个值
+stack_lora_prob = 1.0              # pinned 会忽略它；写出来是为了快照可读
+stack_lora_strength_min = 0.3      # pinned 下不生效
+stack_lora_strength_max = 1.25
+stack_lora_warmup_steps = 0        # ⚠️ 必须 0
+
+max_steps = 700                   # 30 张 × 23 遍；pinned 方差比单挂大
+batch_size = 1
+lr = 1e-4
+lr_scheduler = "constant"
+warmup_steps = 0
+weight_decay = 0.0
+optimizer_type = "adamw"
+seed = 0
+sigma_min = 0.0
+sigma_max = 1.0
+
+blocks_to_swap = 26
+grad_checkpointing = true
+mem_cache_size = 8
+
+save_every_n_steps = 100
+save_last_n = 2
+log_every_n_steps = 10

@@ -1719,3 +1719,14 @@ def cmd_preprocess_config(extra):
                 "--recursive",
             ]
         )
+
+    # REPA：与 `make preprocess` 同一条链。不补这一步的话，默认 lora 变体
+    # （`use_repa=true`）会在训练第一步报 "PE features absent"，而这里正是
+    # "预处理已经成功、训练却起不来"的唯一断点。
+    encoder = _repa_pe_encoder()
+    if encoder is not None:
+        print(f"  [preprocess-config] use_repa=true → caching REPA PE features ({encoder})")
+        if encoder == "pe_spatial":
+            cmd_preprocess_pe_spatial([])
+        else:
+            cmd_preprocess_pe([])

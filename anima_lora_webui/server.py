@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import argparse
+import hmac
 import json
 import mimetypes
 import os
@@ -28,9 +29,10 @@ import posixpath
 import sys
 import urllib.error
 import urllib.request
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 __version__ = "0.1.0"
 
@@ -38,8 +40,13 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 #: 允许反代到守护进程的路径（前缀匹配）。**不是**开放代理 —— 没在白名单里的
 #: 一律 404，避免这个本地服务被当成任意 HTTP 转发器。
-GET_ALLOW = ("/health", "/tools", "/jobs", "/events")
-POST_ALLOW = ("/jobs", "/queue/", "/shutdown")
+GET_ALLOW = ("/health", "/tools", "/jobs", "/events", "/studio")
+POST_ALLOW = ("/jobs", "/queue/", "/shutdown", "/studio")
+
+#: 可选访问令牌的 Cookie 名。**只在 `--token` 给了时启用**：
+#: 训练台会写数据集 / 起几小时的 GPU 作业，绑到 `0.0.0.0` 给手机用时
+#: 不能是"局域网谁都能点"。
+TOKEN_COOKIE = "anima_webui_token"
 
 
 # --------------------------------------------------------------------------- #
@@ -179,8 +186,54 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             resp.close()
 
+    # -- 可选访问令牌 ------------------------------------------------------- #
+    def _token_ok(self) -> bool:
+        """没有 `--token` 时永远放行；给了就必须带 Cookie（或首跳的 query）。
+
+        首跳 `/?token=…` 会 302 到去掉 token 的地址并种 HttpOnly Cookie：
+        WebView / 浏览器之后加载的 JS、图片、SSE 都自动带上，URL 里不再留 token。
+        """
+        expected = getattr(self.server, "token", None)
+        if not expected:
+            return True
+        raw = self.headers.get("Cookie", "")
+        if raw:
+            jar = SimpleCookie()
+            try:
+                jar.load(raw)
+            except Exception:  # noqa: BLE001 — 坏 Cookie 当没带
+                jar = SimpleCookie()
+            morsel = jar.get(TOKEN_COOKIE)
+            if morsel and hmac.compare_digest(morsel.value, expected):
+                return True
+        query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+        supplied = (query.get("token") or [None])[0]
+        if supplied and hmac.compare_digest(supplied, expected):
+            # 健康探针（Rust 起 WebUI 后 `GET /api/_env?token=…`）不种 Cookie、
+            # 也不跳转：HTTP 客户端默认没有 Cookie 罐，跟着 302 走会得到 401。
+            if urlparse(self.path).path == "/api/_env":
+                return True
+            remaining = {k: v for k, v in query.items() if k != "token"}
+            location = urlparse(self.path).path
+            tail = urlencode(remaining, doseq=True)
+            if tail:
+                location += "?" + tail
+            self.send_response(302)
+            self.send_header("Location", location)
+            self.send_header(
+                "Set-Cookie",
+                f"{TOKEN_COOKIE}={expected}; Path=/; HttpOnly; SameSite=Lax",
+            )
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return False
+        self._send_json(401, {"error": "缺少访问令牌（用带 token 的地址打开一次）"})
+        return False
+
     # -- HTTP 入口 --------------------------------------------------------- #
     def do_GET(self) -> None:  # noqa: N802
+        if not self._token_ok():
+            return
         path = urlparse(self.path).path
         if path == "/api/_env":
             self._env()
@@ -194,6 +247,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send_file("index.html" if path in ("/", "") else posixpath.normpath(path).lstrip("/"))
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._token_ok():
+            return
         length = int(self.headers.get("Content-Length") or 0)
         body = self.rfile.read(length) if length else b""
         path = urlparse(self.path).path
@@ -211,9 +266,12 @@ class Handler(BaseHTTPRequestHandler):
 
 
 # --------------------------------------------------------------------------- #
-def serve(host: str, port: int, root: Path | None) -> ThreadingHTTPServer:
+def serve(
+    host: str, port: int, root: Path | None, token: str | None = None
+) -> ThreadingHTTPServer:
     httpd = ThreadingHTTPServer((host, port), Handler)
     httpd.engine_root = root  # type: ignore[attr-defined]
+    httpd.token = token  # type: ignore[attr-defined]
     httpd.daemon_threads = True
     return httpd
 
@@ -223,10 +281,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--root", default=os.environ.get("ANIMA_LORA_ROOT"), help="anima_lora 引擎目录（找 output/daemon/daemon.json）")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8810)
+    ap.add_argument(
+        "--token",
+        default=os.environ.get("ANIMA_WEBUI_TOKEN"),
+        help="可选访问令牌；绑 0.0.0.0 给手机用时必须给（首跳带 ?token= 种 Cookie）",
+    )
     args = ap.parse_args(argv)
 
     root = Path(args.root).expanduser() if args.root else None
-    httpd = serve(args.host, args.port, root)
+    httpd = serve(args.host, args.port, root, token=args.token)
     info = discover_daemon(root)
     print(f"[webui] http://{args.host}:{args.port}  (engine={root or '-'})")
     print(f"[webui] daemon: {info.get('port') if info else '未运行'}")

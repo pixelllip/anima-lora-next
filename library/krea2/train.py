@@ -26,6 +26,13 @@ from safetensors.torch import save_file
 from library.krea2.data import Krea2Cache
 from library.krea2.lora import attach_lora, lora_parameters
 from library.krea2.requests import TrainRequest
+from library.krea2.stack import (
+    apply_stack_schedule,
+    build_stack_loras,
+    resolve_stack_strengths,
+    split_stack_paths,
+    stack_enabled,
+)
 
 
 def _log(msg: str) -> None:
@@ -52,6 +59,13 @@ def _save(handles, req: TrainRequest, step: int, *, final: bool) -> Path:
         "ss_dataset_count": "unknown",
         "ss_network_module": "library.krea2.lora",
         "ss_down_init": "kaiming_zero_up",
+        "ss_stack_lora_count": str(len(split_stack_paths(req.stack_lora_paths))),
+        "ss_stack_lora_prob": str(req.stack_lora_prob),
+        # 人物 delta 被训练成「叠在某档画风上的残差」；不记下这档强度，pinned
+        # 成品在推理端不可复现。
+        "ss_stack_lora_mode": req.stack_lora_mode,
+        "ss_stack_lora_strengths": str(req.stack_lora_strengths or ""),
+        "ss_stack_lora_strength_jitter": str(req.stack_lora_strength_jitter),
     }
     save_file(tensors, str(out), metadata=metadata)
     snapshot = out.with_suffix(".snapshot.toml")
@@ -151,11 +165,45 @@ def run_train(req: TrainRequest) -> int:
                           dtype=torch.bfloat16)  # ← 必须 bf16：留 fp32 会把整张图拖成 fp32
     lora_params = list(lora_parameters(handles))
 
+    # style-in-the-loop：冻结画风 LoRA 也必须**先挂再开块交换**（同上）。
+    stack_paths = split_stack_paths(req.stack_lora_paths)
+    stack_strengths = None
+    stack_handles = []
+    if stack_paths:
+        stack_strengths = resolve_stack_strengths(
+            stack_paths, req.stack_lora_strengths, mode=req.stack_lora_mode
+        )
+    if stack_enabled(
+        paths=stack_paths,
+        prob=req.stack_lora_prob,
+        mode=req.stack_lora_mode,
+        strengths=stack_strengths,
+    ):
+        stack_handles = build_stack_loras(dit, stack_paths, dtype=torch.bfloat16)
+        if stack_strengths is not None:
+            detail = "/".join(f"{s:g}" for s in stack_strengths)
+            detail = f"pinned={detail}"
+        else:
+            detail = f"强度 {req.stack_lora_strength_min:g}..{req.stack_lora_strength_max:g}"
+        _log(
+            f"style-in-the-loop：{len(stack_handles)} 个冻结画风 LoRA，"
+            f"mode={req.stack_lora_mode}，{detail}，"
+            f"jitter={req.stack_lora_strength_jitter:g}，"
+            f"p={req.stack_lora_prob:g}，warmup={req.stack_lora_warmup_steps}"
+        )
+        if req.stack_lora_mode == "pinned" and req.stack_lora_warmup_steps:
+            _log(
+                "⚠️ pinned 模式下 warmup>0：预热步没有画风，人物 delta 会把画风"
+                "吃回去（这正是本模式要避免的失败模式），建议 warmup=0"
+            )
+
     if req.blocks_to_swap:
         dit.enable_block_swap(req.blocks_to_swap, device)
         dit.move_to_device_except_swap_blocks(device)
     else:
         dit.to(device)
+    for handle in stack_handles:
+        handle.holder.to(device)
     _log(
         f"DiT 就绪 {time.time() - t0:.1f}s；swap={req.blocks_to_swap}；"
         f"grad_ckpt={req.grad_checkpointing}；显存 {torch.cuda.memory_allocated() / 1024**3:.2f} GB"
@@ -249,6 +297,19 @@ def run_train(req: TrainRequest) -> int:
             )
 
         _phase("step_enter")
+        if stack_handles:
+            apply_stack_schedule(
+                stack_handles,
+                step=step,
+                prob=req.stack_lora_prob,
+                strength_min=req.stack_lora_strength_min,
+                strength_max=req.stack_lora_strength_max,
+                warmup_steps=req.stack_lora_warmup_steps,
+                seed=req.seed,
+                mode=req.stack_lora_mode,
+                strengths=stack_strengths,
+                jitter=req.stack_lora_strength_jitter,
+            )
         if req.blocks_to_swap:
             dit.prepare_block_swap_before_forward()
         ts = time.time()

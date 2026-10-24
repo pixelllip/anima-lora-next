@@ -2,75 +2,313 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Anima LoRA 训练台</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<header>
-  <h1>Anima LoRA 训练台</h1>
-  <div class="spacer"></div>
-  <span id="env" class="pill">连接中…</span>
-  <button id="btn-pause">暂停队列</button>
-  <button id="btn-refresh">刷新</button>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">A</span>
+    <div>
+      <h1>Anima 训练台</h1>
+      <div id="env" class="pill">连接中…</div>
+    </div>
+  </div>
+  <div class="top-actions">
+    <button id="btn-refresh" class="ghost" title="刷新状态">刷新</button>
+    <button id="btn-queue" class="ghost" title="暂停/恢复训练队列">暂停队列</button>
+  </div>
 </header>
 
-<main>
-  <section class="col jobs">
-    <h2>作业 <span class="dim" id="jobs-count"></span></h2>
-    <div id="jobs" class="list"></div>
-  </section>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="side-head">
+      <b>训练项目</b>
+      <button id="btn-new" class="mini">＋ 新建</button>
+    </div>
+    <div id="projects" class="project-list"></div>
+    <form id="form-new" class="side-form hidden">
+      <label>项目名<input name="name" placeholder="例如 shinku 画风" required></label>
+      <label>触发词（可选）<input name="trigger" placeholder="@artist"></label>
+      <label>方法
+        <select name="variant">
+          <option value="lora">LoRA</option>
+          <option value="tlora">T-LoRA</option>
+          <option value="hydralora">HydraLoRA</option>
+          <option value="soft_tokens">Soft Tokens</option>
+          <option value="easycontrol">EasyControl</option>
+        </select>
+      </label>
+      <label>硬件档
+        <select name="preset">
+          <option value="default">default</option>
+          <option value="low_vram">low_vram</option>
+        </select>
+      </label>
+      <div class="row">
+        <button type="submit" class="primary">创建</button>
+        <button type="button" id="btn-new-cancel" class="ghost">取消</button>
+      </div>
+    </form>
+    <p class="side-note">数据集、缓存与产物都落在引擎目录里；手机/电脑看到的是同一份状态。</p>
+  </aside>
 
-  <section class="col detail">
-    <h2 id="detail-title">进度</h2>
-    <div id="job-meta" class="meta dim">选一个作业看详情</div>
-    <canvas id="loss" height="180"></canvas>
-    <div class="tabs">
-      <button data-tab="progress" class="tab active">事件流</button>
-      <button data-tab="log" class="tab">stdout 日志</button>
-      <button data-tab="submit" class="tab">提交训练</button>
-      <button data-tab="command" class="tab">提交命令</button>
+  <main class="main">
+    <section id="empty" class="empty">
+      <div class="empty-icon">◐</div>
+      <h2>选一个训练项目</h2>
+      <p class="dim">全链路：取训练集 → 人工筛选 → 打标（可选）→ 预处理 → 正式训练。<br>
+        AI 工作台也能调用同一套工具完成这些步骤。</p>
+    </section>
+
+    <div id="project-view" class="hidden">
+      <section class="project-head">
+        <div class="grow">
+          <h2 id="p-name">—</h2>
+          <div id="p-meta" class="dim small"></div>
+        </div>
+        <div id="p-counts" class="chips"></div>
+      </section>
+
+      <div id="stage-bar" class="stage-bar"></div>
+
+      <nav class="tabs" id="tabs">
+        <button data-tab="dataset" class="tab active">数据集</button>
+        <button data-tab="tag" class="tab">打标</button>
+        <button data-tab="preprocess" class="tab">预处理</button>
+        <button data-tab="config" class="tab">参数</button>
+        <button data-tab="train" class="tab">训练</button>
+        <button data-tab="krea2" class="tab">Krea-2</button>
+        <button data-tab="jobs" class="tab">作业</button>
+      </nav>
+
+      <!-- 数据集 ---------------------------------------------------------- -->
+      <section id="tab-dataset" class="tabpane">
+        <div class="toolbar">
+          <div class="filters" id="image-filters">
+            <button data-state="inbox" class="chip active">待筛选 <span id="n-inbox">0</span></button>
+            <button data-state="dataset" class="chip">已接受 <span id="n-dataset">0</span></button>
+            <button data-state="rejected" class="chip">已拒绝 <span id="n-rejected">0</span></button>
+            <button data-state="all" class="chip">全部</button>
+          </div>
+          <div class="bulk">
+            <label class="check"><input type="checkbox" id="select-all"> 全选</label>
+            <button id="btn-accept" class="primary small">接受选中</button>
+            <button id="btn-reject" class="warn small">拒绝选中</button>
+            <button id="btn-restore" class="ghost small">移回待筛选</button>
+            <button id="btn-delete" class="danger small">删除</button>
+          </div>
+        </div>
+
+        <details class="card import-card" id="import-box">
+          <summary>取训练集：从文件夹 / URL 导入（先进入「待筛选」，不直接参与训练）</summary>
+          <div class="import-body">
+            <label>本机文件夹或文件（每行一个；文件夹按顶层导入）
+              <textarea id="import-paths" rows="3" placeholder="D:\datasets\shinku&#10;C:\Users\me\Pictures\ref.png"></textarea>
+            </label>
+            <label>图片 URL（每行一个，http/https）
+              <textarea id="import-urls" rows="2" placeholder="https://…/page1.jpg"></textarea>
+            </label>
+            <label>统一附带的 caption（可选，例如只要触发词就留空）
+              <input id="import-caption" placeholder="@artist">
+            </label>
+            <label class="check"><input type="checkbox" id="import-recursive"> 递归子目录</label>
+            <button id="btn-import" class="primary">开始导入</button>
+            <span id="import-msg" class="dim small"></span>
+          </div>
+        </details>
+
+        <div id="image-grid" class="image-grid"></div>
+        <div id="image-empty" class="empty small hidden">这一档还没有图片。</div>
+      </section>
+
+      <!-- 打标 ------------------------------------------------------------ -->
+      <section id="tab-tag" class="tabpane hidden">
+        <div class="card">
+          <h3>自动打标（可选）</h3>
+          <p class="dim small">使用引擎的 Anima Tagger 写入 <code>.txt</code> 同名 sidecar。
+            caption 改过之后，训练前必须重跑预处理（TE 缓存按 caption mtime 失效）。</p>
+          <div class="row wrap">
+            <label>模式
+              <select id="tag-mode">
+                <option value="missing">missing — 只补没有 caption 的图</option>
+                <option value="merge">merge — 追加新标签，保留已有文字</option>
+                <option value="overwrite">overwrite — 整条重写</option>
+              </select>
+            </label>
+            <button id="btn-tag" class="primary">开始打标</button>
+            <button id="btn-trigger" class="ghost">给全部已接受图加触发词</button>
+          </div>
+          <div id="tag-status" class="notice"></div>
+        </div>
+        <div class="card">
+          <h3>caption 覆盖率</h3>
+          <div class="progress"><div id="caption-bar" class="bar"></div></div>
+          <p id="caption-text" class="dim small"></p>
+        </div>
+      </section>
+
+      <!-- 预处理 ---------------------------------------------------------- -->
+      <section id="tab-preprocess" class="tabpane hidden">
+        <div class="card">
+          <h3>预处理（resize → VAE latent → TE 缓存）</h3>
+          <p class="dim small">只处理本项目 <code>image_dataset/&lt;项目&gt;</code> 里的已接受图片，
+            产物落到 <code>post_image_dataset/{resized,lora}/&lt;项目&gt;</code>。
+            被拒绝的图会连同已生成的 resize / latent 一起清掉。</p>
+          <div id="prep-counts" class="chips"></div>
+          <div class="row wrap">
+            <label class="check"><input type="checkbox" id="chain-train"> 预处理成功后自动开始训练</label>
+            <button id="btn-preprocess" class="primary">开始预处理</button>
+          </div>
+          <div id="prep-status" class="notice"></div>
+        </div>
+        <div class="card">
+          <h3>生成配置</h3>
+          <p class="dim small">提交时使用引擎自己的 base → preset → method 合并链，
+            并把所有路径 scope 到本项目（与 Qt GUI 的 path_scope 完全一致）。</p>
+          <pre id="config-preview" class="code"></pre>
+        </div>
+      </section>
+
+      <!-- 参数（复现 Qt GUI 的 Config 页） -------------------------------- -->
+      <section id="tab-config" class="tabpane hidden">
+        <div class="card">
+          <div class="config-head">
+            <label>方法
+              <select id="cfg-variant"></select>
+            </label>
+            <label>硬件档
+              <select id="cfg-preset"></select>
+            </label>
+            <label>output_name
+              <input id="cfg-output" spellcheck="false">
+            </label>
+            <label class="grow">筛选参数
+              <input id="cfg-filter" placeholder="按 key / 中文名筛选，例如 lr、rank、swap" spellcheck="false">
+            </label>
+            <span id="cfg-dirty" class="tag wait hidden">未保存</span>
+          </div>
+          <p class="dim small">
+            与 Qt GUI 同一份事实：字段来自引擎的 <code>base → preset → method</code> 合并链，
+            帮助文案读 <code>explanations/guides/cn/_fields.json</code>。只保存你改过的字段；
+            点「恢复默认」会把该字段的 overrides 删掉，重新跟随预设。
+          </p>
+          <div id="cfg-basic" class="field-grid"></div>
+          <div class="row wrap config-actions">
+            <button id="btn-cfg-save" class="primary">保存参数</button>
+            <button id="btn-cfg-train" class="primary">保存并开始训练</button>
+            <button id="btn-cfg-reset" class="ghost">全部恢复默认</button>
+          </div>
+          <div id="cfg-status" class="notice"></div>
+        </div>
+        <div class="card">
+          <details open>
+            <summary>高级参数（按分组；与 Qt GUI 的 Advanced 一致）</summary>
+            <div id="cfg-advanced"></div>
+          </details>
+        </div>
+        <div class="card">
+          <h3>生成的训练配置</h3>
+          <p class="dim small">保存后会重新生成 <code>train_config.toml</code>；下面就是真正提交给训练器的快照。</p>
+          <pre id="cfg-preview" class="code"></pre>
+        </div>
+      </section>
+
+      <!-- 训练 ------------------------------------------------------------ -->
+      <section id="tab-train" class="tabpane hidden">
+        <div class="card">
+          <h3>正式训练</h3>
+          <p class="dim small">参数在「参数」页调整；这里只负责提交与看产物。
+            Anima 的元数据带 <code>ss_adaln_layout=comfy</code>，产物可直接复制到
+            ComfyUI 的 <code>models\loras\</code> 使用。</p>
+          <div class="row wrap">
+            <button id="btn-train" class="primary">开始训练（使用已保存参数）</button>
+            <button id="btn-goto-config" class="ghost">去调整参数</button>
+          </div>
+          <div id="train-status" class="notice"></div>
+        </div>
+        <div class="card">
+          <h3>训练产物</h3>
+          <p class="dim small">产物在 <code>output/ckpt/&lt;项目&gt;/</code>。</p>
+          <div id="output-list" class="jobs"></div>
+        </div>
+      </section>
+
+      <!-- Krea-2（独立训练线） -------------------------------------------- -->
+      <section id="tab-krea2" class="tabpane hidden">
+        <div class="card">
+          <h3>Krea-2 LoRA（独立训练线）</h3>
+          <p class="dim small">
+            不走 Anima 的 <code>base → preset → method</code> 链；参数键与
+            <code>library/krea2/requests.py</code> 的 <code>TrainRequest</code> 一一对应，
+            保存为 <code>training_projects/&lt;项目&gt;/krea2.toml</code>，再用
+            <code>scripts/krea2/train.py --config</code> 提交到同一个串行队列。
+            缓存必须先用 krea2-webui 的 resize + cache_latents 生成。
+          </p>
+          <div id="k2-checks" class="chips k2-checks"></div>
+          <div id="k2-fields" class="k2-groups"></div>
+          <div class="row wrap config-actions">
+            <button id="btn-k2-save" class="primary">保存参数</button>
+            <button id="btn-k2-train" class="primary">开始 Krea-2 训练</button>
+            <button id="btn-k2-reset" class="ghost">全部恢复默认</button>
+            <span id="k2-dirty" class="tag wait hidden">未保存</span>
+          </div>
+          <div id="k2-notice" class="notice"></div>
+        </div>
+        <div class="card">
+          <h3>生成的 krea2.toml</h3>
+          <pre id="k2-preview" class="code"></pre>
+        </div>
+        <div class="card">
+          <h3>Krea-2 产物</h3>
+          <p class="dim small">产物在 <code>output/ckpt_krea2/</code>；同样可直接复制到 ComfyUI 的
+            <code>models\loras\</code>。</p>
+          <div id="k2-outputs" class="jobs"></div>
+        </div>
+      </section>
+
+      <!-- 作业 ------------------------------------------------------------ -->
+      <section id="tab-jobs" class="tabpane hidden">
+        <div class="jobs-layout">
+          <div class="job-col">
+            <div class="col-head"><h3>队列</h3><span id="jobs-count" class="dim small"></span></div>
+            <div id="jobs" class="list"></div>
+          </div>
+          <div class="job-detail">
+            <h3 id="detail-title">进度</h3>
+            <div id="job-meta" class="meta dim">选一个作业看详情</div>
+            <canvas id="loss" height="160"></canvas>
+            <div class="tabs mini-tabs">
+              <button data-view="progress" class="tab active">事件</button>
+              <button data-view="log" class="tab">日志</button>
+            </div>
+            <div id="view-progress" class="tabpane">
+              <div id="progress-summary" class="dim small"></div>
+              <div id="progress" class="table"></div>
+            </div>
+            <div id="view-log" class="tabpane hidden">
+              <pre id="log" class="log"></pre>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
-    <div id="tab-progress" class="tabpane">
-      <h3>进度事件 <span class="dim" id="progress-summary"></span></h3>
-      <div id="progress" class="table"></div>
+  </main>
+</div>
+
+<dialog id="caption-dialog" class="dialog">
+  <form method="dialog">
+    <h3 id="caption-title">caption</h3>
+    <textarea id="caption-textarea" rows="8" spellcheck="false"></textarea>
+    <div class="row">
+      <button type="button" id="caption-save" class="primary">保存</button>
+      <button value="cancel" class="ghost">关闭</button>
     </div>
-    <div id="tab-log" class="tabpane hidden">
-      <pre id="log" class="log"></pre>
-    </div>
-    <div id="tab-submit" class="tabpane hidden">
-      <form id="form-train" class="form">
-        <label>method <input name="method" value="lora" required></label>
-        <label>preset <input name="preset" value="low_vram"></label>
-        <label>methods_subdir <select name="methods_subdir">
-          <option value="methods">methods</option>
-          <option value="gui-methods">gui-methods</option>
-        </select></label>
-        <fieldset><legend>overrides（留空就不传）</legend>
-          <label>output_name <input name="output_name" placeholder="my_lora"></label>
-          <label>max_train_epochs <input name="max_train_epochs" placeholder="8"></label>
-          <label>max_train_steps <input name="max_train_steps" placeholder="（注意：epochs 优先）"></label>
-          <label>learning_rate <input name="learning_rate" placeholder="2e-5"></label>
-          <label>network_dim <input name="network_dim" placeholder="32"></label>
-          <label>network_alpha <input name="network_alpha" placeholder="32"></label>
-          <label>blocks_to_swap <input name="blocks_to_swap" placeholder="0"></label>
-        </fieldset>
-        <label>extra（每行一个参数）<textarea name="extra" rows="3" placeholder="--network_args&#10;use_repa=false"></textarea></label>
-        <button type="submit">提交训练作业</button>
-        <span id="submit-msg" class="dim"></span>
-      </form>
-    </div>
-    <div id="tab-command" class="tabpane hidden">
-      <form id="form-cmd" class="form">
-        <label>label <input name="label" value="preprocess"></label>
-        <label>argv（每行一个 token，第一行通常是 tasks.py 子命令）
-          <textarea name="argv" rows="5" placeholder="tasks.py&#10;preprocess"></textarea>
-        </label>
-        <button type="submit">提交命令作业</button>
-        <span id="cmd-msg" class="dim"></span>
-      </form>
-    </div>
-  </section>
-</main>
+  </form>
+</dialog>
+
+<div id="toast" class="toast hidden"></div>
 <script src="/app.js"></script>
 </body>
 </html>

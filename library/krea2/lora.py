@@ -66,6 +66,7 @@ class LoRALinear(nn.Module):
         self.rank = rank
         self.alpha = alpha
         self.scale = alpha / rank
+        self.multiplier = 1.0
         self.lora_down = nn.Linear(in_features, rank, bias=False)
         self.lora_up = nn.Linear(rank, out_features, bias=False)
         self.dropout = nn.Dropout(dropout) if dropout else nn.Identity()
@@ -77,7 +78,11 @@ class LoRALinear(nn.Module):
         return self.lora_down.weight.numel() + self.lora_up.weight.numel()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # noqa: D102
-        return self.lora_up(self.lora_down(self.dropout(x))) * self.scale
+        return (
+            self.lora_up(self.lora_down(self.dropout(x)))
+            * self.scale
+            * self.multiplier
+        )
 
 
 @dataclass
@@ -93,6 +98,45 @@ class LoRAHandles:
     def parameters(self):
         for mod in self.modules.values():
             yield from mod.parameters()
+
+    def set_multiplier(self, value: float) -> None:
+        for mod in self.modules.values():
+            mod.multiplier = float(value)
+
+    def freeze(self) -> None:
+        for parameter in self.parameters():
+            parameter.requires_grad_(False)
+
+    def load_state_dict(self, state_dict: dict[str, torch.Tensor]) -> None:
+        """Load normalized ``lora_unet_*`` tensors into this handle's modules.
+
+        The file's module token is the dotted DiT path with dots replaced by
+        underscores (``blocks_0_attn_wq``, ``txtfusion_refiner_blocks_0_attn_wo``),
+        so match on that form instead of trying to reverse the underscores.
+        """
+        by_token = {path.replace(".", "_"): mod for path, mod in self.modules.items()}
+        consumed = 0
+        for key, value in state_dict.items():
+            if not key.startswith("lora_unet_"):
+                continue
+            body = key[len("lora_unet_") :]
+            for suffix, field_name in (
+                (".lora_down.weight", "lora_down"),
+                (".lora_up.weight", "lora_up"),
+            ):
+                if not body.endswith(suffix):
+                    continue
+                mod = by_token.get(body[: -len(suffix)])
+                if mod is None:
+                    continue
+                target = getattr(mod, field_name).weight
+                target.data.copy_(
+                    value.to(device=target.device, dtype=target.dtype)
+                )
+                consumed += 1
+                break
+        if consumed == 0:
+            raise SystemExit("no LoRA tensors matched this DiT's target modules")
 
     def state_dict(self) -> dict[str, torch.Tensor]:
         out: dict[str, torch.Tensor] = {}
@@ -158,6 +202,108 @@ def attach_lora(dit: nn.Module, *, rank: int, alpha: float, preset: str,
 
     if not modules:
         raise SystemExit("没扫到任何目标 Linear —— spec 与 DiT 的模块名对不上？")
+    if dtype is not None:
+        holder.to(dtype=dtype)
+    dit.add_module(holder_name, holder)
+    return LoRAHandles(holder=holder, modules=modules, patched=patched)
+
+
+def normalize_lora_weights(raw: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    """Normalize ai-toolkit / PEFT keys to the repo's ``lora_unet_*`` layout."""
+    out: dict[str, torch.Tensor] = {}
+    suffixes = (
+        (".lora_A.weight", ".lora_down.weight"),
+        (".lora_B.weight", ".lora_up.weight"),
+        (".lora_down.weight", ".lora_down.weight"),
+        (".lora_up.weight", ".lora_up.weight"),
+    )
+    for key, value in raw.items():
+        if key.endswith(".alpha"):
+            module = key[: -len(".alpha")]
+            if module.startswith("diffusion_model."):
+                module = module[len("diffusion_model.") :]
+            if module.startswith("lora_unet_"):
+                module = module[len("lora_unet_") :]
+            out[f"lora_unet_{module}.alpha"] = value
+            continue
+        for suffix, replacement in suffixes:
+            if not key.endswith(suffix):
+                continue
+            module = key[: -len(suffix)]
+            if module.startswith("diffusion_model."):
+                module = module[len("diffusion_model.") :]
+            if module.startswith("lora_unet_"):
+                module = module[len("lora_unet_") :]
+            # ``diffusion_model.blocks.0.attn.wq`` -> ``blocks_0_attn_wq``;
+            # existing underscores (``layerwise_blocks``) stay intact.
+            module = module.replace(".", "_")
+            out[f"lora_unet_{module}{replacement}"] = value
+            break
+    down = ".lora_down.weight"
+    for key in list(out):
+        if not key.endswith(down):
+            continue
+        alpha_key = key[: -len(down)] + ".alpha"
+        if alpha_key not in out:
+            rank = out[key].shape[0]
+            out[alpha_key] = torch.tensor(float(rank), dtype=torch.float32)
+    return out
+
+
+def attach_lora_from_file(
+    dit: nn.Module,
+    path: str,
+    *,
+    holder_name: str,
+    dtype: torch.dtype | None = None,
+) -> LoRAHandles:
+    """Attach the LoRA stored at ``path`` without a preset (keys decide targets).
+
+    Used for frozen style LoRAs during character training: third-party exports
+    (ai-toolkit) do not carry the repo's target metadata, so matching the file's
+    own module names to the DiT's Linear paths is more robust than a preset.
+    """
+    from safetensors.torch import load_file
+
+    weights = normalize_lora_weights(load_file(path))
+    by_token = {
+        path_.replace(".", "_"): (path_, lin)
+        for path_, lin in _iter_linear(dit)
+        if not path_.startswith(holder_name)
+    }
+
+    holder = nn.Module()
+    modules: dict[str, LoRALinear] = {}
+    patched: dict[str, object] = {}
+    for key, down_weight in list(weights.items()):
+        if not key.endswith(".lora_down.weight"):
+            continue
+        module = key[len("lora_unet_") : -len(".lora_down.weight")]
+        target = by_token.get(module)
+        if target is None:
+            continue
+        path_, lin = target
+        up_key = f"lora_unet_{module}.lora_up.weight"
+        if up_key not in weights:
+            continue
+        rank = int(down_weight.shape[0])
+        alpha = float(weights.get(f"lora_unet_{module}.alpha", rank))
+        pair = LoRALinear(lin.in_features, lin.out_features, rank, alpha)
+        pair.lora_down.weight.data.copy_(down_weight.to(pair.lora_down.weight.dtype))
+        pair.lora_up.weight.data.copy_(weights[up_key].to(pair.lora_up.weight.dtype))
+        holder.add_module(path_.replace(".", "__"), pair)
+        modules[path_] = pair
+
+        orig_forward = lin.forward
+
+        def forward(x, _orig=orig_forward, _pair=pair):
+            return _orig(x) + _pair(x)
+
+        lin.forward = forward  # type: ignore[method-assign]
+        patched[path_] = orig_forward
+
+    if not modules:
+        raise SystemExit(f"no LoRA tensors matched this DiT's modules: {path}")
     if dtype is not None:
         holder.to(dtype=dtype)
     dit.add_module(holder_name, holder)

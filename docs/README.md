@@ -16,6 +16,7 @@ Shipped training methods, losses and model assets.
 | [methods/repa.md](methods/repa.md) | REPA — auxiliary loss aligning a mid-block DiT feature to cached PE-Spatial patch tokens |
 | [methods/anima-2.9b.md](methods/anima-2.9b.md) | Anima-2.9B — the 40-block community depth expansion; loading, depth-specific LoRAs, regeneration recipes |
 | [methods/cjk_vocab_pack.md](methods/cjk_vocab_pack.md) | CJK vocab pack — extra T5-side embedding rows for JA / KO / ZH prompts (text-encoder asset, not a LoRA) |
+| [methods/krea2-style-in-the-loop.md](methods/krea2-style-in-the-loop.md) | Krea-2 人物 LoRA × 画风 LoRA 叠加鲁棒：训练时按概率挂冻结画风 LoRA，人物侧 264 模块 |
 
 ## Inference
 

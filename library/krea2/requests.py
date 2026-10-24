@@ -29,6 +29,18 @@ class TrainRequest:
     alpha: float = 16.0
     target_preset: str = "official_gate"             # official_gate(264) | official(232) | attention(160)；attn_mlp 已弃用
     dropout: float = 0.0
+    # style-in-the-loop：训练人物 LoRA 时挂冻结画风 LoRA（逗号/分号分隔）
+    stack_lora_paths: str = ""
+    stack_lora_prob: float = 0.0
+    stack_lora_strength_min: float = 0.3
+    stack_lora_strength_max: float = 1.25
+    stack_lora_warmup_steps: int = 50
+    stack_lora_mode: str = "cycle"   # cycle | random | independent | pinned
+    # pinned：每条画风每一步都在、强度钉死（你的出图强度），例 "1.25;1.0"。
+    # 有关掉画风的步，人物 delta 就会把画风吃回去 —— 这是「开 1 压画风、
+    # 开低丢细节」的根因，所以 pinned 要求 prob 语义失效、warmup 必须 0。
+    stack_lora_strengths: str = ""
+    stack_lora_strength_jitter: float = 0.0   # 相对抖动，0.05 = ±5%
     # 训练
     max_steps: int = 20
     batch_size: int = 1

@@ -35,7 +35,22 @@ SERVER_INFO = {"name": "anima-daemon", "version": "1.0"}
 _SKIP = {"tail_logs"}
 
 # Tools allowed to auto-start the daemon. Everything else attaches passively.
-_ENSURE = {"submit_training", "submit_command"}
+# Studio writes are included because the whole project/dataset state lives in
+# the daemon: making the model "run tasks.py daemon first" by hand would turn
+# one pipeline call into a dead end.
+_ENSURE = {
+    "submit_training",
+    "submit_command",
+    "studio_create_project",
+    "studio_update_project",
+    "studio_import",
+    "studio_review",
+    "studio_set_caption",
+    "studio_apply_trigger",
+    "studio_tag",
+    "studio_preprocess",
+    "studio_train",
+}
 
 TAIL_LOG_TOOL = {
     "name": "tail_log",
@@ -200,11 +215,17 @@ class MCPServer:
                     "`python tasks.py daemon`) to start one"
                 )
         path = tool["path"]
-        if "{id}" in path:
-            job_id = str(args.pop("id", "") or "")
-            if not job_id:
-                raise RuntimeError("missing required argument: id")
-            path = path.replace("{id}", urllib.parse.quote(job_id, safe=""))
+        # Fill every `{arg}` placeholder in the path (job id, project slug, …);
+        # unknown ones stay literal so a malformed manifest fails loudly at the
+        # daemon (404) rather than silently calling the wrong route.
+        for key in ("id", "slug", "path"):
+            token = "{" + key + "}"
+            if token not in path:
+                continue
+            value = str(args.pop(key, "") or "")
+            if not value:
+                raise RuntimeError(f"missing required argument: {key}")
+            path = path.replace(token, urllib.parse.quote(value, safe=""))
         if name == "submit_command":
             args["kind"] = "command"  # the daemon defaults a bare /jobs POST to train
         if name in ("submit_training", "submit_command"):
@@ -213,6 +234,12 @@ class MCPServer:
             # captured_env in the call still wins).
             args.setdefault("captured_env", config.capture_env())
         if tool["method"] == "GET":
+            # Query parameters (state=, limit=, path=…) belong in the URL — the
+            # generic GET dispatch used to drop them, which silently turned
+            # `studio_images(state="inbox")` into "list everything".
+            if args:
+                query = urllib.parse.urlencode(args, doseq=True)
+                path += ("&" if "?" in path else "?") + query
             return client._request("GET", path)
         return client._request("POST", path, args)
 

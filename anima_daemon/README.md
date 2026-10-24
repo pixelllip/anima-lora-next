@@ -98,6 +98,71 @@ methods_subdir, overrides}` — and the daemon auto-enqueues that training job w
 the command succeeds, even if the submitter has exited. The follow-on id lands in
 the command job's `chained_job_id`.
 
+## Training studio (`/studio/*`) — the pipeline around the queue
+
+The daemon also owns the **project** a run belongs to: fetched images, the
+human accept/reject decision, caption sidecars, the generated training config,
+and which job is which stage. Implementation: `studio.py`; the stdlib WebUI
+(`anima_lora_webui`) proxies it, and the MCP bridge registers every operation
+in `TOOLS`.
+
+```
+GET  /studio/projects                       projects + five stage flags
+POST /studio/projects                       create {name, trigger?, variant?, preset?, overrides?}
+GET  /studio/projects/{slug}                detail + stage→job ledger
+POST /studio/projects/{slug}/update         change settings
+POST /studio/projects/{slug}/import         {paths?: [...], urls?: [...], recursive?, caption?}
+GET  /studio/projects/{slug}/images?state=  inbox|dataset|rejected|all + caption + url
+POST /studio/projects/{slug}/review         {action: accept|reject|restore|delete, files: [...]}
+GET/POST /studio/projects/{slug}/caption    read/write one sidecar
+POST /studio/projects/{slug}/trigger        prepend the project trigger
+POST /studio/projects/{slug}/tag            enqueue caption-autotag (mode missing|merge|overwrite)
+POST /studio/projects/{slug}/preprocess     enqueue preprocess-config (chain_train optional)
+POST /studio/projects/{slug}/train          enqueue train.py from the generated config
+GET  /studio/schema                         Anima methods / presets / group labels
+GET  /studio/projects/{slug}/config         merged Anima config + per-field metadata
+POST /studio/projects/{slug}/config         {variant?,preset?,output_name?,overrides?}
+GET  /studio/projects/{slug}/krea2          Krea-2 TrainRequest + cache/model checks
+POST /studio/projects/{slug}/krea2          {values}
+POST /studio/projects/{slug}/krea2/train    enqueue scripts/krea2/train.py --config
+GET  /studio/projects/{slug}/file?path=     image bytes
+```
+
+`/config` exposes the **same** field list the Qt GUI's Config tab builds
+(`gui.core.config_io._GROUPS/_BASIC` + `_fields.json` help). Overrides are
+coerced to the merged value's type and `null` removes one; the three virtual
+keys (`use_valid`, `validation_split_num`, `repeat_by_folder_name`) are written
+into the first `[[datasets]]` block via `gui.core.validation`, not as flat keys.
+`/krea2` is the separate Krea-2 line: its keys are `TrainRequest` fields, it
+lives in `training_projects/<slug>/krea2.toml`, and training runs through the
+same serial queue as Anima.
+
+Layout (all under the engine root; no `%APPDATA%`):
+
+```
+training_projects/<slug>/{project.json,inbox/,rejected/,jobs.json,train_config.toml,krea2.toml,history.jsonl}
+image_dataset/<slug>/                       accepted images + .txt
+post_image_dataset/resized/<slug>/          preprocessing output
+post_image_dataset/lora/<slug>/             VAE / TE caches
+output/ckpt/<slug>/                         trained LoRA
+```
+
+`train_config.toml` is generated through the engine's own GUI submit plan
+(`gui.core.config_io` + `gui.core.submit.training_snapshot`) with
+`path_scope = <slug>`. Reusing that one mechanism is why the trainer,
+preprocess, masks and the ComfyUI trainer node all agree on paths.
+
+**The reject path purges derived files.** Training reads the *resized* tree,
+so moving an image out of `image_dataset/` alone would leave it in the next
+run. `review(action="reject")` removes the resized PNG, its latent/TE/PE
+caches and its mask before moving the source into `rejected/`.
+
+**MCP**: the tool catalog is this manifest plus `tail_log` / local
+`get_progress`. `studio_*` writes auto-start the daemon; reads attach
+passively. The bridge now fills every `{arg}` placeholder in a path and
+appends leftover GET arguments as a query string (`state=`, `limit=`,
+`path=`) — before 2026-10-21 those were silently dropped.
+
 ## REST endpoints
 
 Bodies are plain JSON dicts; no schema validation (trusted localhost callers).

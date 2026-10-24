@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import mimetypes
 import os
 import re
 import threading
@@ -20,7 +21,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import config, tail
+from . import config, studio, tail
 from .manager import JobManager
 
 logger = logging.getLogger("anima.daemon")
@@ -31,6 +32,16 @@ _JOB_PAUSE_RE = re.compile(r"^/jobs/(?P<id>[^/]+)/pause$")
 _JOB_RESUME_RE = re.compile(r"^/jobs/(?P<id>[^/]+)/resume$")
 _JOB_LOGS_RE = re.compile(r"^/jobs/(?P<id>[^/]+)/logs$")
 _JOB_PROGRESS_RE = re.compile(r"^/jobs/(?P<id>[^/]+)/progress$")
+
+# Training studio (projects / dataset / pipeline). The literal `/studio/`
+# prefix is what the WebUI proxy whitelist covers and what the route-contract
+# test looks for in `do_GET` / `do_POST`.
+_STUDIO_PROJECT_RE = re.compile(r"^/studio/projects/(?P<slug>[^/]+)$")
+_STUDIO_SUB_RE = re.compile(
+    r"^/studio/projects/(?P<slug>[^/]+)/"
+    r"(?P<sub>update|images|file|caption|import|review|trigger|tag|preprocess|train|status|config|krea2)$"
+)
+_STUDIO_KREA2_TRAIN_RE = re.compile(r"^/studio/projects/(?P<slug>[^/]+)/krea2/train$")
 
 _README = Path(__file__).resolve().parent / "README.md"
 
@@ -315,6 +326,295 @@ TOOLS = [
             },
         },
     },
+    # ------------------------------------------------------------------ #
+    #  Training studio — the full pipeline around the queue:
+    #  fetch → (human) review → optional tag → preprocess → train.
+    # ------------------------------------------------------------------ #
+    {
+        "name": "studio_projects",
+        "description": (
+            "List training projects (name, trigger, variant, image counts and the five "
+            "stage flags). Read-only. Start here before touching a dataset."
+        ),
+        "method": "GET",
+        "path": "/studio/projects",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "studio_create_project",
+        "description": (
+            "Create a training project. A project owns its inbox (fetched), dataset "
+            "(accepted) and rejected trees plus the generated train_config.toml. Slug is "
+            "derived from name when omitted; only lowercase letters/digits/_/- are allowed."
+        ),
+        "method": "POST",
+        "path": "/studio/projects",
+        "input_schema": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+                "name": {"type": "string", "description": "Human name, e.g. 'shinku style'."},
+                "slug": {"type": "string", "description": "Optional ASCII slug; auto from name."},
+                "trigger": {
+                    "type": "string",
+                    "description": "Trigger word prepended to accepted captions (e.g. '@artist').",
+                },
+                "variant": {
+                    "type": "string",
+                    "default": "lora",
+                    "description": "gui-methods variant: lora | tlora | hydralora | ...",
+                },
+                "preset": {
+                    "type": "string",
+                    "default": "low_vram",
+                    "description": "Hardware preset from configs/presets.toml.",
+                },
+                "notes": {"type": "string"},
+                "target_res": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "Optional [width, height] preprocessing tier.",
+                },
+                "overrides": {"type": "object", "description": "Train CLI overrides."},
+            },
+        },
+    },
+    {
+        "name": "studio_project",
+        "description": (
+            "One project with counts, the five stage flags, its generated config and the "
+            "stage→job ledger (with live job states). Read-only."
+        ),
+        "method": "GET",
+        "path": "/studio/projects/{slug}",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug"],
+            "properties": {"slug": {"type": "string"}},
+        },
+    },
+    {
+        "name": "studio_update_project",
+        "description": (
+            "Change project settings (name/trigger/variant/preset/output_name/notes/"
+            "target_res/overrides). Regenerates the config on the next stage."
+        ),
+        "method": "POST",
+        "path": "/studio/projects/{slug}/update",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug"],
+            "properties": {
+                "slug": {"type": "string"},
+                "name": {"type": "string"},
+                "trigger": {"type": "string"},
+                "variant": {"type": "string"},
+                "preset": {"type": "string"},
+                "output_name": {"type": "string"},
+                "notes": {"type": "string"},
+                "target_res": {"type": "array", "items": {"type": "integer"}},
+                "overrides": {"type": "object"},
+            },
+        },
+    },
+    {
+        "name": "studio_import",
+        "description": (
+            "Fetch the training set into the project inbox. Accepts local file/dir paths "
+            "and/or http(s) image URLs; copies images (max 64MB) plus optional .txt "
+            "sidecars. Nothing lands in the training dataset until a human (or "
+            "studio_review) accepts it."
+        ),
+        "method": "POST",
+        "path": "/studio/projects/{slug}/import",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug"],
+            "properties": {
+                "slug": {"type": "string"},
+                "paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Absolute local files or directories.",
+                },
+                "urls": {"type": "array", "items": {"type": "string"}},
+                "recursive": {"type": "boolean", "default": False},
+                "caption": {
+                    "type": "string",
+                    "description": "Optional caption written to every imported image.",
+                },
+            },
+        },
+    },
+    {
+        "name": "studio_images",
+        "description": (
+            "List images with state inbox|dataset|rejected, their caption sidecar and a "
+            "thumbnail URL. Use it to show the human what is waiting for review."
+        ),
+        "method": "GET",
+        "path": "/studio/projects/{slug}/images",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug"],
+            "properties": {
+                "slug": {"type": "string"},
+                "state": {
+                    "type": "string",
+                    "enum": ["all", "inbox", "dataset", "rejected"],
+                    "default": "all",
+                },
+                "limit": {"type": "integer", "default": 500},
+            },
+        },
+    },
+    {
+        "name": "studio_review",
+        "description": (
+            "The human-filtering step: accept / reject / restore / delete a batch of "
+            "images. Accept moves inbox→dataset; reject moves to rejected and purges any "
+            "derived resize/latent/mask so a rejected image can never train."
+        ),
+        "method": "POST",
+        "path": "/studio/projects/{slug}/review",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug", "action", "files"],
+            "properties": {
+                "slug": {"type": "string"},
+                "action": {"type": "string", "enum": ["accept", "reject", "restore", "delete"]},
+                "files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Paths as returned by studio_images ('inbox/a.jpg').",
+                },
+            },
+        },
+    },
+    {
+        "name": "studio_caption",
+        "description": "Read one image's caption sidecar. Read-only.",
+        "method": "GET",
+        "path": "/studio/projects/{slug}/caption",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug", "path"],
+            "properties": {
+                "slug": {"type": "string"},
+                "path": {"type": "string", "description": "e.g. 'dataset/a.jpg'."},
+            },
+        },
+    },
+    {
+        "name": "studio_set_caption",
+        "description": (
+            "Write one caption sidecar (max 20k chars). Changing a caption invalidates "
+            "that image's TE cache — run studio_preprocess again before training."
+        ),
+        "method": "POST",
+        "path": "/studio/projects/{slug}/caption",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug", "path", "caption"],
+            "properties": {
+                "slug": {"type": "string"},
+                "path": {"type": "string"},
+                "caption": {"type": "string"},
+            },
+        },
+    },
+    {
+        "name": "studio_apply_trigger",
+        "description": (
+            "Prepend the project trigger word to every accepted caption that lacks it "
+            "(idempotent). Use after tagging; tags are not re-encoded until preprocess."
+        ),
+        "method": "POST",
+        "path": "/studio/projects/{slug}/trigger",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug"],
+            "properties": {
+                "slug": {"type": "string"},
+                "trigger": {"type": "string", "description": "Override the project trigger."},
+            },
+        },
+    },
+    {
+        "name": "studio_tag",
+        "description": (
+            "Optional tagging stage: enqueue `tasks.py caption-autotag --apply` over the "
+            "accepted dataset (mode missing|merge|overwrite). Returns a daemon job id; "
+            "follow it with studio_project / get_job / tail_log."
+        ),
+        "method": "POST",
+        "path": "/studio/projects/{slug}/tag",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug"],
+            "properties": {
+                "slug": {"type": "string"},
+                "mode": {"type": "string", "enum": ["missing", "merge", "overwrite"], "default": "missing"},
+            },
+        },
+    },
+    {
+        "name": "studio_preprocess",
+        "description": (
+            "Preprocess stage: resize → VAE latents → TE cache into the project's scoped "
+            "dirs (preprocess-config with the generated dataset config). Set "
+            "chain_train=true to auto-enqueue training when it succeeds."
+        ),
+        "method": "POST",
+        "path": "/studio/projects/{slug}/preprocess",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug"],
+            "properties": {
+                "slug": {"type": "string"},
+                "chain_train": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Auto-enqueue training after a successful preprocess.",
+                },
+            },
+        },
+    },
+    {
+        "name": "studio_train",
+        "description": (
+            "Formal training: enqueue a train.py job from the project's generated config "
+            "(paths are scoped to this project). Requires the preprocessing caches; "
+            "overrides here are persisted on the project first."
+        ),
+        "method": "POST",
+        "path": "/studio/projects/{slug}/train",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug"],
+            "properties": {
+                "slug": {"type": "string"},
+                "overrides": {
+                    "type": "object",
+                    "description": 'e.g. {"max_train_epochs": 8, "network_dim": 32}.',
+                },
+            },
+        },
+    },
+    {
+        "name": "studio_status",
+        "description": (
+            "Project + live stage→job ledger. The one call to answer 'where is this "
+            "training run and what should happen next?'. Read-only."
+        ),
+        "method": "GET",
+        "path": "/studio/projects/{slug}/status",
+        "input_schema": {
+            "type": "object",
+            "required": ["slug"],
+            "properties": {"slug": {"type": "string"}},
+        },
+    },
 ]
 
 
@@ -399,6 +699,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._handle_logs(m.group("id"))
         elif m := _JOB_PROGRESS_RE.match(path):
             self._handle_progress(m.group("id"), query)
+        elif path.startswith("/studio/"):
+            self._handle_studio_get(path, query)
         elif m := _JOB_RE.match(path):
             self._handle_get(m.group("id"))
         else:
@@ -422,6 +724,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._handle_pause(m.group("id"))
         elif m := _JOB_RESUME_RE.match(path):
             self._handle_resume(m.group("id"))
+        elif path.startswith("/studio/"):
+            self._handle_studio_post(path)
         else:
             self._send_json({"error": "not found", "path": path}, 404)
 
@@ -585,6 +889,122 @@ class _Handler(BaseHTTPRequestHandler):
             args=(kill,),
             daemon=True,
         ).start()
+
+    # ---- training studio ------------------------------------------------ #
+    def _studio_guard(self, fn):
+        """Run one studio operation, mapping caller errors to HTTP 400."""
+        try:
+            return self._send_json(fn())
+        except studio.StudioError as e:
+            self._send_json({"error": str(e)}, 400)
+        except Exception as e:  # noqa: BLE001 — keep the daemon alive, report honestly
+            logger.exception("studio operation failed")
+            self._send_json({"error": f"studio 操作失败：{e}"}, 500)
+
+    def _query_one(self, query: str, name: str, default: str = "") -> str:
+        values = urllib.parse.parse_qs(query or "").get(name)
+        return values[0] if values else default
+
+    def _handle_studio_get(self, path: str, query: str) -> None:
+        if path.rstrip("/") == "/studio/projects":
+            self._studio_guard(studio.list_projects)
+            return
+        if path.rstrip("/") == "/studio/schema":
+            self._studio_guard(studio.config_schema)
+            return
+        m = _STUDIO_SUB_RE.match(path)
+        if not m:
+            m2 = _STUDIO_PROJECT_RE.match(path)
+            if m2:
+                self._studio_guard(lambda: studio.status(m2.group("slug"), self.manager))
+                return
+            self._send_json({"error": "not found", "path": path}, 404)
+            return
+        slug, sub = m.group("slug"), m.group("sub")
+        if sub == "images":
+            try:
+                limit = int(self._query_one(query, "limit", "500") or 500)
+            except ValueError:
+                limit = 500
+            state = self._query_one(query, "state", "all")
+            self._studio_guard(lambda: studio.list_images(slug, state, limit))
+        elif sub == "caption":
+            rel = self._query_one(query, "path")
+            self._studio_guard(lambda: studio.get_caption(slug, rel))
+        elif sub == "file":
+            rel = self._query_one(query, "path")
+            self._send_studio_file(slug, rel)
+        elif sub == "status":
+            self._studio_guard(lambda: studio.status(slug, self.manager))
+        elif sub == "config":
+            variant = self._query_one(query, "variant") or None
+            preset = self._query_one(query, "preset") or None
+            self._studio_guard(lambda: studio.project_config(slug, variant, preset))
+        elif sub == "krea2":
+            self._studio_guard(lambda: studio.project_krea2(slug))
+        else:
+            self._send_json({"error": "not found", "path": path}, 404)
+
+    def _send_studio_file(self, slug: str, rel: str) -> None:
+        try:
+            path = studio.resolve_file(slug, rel)
+        except studio.StudioError as e:
+            self._send_json({"error": str(e)}, 400)
+            return
+        try:
+            data = path.read_bytes()
+        except OSError as e:
+            self._send_json({"error": f"读不到文件：{e}"}, 404)
+            return
+        ctype = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+    def _handle_studio_post(self, path: str) -> None:
+        body = self._read_json()
+        if path.rstrip("/") == "/studio/projects":
+            self._studio_guard(lambda: studio.create_project(body))
+            return
+        krea2_train = _STUDIO_KREA2_TRAIN_RE.match(path)
+        if krea2_train:
+            self._studio_guard(
+                lambda: studio.enqueue_krea2_train(krea2_train.group("slug"), self.manager, body)
+            )
+            return
+        m = _STUDIO_SUB_RE.match(path)
+        if not m:
+            self._send_json({"error": "not found", "path": path}, 404)
+            return
+        slug, sub = m.group("slug"), m.group("sub")
+        if sub == "update":
+            self._studio_guard(lambda: studio.update_project(slug, body))
+        elif sub == "import":
+            self._studio_guard(lambda: studio.import_images(slug, body))
+        elif sub == "review":
+            self._studio_guard(lambda: studio.review_images(slug, body))
+        elif sub == "caption":
+            self._studio_guard(lambda: studio.set_caption(slug, body))
+        elif sub == "trigger":
+            self._studio_guard(lambda: studio.apply_trigger(slug, body))
+        elif sub == "tag":
+            self._studio_guard(lambda: studio.enqueue_tag(slug, self.manager, body))
+        elif sub == "preprocess":
+            self._studio_guard(lambda: studio.enqueue_preprocess(slug, self.manager, body))
+        elif sub == "train":
+            self._studio_guard(lambda: studio.enqueue_train(slug, self.manager, body))
+        elif sub == "config":
+            self._studio_guard(lambda: studio.save_project_config(slug, body))
+        elif sub == "krea2":
+            self._studio_guard(lambda: studio.save_project_krea2(slug, body))
+        else:
+            self._send_json({"error": "not found", "path": path}, 404)
 
     def _handle_events(self) -> None:
         q = self.manager.subscribe()
