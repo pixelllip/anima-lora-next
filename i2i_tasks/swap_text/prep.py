@@ -89,6 +89,13 @@ INVALID = 255
 WEBP = [cv2.IMWRITE_WEBP_QUALITY, 95]
 
 
+def _single_thread() -> None:
+    """Pool initializer: one OpenCV thread per worker. cv2 otherwise spawns a
+    thread per core in every worker, and 12 workers ran at load ~100 on 12
+    cores."""
+    cv2.setNumThreads(1)
+
+
 def _stable_seed(name: str) -> int:
     return zlib.crc32(name.encode("utf-8")) & 0xFFFFFFFF
 
@@ -384,7 +391,7 @@ def stage_build(a) -> None:
             works = works[: a.limit]
         jobs += [(w, lang, a) for w in works]
     print(f"build: {len(jobs)} work × language jobs, {a.workers} workers", flush=True)
-    with Pool(a.workers) as pool:
+    with Pool(a.workers, initializer=_single_thread) as pool:
         for k, msg in enumerate(pool.imap_unordered(build_work, jobs), 1):
             print(f"[{k}/{len(jobs)}] {msg}", flush=True)
 
@@ -603,7 +610,7 @@ def stage_assemble(a) -> None:
         for p, _, chosen, keep, _ in plans
     ]
     t0 = time.time()
-    with Pool(a.workers) as pool:
+    with Pool(a.workers, initializer=_single_thread) as pool:
         for k, _ in enumerate(pool.imap_unordered(compose_job, jobs, chunksize=4), 1):
             if k % 500 == 0 or k == len(jobs):
                 print(
