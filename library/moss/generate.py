@@ -134,6 +134,8 @@ def denoise(
     step's guided x̂₀ (CNS calibration).
 
     ``ref (B,128,h,w)``: clean reference latents in every forward (i2i probe).
+    Under ``ref_isolate`` at a fixed ``ref_timestep`` the reference stream runs
+    once for the loop (``RefCache``) and every forward reads its keys and values.
 
     ``dave`` (``library.moss.dave.MossDAVE``) is installed as the transformer's
     ``layer_hook`` on its active steps (both branches) and removed after.
@@ -163,6 +165,10 @@ def denoise(
         spectrum.begin(sigmas)
     if dave is not None:
         dave.begin(len(timesteps))
+    if ref is not None:
+        from library.moss.model import RefCache
+
+        transformer.ref_cache = RefCache()
     try:
         for i, t in enumerate(timesteps):
             if dave is not None:
@@ -194,6 +200,7 @@ def denoise(
     finally:
         if dave is not None:
             transformer.layer_hook = None
+        transformer.ref_cache = None
     return latents
 
 

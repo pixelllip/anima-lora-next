@@ -26,6 +26,9 @@ Changes from the reference, all additive:
   still runs the reference tokens, so every branch reads the same reference;
   ``ref_follows_skip`` skips them with the image and text instead.
   ``library.moss.lora.load_for_inference`` sets both from the LoRA's metadata.
+  Isolated at a fixed ``ref_timestep``, the reference stream depends on the
+  reference alone; ``ref_cache`` (a ``RefCache``, set by ``generate.denoise``)
+  runs it once and later forwards read its per-block keys and values.
 - Attention: unmasked CUDA bf16 / fp16 calls run FA2 (``flash_attn_func``) on
   ``(B, L, H, D)``; masked (``forward_batched``), CPU and fp32 calls keep the
   reference's SDPA. Same math, a different kernel: FA2 issues no ``% 8``
@@ -97,15 +100,34 @@ def _sdpa(q, k, v, attn_mask=None):
     return F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask).transpose(1, 2)
 
 
-def _attention(q, k, v, rope, heads, key_mask=None, ref_start=None, ref_isolate=False):
+def _attention(
+    q,
+    k,
+    v,
+    rope,
+    heads,
+    key_mask=None,
+    ref_start=None,
+    ref_isolate=False,
+    ref_kv=None,
+):
     """``key_mask``: bool ``(B, L)``, True = attend. None = the reference path.
     ``ref_isolate``: the reference queries (``ref_start`` on) attend only to the
-    reference keys. Unmasked CUDA half-precision calls run FA2, the rest SDPA (the ref-only
-    call is unmasked: its keys are all reference tokens)."""
+    reference keys. ``ref_kv = (k, v, rope)``: cached reference keys (before RoPE)
+    and values appended to the key set. Unmasked CUDA half-precision calls run FA2,
+    the rest SDPA (the ref-only call is unmasked: its keys are all reference tokens)."""
     shape = (*q.shape[:2], heads, q.shape[-1] // heads)
     q = rotate(q.reshape(shape), rope).to(v.dtype)
     k = rotate(k.reshape(shape), rope).to(v.dtype)
     v = v.reshape(shape)
+    if ref_kv is not None:
+        ref_k, ref_v, ref_rope = ref_kv
+        ref_shape = (*ref_k.shape[:2], heads, ref_k.shape[-1] // heads)
+        ref_k = rotate(ref_k.reshape(ref_shape), ref_rope).to(v.dtype)
+        k = torch.cat((k, ref_k), 1)
+        v = torch.cat((v, ref_v.reshape(ref_shape)), 1)
+        if key_mask is not None:
+            key_mask = torch.cat((key_mask, key_mask.new_ones(ref_shape[:2])), 1)
     flash = _flash_ok(v)
     mask = None if key_mask is None else key_mask[:, None, None, :]
 
@@ -191,24 +213,64 @@ class _Block(nn.Module):
         self.proj["ffn_down"] = nn.Linear(ffn_dim, dim, bias=False)
 
     def forward(
-        self, x, rope, modulation, key_mask=None, ref_start=None, ref_isolate=False
+        self,
+        x,
+        rope,
+        modulation,
+        key_mask=None,
+        ref_start=None,
+        ref_isolate=False,
+        ref_kv=None,
+        kv_out=False,
     ):
         """``ref_start``: where the reference tokens (the sequence tail) begin, if any. ``modulation``
         is ``(B,6,D)``, or ``(B,6,2,D)`` with the second set modulating the
-        reference tokens. ``ref_isolate``: see ``_attention``."""
+        reference tokens. ``ref_isolate``, ``ref_kv``: see ``_attention``. ``kv_out``
+        also returns this block's keys (before RoPE) and values."""
         shift_a, scale_a, gate_a, shift_f, scale_f, gate_f = modulation.unbind(1)
         y = _affine(self.norm1(x), scale_a, shift_a, ref_start)
         dtype = self.proj["q"].weight.dtype
         y = y.to(dtype)
         q = self.q_norm(self.proj["q"](y).unflatten(-1, (self.heads, -1))).flatten(2)
         k = self.k_norm(self.proj["k"](y).unflatten(-1, (self.heads, -1))).flatten(2)
+        v = self.proj["v"](y)
         attn = _attention(
-            q, k, self.proj["v"](y), rope, self.heads, key_mask, ref_start, ref_isolate
+            q, k, v, rope, self.heads, key_mask, ref_start, ref_isolate, ref_kv
         )
         x = x + _gated(self.proj["o"](attn), gate_a, ref_start)
         y = _affine(self.norm2(x), scale_f, shift_f, ref_start)
         hidden, gate = self.proj["ffn_up_gate"](y.to(dtype)).chunk(2, -1)
-        return x + _gated(self.proj["ffn_down"](_situ(hidden, gate)), gate_f, ref_start)
+        x = x + _gated(self.proj["ffn_down"](_situ(hidden, gate)), gate_f, ref_start)
+        return (x, k, v) if kv_out else x
+
+
+class RefCache:
+    """The isolated reference stream at a fixed ``ref_timestep``, run once: it
+    depends on the reference alone, not on the noisy latent, the text, the
+    timestep or the CFG branch. Holds each block's reference keys (before RoPE:
+    the reference's frame coordinate is the text length, which differs between
+    branches) and values, rebuilt when the reference tokens change. It does not
+    see a LoRA multiplier change, so it lives for one sampling loop."""
+
+    def __init__(self):
+        self.tokens = None
+        self.kv = None
+        self.builds = 0
+
+    def lookup(self, layers, tokens, rope, mod):
+        """Per-block ``(k, v)`` for ``tokens (B, n_ref, D)`` with their ``rope`` and
+        reference modulation ``mod (B, 6, D)``."""
+        if (
+            self.tokens is None
+            or self.tokens.shape != tokens.shape
+            or not torch.equal(self.tokens, tokens)
+        ):
+            self.tokens, self.kv, x = tokens, [], tokens
+            for layer in layers:
+                x, k, v = layer(x, rope, mod, kv_out=True)
+                self.kv.append((k, v))
+            self.builds += 1
+        return self.kv
 
 
 class _RoPE(nn.Module):
@@ -322,6 +384,7 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
         self.ref_timestep = None
         self.ref_isolate = False
         self.ref_follows_skip = False
+        self.ref_cache = None
 
     def load_training_state_dict(self, state_dict, *, prefix=""):
         """Load a consolidated raw/EMA model mapping, strictly; no silent key drops."""
@@ -410,11 +473,33 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
         (the trailing reference tokens) and ``mod`` come from ``ref_modulation``;
         ``ref_isolate`` applies to those tokens, and then a skipped block still runs
         them (``_ref_only``) unless ``ref_follows_skip``. The blocks get the
-        reference's start as one int, ``ref_start``."""
+        reference's start as one int, ``ref_start``. With ``ref_cache`` set and the
+        reference isolated at a fixed ``ref_timestep``, the reference tokens leave
+        ``x`` and every block reads them from the cache (the output then ends at
+        the text)."""
         per_sample = not isinstance(skip_layers, (frozenset, set))
         ref_start = x.shape[1] - n_ref if n_ref else None
         iso = self.ref_isolate and ref_start is not None
         ref_runs = iso and not self.ref_follows_skip
+        cached = None
+        if ref_runs and self.ref_cache is not None and self.ref_timestep is not None:
+            s = ref_start
+            ref_rope = rope[:, s:]
+            cached = self.ref_cache.lookup(
+                self.layers, x[:, s:], ref_rope, mod[:, :, 1]
+            )
+            x, rope, mod = x[:, :s], rope[:, :s], mod[:, :, 0]
+            key_mask = None if key_mask is None else key_mask[:, :s]
+            ref_start, iso, ref_runs = None, False, False
+
+        def kv(index, rows=None):
+            if cached is None:
+                return {}
+            k, v = cached[index]
+            if rows is None:
+                return {"ref_kv": (k, v, ref_rope)}
+            return {"ref_kv": (k[rows], v[rows], ref_rope[rows])}
+
         hook = self.layer_hook
         for index, layer in enumerate(self.layers):
             if per_sample:
@@ -442,6 +527,7 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
                         None if key_mask is None else key_mask[rows],
                         ref_start,
                         iso,
+                        **kv(index, rows),
                     )
                     if hook is not None:
                         sub = hook(index, sub, n_img)
@@ -451,7 +537,7 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
                 if ref_runs:
                     x = self._ref_only(layer, x, rope, mod, ref_start)
                 continue
-            x = layer(x, rope, mod, key_mask, ref_start, iso)
+            x = layer(x, rope, mod, key_mask, ref_start, iso, **kv(index))
             if hook is not None:
                 x = hook(index, x, n_img)
         return x

@@ -9,6 +9,7 @@ from library.moss.generate import denoise
 from library.moss.model import (
     MOSSImageScheduler,
     MOSSImageTransformer,
+    RefCache,
     pack_latents,
     snapped_sigmas,
     unpack_latents,
@@ -167,6 +168,52 @@ def test_ref_isolate_skip_spares_the_reference(tiny, ref_t, ref_iso):
         assert not torch.allclose(stream(frozenset({2})), full, atol=1e-3)
     finally:
         tiny.ref_follows_skip = False
+
+
+@torch.no_grad()
+def test_ref_cache_matches_uncached(tiny, ref_t, ref_iso):
+    """One reference build serves cond, the skip uncond and later steps, per-sample
+    and batched, and gives what the full sequence gives."""
+    ref_t(0.0)
+    ref = _ref(1)
+    calls = []
+    for seed, t, s in ((1, 500.0, 7), (5, 900.0, 4)):
+        g = torch.Generator().manual_seed(seed)
+        x = torch.randn(1, 8, 4, 6, generator=g)
+        e = torch.randn(1, s, 32, generator=g)
+        calls += [(x, t, e, None), (x, t, e, [2])]
+    full = [tiny(x, t, e, skip_layers=k, ref=ref).sample for x, t, e, k in calls]
+    tiny.ref_cache = cache = RefCache()
+    try:
+        cached = [tiny(x, t, e, skip_layers=k, ref=ref).sample for x, t, e, k in calls]
+        x, t, e, _ = calls[0]
+        batched = tiny.forward_batched(
+            x.repeat(2, 1, 1, 1),
+            t,
+            e.repeat(2, 1, 1),
+            skip_layers=[(), (2,)],
+            ref=ref.repeat(2, 1, 1, 1),
+        )
+    finally:
+        tiny.ref_cache = None
+    for a, b in zip(cached, full):
+        assert torch.allclose(a, b, atol=1e-5)
+    assert torch.allclose(batched, torch.cat(full[:2]), atol=1e-5)
+    assert cache.builds == 2  # the per-sample reference, then the batch of two
+
+
+@torch.no_grad()
+def test_ref_cache_off_when_ref_follows_skip(tiny, ref_t, ref_iso):
+    ref_t(0.0)
+    x, e, _ = _inputs(batch=1)
+    tiny.ref_follows_skip = True
+    tiny.ref_cache = cache = RefCache()
+    try:
+        tiny(x, 500.0, e, skip_layers=[2], ref=_ref(1))
+    finally:
+        tiny.ref_cache = None
+        tiny.ref_follows_skip = False
+    assert cache.builds == 0
 
 
 @torch.no_grad()
