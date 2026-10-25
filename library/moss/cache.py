@@ -119,6 +119,7 @@ class CacheItem:
     n_ref: int = 0
     n_variants: int = 0  # embeds_v1 … embeds_v{n} in the TE file
     n_text_variants: int = 0  # the longest variant, its shared prefix included
+    n_text_min: int = 0  # the shortest of full, plain and every variant
 
 
 @dataclass
@@ -177,6 +178,11 @@ def list_items(cache_dir) -> list[CacheItem]:
                 n_ref,
                 len(tails),
                 prefix + max(tails) if tails else 0,
+                min(
+                    [n_text]
+                    + ([n_plain] if n_plain else [])
+                    + [prefix + t for t in tails]
+                ),
             )
         )
     return items

@@ -197,18 +197,64 @@ def load_transformer(model_dir, variant="base", dtype=torch.bfloat16, device=Non
     return tr.to(device) if device is not None else tr
 
 
-def compile_blocks(blocks) -> None:
+def compile_blocks(blocks, seq_range=None) -> None:
     """``torch.compile(dynamic=True)`` on each block's ``forward`` (instance
     attribute, so swap hooks stay outside the graph). One graph for every joint
-    length; must run after ``LoRANetwork.apply_to`` / ``load_for_inference``."""
-    limit = max(torch._dynamo.config.recompile_limit, 16)
-    torch._dynamo.config.recompile_limit = limit
+    length; must run after ``LoRANetwork.apply_to`` / ``load_for_inference``.
+
+    ``seq_range = (lo, hi)``: the joint token axis (``x`` / ``rope`` dim 1) is
+    marked strictly to that range on every call inside it (call-time, so the
+    checkpoint recompute re-marks); a length outside it runs unmarked. The
+    compile cache moves to a per-range directory (persistent entries do not key
+    on the mark's bounds). Under grad, an ``x`` without grad (block 0: the
+    embedders are frozen) is made a grad leaf so every block shares one graph."""
+    from library.runtime.dynamo import pin_dynamo_limit, pin_inductor_flag
+    from library.runtime.harness import compile_signature, isolate_compile_cache
+
+    pin_dynamo_limit("recompile_limit", 16)
     # dynamic=True otherwise lifts float attributes (the LoRA's scale ·
     # multiplier) into 0-dim CPU float64 inputs, and Inductor emits a C++ CPU
     # kernel for them, which needs cl.exe on Windows (InvalidCxxCompiler).
     torch._dynamo.config.specialize_float = True
+    if seq_range is not None:
+        lo, hi = seq_range
+        if not 1 < lo <= hi:
+            raise ValueError(f"seq_range must satisfy 1 < lo <= hi, got {seq_range}")
+        if lo < 4096 <= hi:
+            # Inductor's mix-order reduction derives a `seq >= 4096` guard from
+            # the trace-time hint, which a strict range across 4096 contradicts.
+            pin_inductor_flag("triton.mix_order_reduction", False)
+        isolate_compile_cache(
+            compile_signature(
+                n_token_families=None, seq_range=(lo, hi), dynamic_seq=True
+            )
+            + ";line=moss"
+        )
     for block in blocks:
-        block.forward = torch.compile(block.forward, dynamic=True)
+        block.forward = _marked(torch.compile(block.forward, dynamic=True), seq_range)
+
+
+def _marked(compiled, seq_range):
+    lo, hi = seq_range or (0, 0)
+    warned = set()
+
+    def forward(x, rope, *args, **kwargs):
+        if torch.is_grad_enabled() and not x.requires_grad:
+            x = x.detach().requires_grad_()
+        if seq_range is not None:
+            n = x.shape[1]
+            if lo <= n <= hi:
+                torch._dynamo.mark_dynamic(x, 1, min=lo, max=hi)
+                torch._dynamo.mark_dynamic(rope, 1, min=lo, max=hi)
+            elif n not in warned:
+                warned.add(n)
+                print(
+                    f"compile: {n} tokens outside the marked range {lo}-{hi}",
+                    flush=True,
+                )
+        return compiled(x, rope, *args, **kwargs)
+
+    return forward
 
 
 def load_vae(model_dir, dtype=torch.float32, device=None):

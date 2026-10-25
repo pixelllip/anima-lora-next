@@ -25,6 +25,10 @@ Changes from the reference, all additive:
   still runs the reference tokens, so every branch reads the same reference;
   ``ref_follows_skip`` skips them with the image and text instead.
   ``library.moss.lora.load_for_inference`` sets both from the LoRA's metadata.
+- Attention: unmasked CUDA bf16 / fp16 calls run FA2 (``flash_attn_func``) on
+  ``(B, L, H, D)``; masked (``forward_batched``), CPU and fp32 calls keep the
+  reference's SDPA. Same math, a different kernel: FA2 issues no ``% 8``
+  query-length guard under compile.
 - ``pack_latents`` / ``unpack_latents``: the FLUX.2 VAE ↔ DiT latent boundary
   (2×2 ``patchify`` + the VAE's BatchNorm statistics).
 """
@@ -40,6 +44,11 @@ from torch import nn
 from torch.nn import functional as F
 
 from library.moss.requests import DEFAULT_SHIFT
+
+try:
+    from flash_attn import flash_attn_func
+except ImportError:
+    flash_attn_func = None
 
 
 class _RMSNorm(nn.Module):
@@ -73,25 +82,45 @@ def rotate(x, rope):
     return x * cos + torch.cat((-b, a), -1) * sin
 
 
+def _flash_ok(x):
+    return (
+        flash_attn_func is not None
+        and x.is_cuda
+        and x.dtype in (torch.float16, torch.bfloat16)
+    )
+
+
+def _sdpa(q, k, v, attn_mask=None):
+    """``(B, L, H, D)`` in and out."""
+    q, k, v = (t.transpose(1, 2) for t in (q, k, v))
+    return F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask).transpose(1, 2)
+
+
 def _attention(q, k, v, rope, heads, key_mask=None, ref_span=None, ref_isolate=False):
     """``key_mask``: bool ``(B, L)``, True = attend. None = the reference path.
     ``ref_isolate``: the queries in ``ref_span = (start, end)`` attend only to its
-    keys."""
+    keys. Unmasked CUDA half-precision calls run FA2, the rest SDPA (the ref-only
+    call is unmasked: its keys are all reference tokens)."""
     shape = (*q.shape[:2], heads, q.shape[-1] // heads)
-    q = rotate(q.reshape(shape), rope).transpose(1, 2).to(v.dtype)
-    k = rotate(k.reshape(shape), rope).transpose(1, 2).to(v.dtype)
-    v = v.reshape(shape).transpose(1, 2)
-    attn_mask = None if key_mask is None else key_mask[:, None, None, :]
+    q = rotate(q.reshape(shape), rope).to(v.dtype)
+    k = rotate(k.reshape(shape), rope).to(v.dtype)
+    v = v.reshape(shape)
+    flash = _flash_ok(v)
+    mask = None if key_mask is None else key_mask[:, None, None, :]
+
+    def attend(q, k, v, mask=None):
+        if mask is None and flash:
+            return flash_attn_func(q, k, v)
+        return _sdpa(q, k, v, mask)
+
     if not ref_isolate or ref_span is None:
-        out = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask)
+        out = attend(q, k, v, mask)
     else:
         s, e = ref_span
-        main = F.scaled_dot_product_attention(
-            torch.cat((q[:, :, :s], q[:, :, e:]), 2), k, v, attn_mask=attn_mask
-        )
-        ref = F.scaled_dot_product_attention(q[:, :, s:e], k[:, :, s:e], v[:, :, s:e])
-        out = torch.cat((main[:, :, :s], ref, main[:, :, s:]), 2)
-    return out.transpose(1, 2).flatten(2)
+        main = attend(torch.cat((q[:, :s], q[:, e:]), 1), k, v, mask)
+        ref = attend(q[:, s:e], k[:, s:e], v[:, s:e])
+        out = torch.cat((main[:, :s], ref, main[:, s:]), 1)
+    return out.flatten(2)
 
 
 class _TextBlock(nn.Module):

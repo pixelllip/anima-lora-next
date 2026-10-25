@@ -88,6 +88,7 @@ class Sample:
     n_variants: int = 0
     load_variant: Callable[[int], torch.Tensor] | None = None  # embeds_v{k}, from disk
     latent_hw: tuple[int, int] | None = None  # (h, w) latent tokens, from the file name
+    n_text_min: int = 0  # the shortest text it can train on; 0 = n_text
 
 
 def samples_from_cache(cache_dir: Path) -> list[Sample]:
@@ -115,6 +116,7 @@ def samples_from_cache(cache_dir: Path) -> list[Sample]:
                 if item.n_variants
                 else None,
                 (item.height // 16, item.width // 16),
+                item.n_text_min,
             )
         )
     return out
@@ -559,7 +561,14 @@ def train(
             flush=True,
         )
     if req.compile:
-        compile_blocks(transformer.layers)
+
+        def shortest(s):
+            n = s.n_text_min or s.n_text
+            return n if empty is None else min(n, len(empty))
+
+        seq_range = (min(s.n_img + s.n_ref + shortest(s) for s in samples), joint)
+        print(f"compile: token axis marked {seq_range[0]}-{seq_range[1]}", flush=True)
+        compile_blocks(transformer.layers, seq_range)
     if req.grad_checkpointing:
         checkpoint_blocks(transformer.layers)
     empty_cache()
