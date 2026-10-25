@@ -27,6 +27,7 @@ grad_accum = 1                 # samples per optimizer update; warmup counts upd
 caption_dropout = 0.0
 plain_caption_rate = 0.2       # layout_json cache: share of steps on the plain Anima caption
 caption_variant_rate = 0.0     # cache with embeds_v{k} (colorize probe): x (1 - plain_caption_rate) of steps
+ema_decay = 0.97              # saves write the adapter EMA, raw goes to <name>/<name>_raw; docs/moss/findings/ema_lr1e4.md
 lora_dtype = "bf16"            # bf16 | fp16 | fp32
 
 # Memory / speed (16 GB card). scripts/moss/tune_swap.py measures this machine's pair.
@@ -52,7 +53,6 @@ repa_weight = 0.0              # 0 = off
 # sigma_uniform = 0.01
 
 # max_grad_norm = 1.0
-# ema_decay = 0.0             # > 0: saves write the adapter EMA (from end of warmup), raw goes to <name>/<name>_raw
 # log_every = 10
 # seed = 0
 # model_dir = ""

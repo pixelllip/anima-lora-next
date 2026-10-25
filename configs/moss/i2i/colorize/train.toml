@@ -17,3 +17,4 @@ fit_report = true
 # i2i samples carry reference tokens: the t2i default (swap 36, budget 0.5) OOMs.
 blocks_to_swap = 28
 activation_memory_budget = 0.15
+ema_decay = 0.0                # the t2i EMA default is not measured on i2i yet
