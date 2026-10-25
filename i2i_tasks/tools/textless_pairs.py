@@ -15,8 +15,8 @@ Per pair:
     than ``--max-size-diff``, → dropped.
   * **slice** what is left (editions a few px apart) to the rectangle both cover, in
     the textless page's pixel grid: the target is cropped only, never resampled; the
-    texted page is warped into it. A pair already pixel-aligned at equal size is
-    symlinked as is.
+    texted page is warped into it. Both are written as lossless WebP. A pair already
+    pixel-aligned at equal size is symlinked as is.
   * **tone gate**: diff both pages at a blur that cancels sub-pixel line residual,
     mask the overlay (diff > 25, dilated) and drop the pair when more than
     ``--tone-max`` of the rest still differs by > 4 ΔE — a regraded edition
@@ -51,6 +51,9 @@ from i2i_tasks.tools.near_twins.outputs import write_pair_manifest
 from library.env import resolve_under_home
 
 _IMAGE_SUFFIXES = {".png", ".webp", ".jpg", ".jpeg", ".gif"}
+# Registered pairs are re-encoded lossless: the target is the decoded textless page
+# cropped, so target − condition is the lettering alone.
+WEBP_LOSSLESS = [cv2.IMWRITE_WEBP_QUALITY, 101]
 
 
 def _load(p: Path) -> np.ndarray:
@@ -223,8 +226,8 @@ def write_pair(job) -> None:
         W = cv2.warpAffine(
             C, np.array(rec["M"]), T.shape[1::-1], flags=cv2.INTER_LANCZOS4
         )
-        cv2.imwrite(str(adir / f"{pid}_no_tags.png"), T[y0:y1, x0:x1])
-        cv2.imwrite(str(adir / f"{pid}_tags.png"), W[y0:y1, x0:x1])
+        cv2.imwrite(str(adir / f"{pid}_no_tags.webp"), T[y0:y1, x0:x1], WEBP_LOSSLESS)
+        cv2.imwrite(str(adir / f"{pid}_tags.webp"), W[y0:y1, x0:x1], WEBP_LOSSLESS)
     for img, side in ((tp, "_no_tags"), (cp, "_tags")):
         cap = img.with_suffix(".txt")
         text = cap.read_text(encoding="utf-8").strip() if cap.is_file() else ""

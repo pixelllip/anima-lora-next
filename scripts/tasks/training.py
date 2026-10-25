@@ -1276,6 +1276,24 @@ def _swap_text_stage(adapter: str, cfg: dict, base: str, extra) -> None:
     )
 
 
+def _watermark_stage(adapter: str, cfg: dict, base: str, extra) -> None:
+    """Synthetic faint-watermark pairs over the ``{base}/staging`` tree's targets
+    (``i2i_tasks/tools/watermark_pairs.py``). Knobs come from the task file's
+    ``[staging]`` table."""
+    knobs = _toml_table_to_argv(cfg.get("staging") or {})
+    run(
+        [
+            PY,
+            "-m",
+            "i2i_tasks.tools.watermark_pairs",
+            "--staging",
+            f"{base}/staging",
+            *knobs,
+            *list(extra or []),
+        ]
+    )
+
+
 # Stage kinds: the bodies an i2i task file's ``stage`` key picks (training is
 # generic via _easy_train_extra); only `stage` (data gen) + `preprocess`
 # (EasyControl VAE/TE caching; None = MOSS-only) differ per kind. Both receive
@@ -1307,6 +1325,8 @@ _I2I_STAGES = {
     "phash_edit": {"stage": _phash_edit_stage, "preprocess": _phash_edit_preprocess},
     # JA page → translated lettering from hitocrawl edition twins (MOSS-only).
     "swap_text": {"stage": _swap_text_stage, "preprocess": None},
+    # Synthetic faint watermarks added to an existing pair tree (MOSS-only).
+    "watermark": {"stage": _watermark_stage, "preprocess": None},
 }
 
 

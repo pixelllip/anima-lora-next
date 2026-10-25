@@ -20,6 +20,8 @@ from .engine import (
     PairRecord,
 )
 
+WEBP_LOSSLESS = {"lossless": True, "quality": 100, "method": 4}
+
 
 def caption_text(txt_path: Path) -> str:
     return (
@@ -45,20 +47,19 @@ def export_pairs(
     """Materialize the ``_tags`` / ``_no_tags`` pair tree (the training-shaped output).
 
     Symlinks keep the source extension (``_tags.webp``); ``--copy`` re-saves as
-    PNG. The EasyControl loader globs png+webp, so stem-matching is unaffected.
+    lossless WebP. The EasyControl loader globs png+webp, so stem-matching is unaffected.
     """
     written = 0
     for p in pairs:
         holder, clean = p.holder_member(), p.clean_member()
         adir = export_dir / p.artist
-        ext = ".png" if copy else holder.image_path.suffix
         for member, side in ((holder, "_tags"), (clean, "_no_tags")):
-            stem_ext = ".png" if copy else member.image_path.suffix
+            stem_ext = ".webp" if copy else member.image_path.suffix
             img_dst = adir / f"{p.pair_id}{side}{stem_ext}"
             if copy:
                 with Image.open(member.image_path) as im:
                     img_dst.parent.mkdir(parents=True, exist_ok=True)
-                    im.convert("RGB").save(img_dst)
+                    im.convert("RGB").save(img_dst, **WEBP_LOSSLESS)
             else:
                 _materialize_one(member.image_path, img_dst, copy=False)
             txt_dst = adir / f"{p.pair_id}{side}.txt"
@@ -66,7 +67,6 @@ def export_pairs(
         if emit_mask:
             _write_mask(p, adir / f"{p.pair_id}_mask.png")
         written += 1
-        _ = ext  # holder ext informational only
     return written
 
 
@@ -85,13 +85,13 @@ def export_identity_members(members: list[Member], export_dir: Path, copy: bool)
     for m in members:
         adir = export_dir / m.artist
         pid = f"id_{m.stem}"
-        ext = ".png" if copy else m.image_path.suffix
+        ext = ".webp" if copy else m.image_path.suffix
         for side in ("_tags", "_no_tags"):
             img_dst = adir / f"{pid}{side}{ext}"
             if copy:
                 with Image.open(m.image_path) as im:
                     img_dst.parent.mkdir(parents=True, exist_ok=True)
-                    im.convert("RGB").save(img_dst)
+                    im.convert("RGB").save(img_dst, **WEBP_LOSSLESS)
             else:
                 _materialize_one(m.image_path, img_dst, copy=False)
             txt_dst = adir / f"{pid}{side}.txt"

@@ -1,0 +1,15 @@
+name = "sanitize"        # adds wm_* pairs to the sanitize tree (its fixed caption already says "no watermark")
+stage = "watermark"      # i2i_tasks/tools/watermark_pairs.py
+
+# watermark: faint tiled URL / handle watermarks (patreon, fanbox, x, pixiv …) drawn over
+# the sanitize tree's clean targets, lossless — the case the mined pairs never show.
+# Re-running replaces every wm_* pair and rewrites pairs.jsonl; then re-cache sanitize.
+#
+#   make i2i-stage TASK=watermark                          # after TASK=sanitize / textless_pairs
+#   make i2i-stage TASK=watermark ARGS="--n 8 --preview /tmp/wm"   # look first, tree untouched
+#   make i2i-preprocess TASK=sanitize MODEL=moss
+
+[staging]
+n = 80
+stack = 0.5              # share drawn over the texted side (text + watermark → clean)
+opacity = [0.03, 0.15]

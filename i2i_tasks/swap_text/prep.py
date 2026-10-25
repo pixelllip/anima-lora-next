@@ -97,6 +97,9 @@ JA_SCRIPT = re.compile(
 )
 INVALID = 255
 WEBP = [cv2.IMWRITE_WEBP_QUALITY, 95]
+# The staged target is lossless: outside its paste mask it is the decoded source
+# exactly, so target − reference is zero wherever the edit is not.
+WEBP_LOSSLESS = [cv2.IMWRITE_WEBP_QUALITY, 101]
 
 
 def _single_thread() -> None:
@@ -597,7 +600,7 @@ def compose_job(job) -> None:
         alpha = cv2.GaussianBlur(alpha, (0, 0), feather) * mask
     alpha = alpha[..., None]
     out = np.clip(src * (1 - alpha) + tgt * alpha + 0.5, 0, 255).astype(np.uint8)
-    _imwrite(base / f"{stem}.tgt.webp", out, WEBP)
+    _imwrite(base / f"{stem}.tgt.webp", out, WEBP_LOSSLESS)
     (base / f"{stem}.src.webp").unlink(missing_ok=True)
     (base / f"{stem}.src.webp").symlink_to(
         os.path.relpath(p["dir"] / f"{p['page']}.src.webp", base)
