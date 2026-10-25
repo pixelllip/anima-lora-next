@@ -86,4 +86,4 @@ CFG 3, uncond `''` skipping block 22, seed 1. Captions are layout JSON. Arms:
 ## Follow-up (measured 2026-10-19)
 
 On colorize, a LoRA trained on these tokens alone reached luma r 0.42; adding a half-size
-VAE reference on `r = 1` reached 0.97 (`docs/proposal/moss_i2i.md`).
+VAE reference on `r = 1` reached 0.97 (`project/moss_lora/done/i2i.md`).

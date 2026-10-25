@@ -143,7 +143,7 @@ passes layout JSON through unchanged).
 
 ## More
 
-- Probes and design notes: `docs/proposal/moss_i2i.md`. Colorize runs: `project/moss_lora/`
+- Probes and design notes: `project/moss_lora/done/i2i.md`. Colorize runs: `project/moss_lora/`
   (`plan.md`, `colorize_ocr.md`).
 - Ref forward: `library/moss/model.py` (`ref=`, `_ref_only`). The ComfyUI copy is
   `reference.py` in the toolkit.

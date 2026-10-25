@@ -1,8 +1,9 @@
 # MOSS-Image i2i — a VAE reference on RoPE's `r` axis
 
-Status: probing (proposed 2026-10-19), four probes measured. Code is on main; no ship
-surface yet (`GenerateRequest` takes no reference). The colorize sub-line's kept run and
-OCR-caption arm: `project/moss_lora/colorize_ocr.md`.
+Status: settled 2026-10-25 — the design record and probes behind the shipped i2i surface
+(`GenerateRequest.ref_image`, `configs/moss/i2i/`; user doc `docs/moss/i2i.md`). Proposed
+2026-10-19, four probes measured. The colorize sub-line's kept run and OCR-caption arm:
+`project/moss_lora/colorize_ocr.md`; v3 recipe: `project/moss_lora/plan.md`.
 
 ## Premise
 
