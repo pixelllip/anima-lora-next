@@ -24,11 +24,9 @@ The leftmost column is the outcome — what the evidence settled:
 
 | Verdict | Doc | Why |
 |---------|-----|-----|
-| FALSIFIED | [selfflow.md](selfflow.md) | Self-Flow rep-loss exploits an info gap a still-learning backbone leaves open; Anima's frozen DiT already closed it → ~zero pressure on a rank-r adapter. |
 | NO-GO | [spectral_guidance_no_subspace.md](spectral_guidance_no_subspace.md) | The posterior-mean operator does not collapse onto a few guidable directions on Anima — no low-rank guidable subspace (Phase-0 gate). |
 | NO-GO | [ctcal_premise_inverted_on_anima.md](ctcal_premise_inverted_on_anima.md) | CTCal assumes cross-attn is sharp at low noise / degrades at high noise; on Anima that premise is inverted. Don't build. |
 | NO-GO | [pe_registers_no_patch_outliers.md](pe_registers_no_patch_outliers.md) | Test-time registers (2506.08010) needs high-norm outlier patch tokens; PE-Core/PE-Spatial have none (0 patches ≥5× median, 256 imgs × all layers — CLS absorbs the sink role). Cached PE features are clean; tagger-ceiling result stands stronger. |
-| NOT WORTH | [asymflow_parameterization.md](asymflow_parameterization.md) | The rank-asymmetric velocity parameterization fixes a *pixel-space* dimensionality bottleneck Anima (compressed latent, D_patch/residual = 1/32) doesn't have. |
 | CLOSED | [deft_subtractive_coupling_slows_convergence.md](deft_subtractive_coupling_slows_convergence.md) | DEFT reaches the same optima as LoRA but 2–8× slower everywhere — `ΔW` quadratic in `P`, gradient dominated by a `−W₀GᵀP` coupling. Don't re-propose subtractive adapters. |
 | SHELVED | [l2p_pixel_transfer.md](l2p_pixel_transfer.md) | Swapping the VAE for RGB-patch tokenization breaks the frozen DiT's native latent-token manifold at Anima's 2048-dim / 28-block scale on a single-GPU budget. |
 | PARTIAL | [freetext_text_rendering.md](freetext_text_rendering.md) | GO on training-free writing-region *localization*; NO-GO on native OOD glyph rendering. One reusable capability, one clean negative. |

@@ -381,5 +381,3 @@ Regression probe: `bench/turbo/caption_ranking_probe.py --adapter <ckpt>`. Tests
   gradient split, the flow-matching velocity↔x0 conversion, and the sign convention.
 - `_archive/proposals/dmd2_decoupled_improvements.md` — CA-era decision log; the record
   of why the CA branch was abandoned.
-- `docs/findings/asymflow_parameterization.md` — Anima's `u = ε − x0` velocity path
-  (the conversion the renoise/grad-assembly relies on).

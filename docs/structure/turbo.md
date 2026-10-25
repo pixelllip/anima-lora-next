@@ -131,7 +131,7 @@ warns when it's violated. (Defaults ship `student_rank = fake_rank = 48`.)
 
 The paper is written for score/ε-prediction. Anima predicts velocity
 $v = \varepsilon - x_0$ on the flow-matching path $x_t = (1-t)\,x_0 + t\,\varepsilon$
-(see `docs/findings/asymflow_parameterization.md`; $t$ and $\sigma$ are the same
+($t$ and $\sigma$ are the same
 noise level in $[0,1]$ here — $\sigma=1$ pure noise, $\sigma=0$ clean). Everything
 has to be re-derived in velocity/x0 space or the signs and scales are wrong.
 

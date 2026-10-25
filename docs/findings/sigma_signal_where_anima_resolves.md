@@ -18,7 +18,7 @@ entirely in the σ < 0.45 tail. Above σ ≈ 0.55 the base already knows the
 answer; the sampler is just stepping toward it.
 
 ![x0_pred across σ on a single sample, 3×4 grid (top-left = true x0,
-then σ=0.05 to σ=0.95)](assets/sigma_signal_x0_vs_sigma_grid.png)
+then σ=0.05 to σ=0.95)](assets/x0_vs_sigma_s3.png)
 
 ## Evidence 1 — `x0_pred = x_σ − σ·v` reconstruction
 
