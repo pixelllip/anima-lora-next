@@ -547,6 +547,37 @@ class TrainRequest(Request):
         "tokens the edit region grows by (3x3 steps), so its seam is in it",
         advanced=True,
     )
+    tone_weight: float = _f(
+        0.0,
+        "i2i: weight of the tone term on the unedited tokens (outside the edit "
+        "region grown by tone_dilate): the x̂₀ error's masked mean per tone_pool "
+        "cell, projected on tone_dirs, squared. Needs a full-size reference. "
+        "0 = off. docs/proposal/moss_i2i_tone_loss.md",
+        advanced=True,
+    )
+    tone_log: bool = _f(
+        False,
+        "compute and log the tone term without adding it (to size tone_weight)",
+        advanced=True,
+    )
+    tone_pool: int = _f(
+        8,
+        "tone cell side in latent tokens (8 = 128 px); 0 = one cell over the "
+        "whole unedited area",
+        advanced=True,
+    )
+    tone_dilate: int = _f(
+        2,
+        "extra tokens the edit region grows by for the tone term, beyond region_dilate",
+        advanced=True,
+    )
+    tone_dirs: str = _f(
+        "library/moss/calibration/tone_dirs.safetensors",
+        "per-channel latent response to +1 Lab L / a / b "
+        "(project/moss_lora/src/tone_dirs.py); the term is then in Lab units "
+        "squared. '' = the raw 128 channels",
+        advanced=True,
+    )
     repa_weight: float = _f(
         0.0,
         "relational REPA (Anima's DoG-Gram term, docs/methods/repa.md): weight of "

@@ -1,10 +1,10 @@
-"""MOSS trainer: the per-step caption choice and the edit-region loss (CPU, no model)."""
+"""MOSS trainer: the per-step caption choice, the edit-region loss and the tone term (CPU, no model)."""
 
 import random
 
 import torch
 
-from library.moss.train import choose_embeds, edit_region, region_mse
+from library.moss.train import choose_embeds, edit_region, region_mse, tone_loss
 
 
 def _rows(n):
@@ -114,3 +114,32 @@ def test_region_mse_multiplies_each_side():
     assert torch.isclose(loss, torch.tensor((2 * 4 * 4 + 0.5 * 10) / 100))
     assert parts["region"] == 4.0 and abs(parts["rest"] - 10 / 96) < 1e-6
     assert torch.isclose(region_mse(pred, target, region, 1.0, 1.0), (pred**2).mean())
+
+
+def test_tone_loss_constant_offset_pool0():
+    offset = torch.linspace(-1, 1, 128)
+    err = offset.view(1, 128, 1, 1).expand(1, 128, 8, 8).clone()
+    rest = torch.ones(8, 8, dtype=torch.bool)
+    rest[:3, :3] = False
+    err[:, :, :3, :3] = 50.0  # edit-region error: excluded
+    assert torch.isclose(tone_loss(err, rest, 0), offset.pow(2).mean())
+
+
+def test_tone_loss_projects_to_lab():
+    dirs = torch.randn(128, 3, generator=torch.Generator().manual_seed(0))
+    proj = torch.linalg.pinv(dirs)
+    c = torch.tensor([1.5, -0.5, 2.0])
+    err = (dirs @ c).view(1, 128, 1, 1).expand(1, 128, 16, 16)
+    rest = torch.ones(16, 16, dtype=torch.bool)
+    assert torch.isclose(tone_loss(err, rest, 8, proj), c.pow(2).sum(), rtol=1e-4)
+
+
+def test_tone_loss_skips_cells_under_half_coverage():
+    err = torch.zeros(1, 4, 16, 16)
+    err[:, :, :8, :8] = 2.0  # cell 0
+    err[:, :, :8, 8:] = 3.0  # cell 1, a quarter covered: skipped
+    rest = torch.zeros(16, 16, dtype=torch.bool)
+    rest[:8, :8] = True
+    rest[:4, 8:12] = True
+    assert torch.isclose(tone_loss(err, rest, 8), torch.tensor(4.0))
+    assert tone_loss(err, torch.zeros(16, 16, dtype=torch.bool), 8) == 0

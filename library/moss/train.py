@@ -223,6 +223,40 @@ def region_mse(
     return (torch.where(region, region_weight, rest_weight) * err).mean()
 
 
+def tone_projection(path) -> torch.Tensor:
+    """``(3, C)`` least-squares map from a per-channel latent offset to Lab
+    ``(L, a, b)``, from the per-unit directions in ``path``."""
+    from safetensors.torch import load_file
+
+    dirs = load_file(str(path))
+    return torch.linalg.pinv(
+        torch.stack([dirs[k] for k in ("L", "a", "b")], 1).double()
+    ).float()
+
+
+def tone_loss(
+    err: torch.Tensor, rest: torch.Tensor, pool: int, proj: torch.Tensor | None = None
+) -> torch.Tensor:
+    """``err (1,C,h,w)`` (x̂₀ − x₀) averaged over ``rest (h,w)`` per ``pool``×``pool``
+    cell (``pool`` 0 = one cell), cells under half coverage skipped. With ``proj``
+    the cell means map to Lab and the term is their squared norm (ΔE²); without it,
+    the mean square over channels. Mean over cells; 0 when no cell qualifies."""
+    m = rest[None, None].to(err.dtype)
+    if pool == 0:
+        num, cov = (err * m).mean((2, 3), keepdim=True), m.mean((2, 3), keepdim=True)
+        ok = cov[0, 0] > 0
+    else:
+        num = F.avg_pool2d(err * m, pool, ceil_mode=True)
+        cov = F.avg_pool2d(m, pool, ceil_mode=True)
+        ok = cov[0, 0] >= 0.5
+    if not ok.any():
+        return err.sum() * 0
+    cells = (num / cov.clamp(min=1e-6))[0][:, ok]
+    if proj is None:
+        return cells.pow(2).mean()
+    return (proj.to(cells) @ cells).pow(2).sum(0).mean()
+
+
 def training_loss(
     transformer,
     latent,
@@ -234,11 +268,14 @@ def training_loss(
     region_weight: float = 1.0,
     rest_weight: float = 1.0,
     parts: dict | None = None,
+    tone: dict | None = None,
 ):
     """``latent (1,128,h,w)`` fp32, ``embeds (1,S,4096)`` at true length,
     ``ref (1,128,h',w')`` an optional clean reference latent (never noised),
     ``region (h,w)`` bool on the latent's device: :func:`region_mse` instead of
-    the plain MSE."""
+    the plain MSE. ``tone``: ``rest`` mask, ``pool``, ``proj``, ``weight`` for
+    :func:`tone_loss` on ``x̂₀ − x₀ = σ·(target − pred)``, added at ``weight``
+    and logged in ``parts`` as ``tone``."""
     noise = torch.randn(
         latent.shape, generator=gen, device=latent.device, dtype=latent.dtype
     )
@@ -247,8 +284,20 @@ def training_loss(
     timestep = torch.tensor([NUM_TRAIN_TIMESTEPS * sigma], device=latent.device)
     pred = transformer(noisy, timestep, embeds, return_dict=False, ref=ref)[0]
     if region is not None:
-        return region_mse(pred, target, region, region_weight, rest_weight, parts)
-    return F.mse_loss(pred.float(), target.float())
+        loss = region_mse(pred, target, region, region_weight, rest_weight, parts)
+    else:
+        loss = F.mse_loss(pred.float(), target.float())
+    if tone is None:
+        return loss
+    term = tone_loss(
+        sigma * (target.float() - pred.float()),
+        tone["rest"],
+        tone["pool"],
+        tone["proj"],
+    )
+    if parts is not None:
+        parts["tone"] = term.item()
+    return loss + tone["weight"] * term if tone["weight"] else loss
 
 
 def checkpoint_blocks(blocks) -> None:
@@ -457,6 +506,36 @@ def train(
             f"{sum(a == 0 for a in area)} empty",
             flush=True,
         )
+    rests, tone_proj = {}, None
+    if req.tone_weight or req.tone_log:
+        for s in samples:
+            latent, _, _, ref = get(s)
+            if ref is None or ref.shape != latent.shape:
+                raise SystemExit(
+                    f"tone_weight / tone_log need a full-size reference (ref_scale 1); "
+                    f"{s.stem} has {None if ref is None else tuple(ref.shape)} "
+                    f"for latent {tuple(latent.shape)}"
+                )
+            rest = ~edit_region(
+                latent,
+                ref,
+                req.region_threshold,
+                req.region_min_tokens,
+                req.region_dilate + req.tone_dilate,
+            )
+            if rest.any():
+                rests[s.stem] = rest
+        if req.tone_dirs:
+            tone_proj = tone_projection(resolve_under_home(req.tone_dirs)).to(device)
+        share = sorted(r.float().mean().item() for r in rests.values())
+        print(
+            f"tone: x{req.tone_weight}{' (log only)' if not req.tone_weight else ''}, "
+            f"pool {req.tone_pool}, dilate +{req.tone_dilate}, "
+            f"{'Lab via ' + req.tone_dirs if req.tone_dirs else 'raw channels'}; "
+            f"{len(rests)}/{len(samples)} samples with unedited tokens, share median "
+            f"{100 * share[len(share) // 2] if share else 0:.0f}%",
+            flush=True,
+        )
     use_variants = req.caption_variant_rate > 0
     n_variant_samples = sum(1 for s in samples if s.n_variants) if use_variants else 0
     if n_variant_samples:
@@ -640,6 +719,13 @@ def train(
             region_min_tokens=req.region_min_tokens,
             region_dilate=req.region_dilate,
         )
+    if req.tone_weight:
+        meta.update(
+            tone_weight=req.tone_weight,
+            tone_pool=req.tone_pool,
+            tone_dilate=req.tone_dilate,
+            tone_dirs=req.tone_dirs or "raw",
+        )
 
     def save(tag: str | None = None) -> Path:
         """The final file at ``out_path``; an epoch save under ``<dir>/<stem>/``."""
@@ -704,17 +790,28 @@ def train(
                         tuple(latent.shape[-2:]),
                     )
                 parts = {}
-                if s.stem in regions:
+                tone = None
+                if s.stem in rests:
+                    tone = dict(
+                        rest=rests[s.stem].to(device),
+                        pool=req.tone_pool,
+                        proj=tone_proj,
+                        weight=req.tone_weight,
+                    )
+                if s.stem in regions or tone is not None:
                     loss = training_loss(
                         transformer,
                         latent,
                         embeds,
                         sigma,
                         ref=ref,
-                        region=regions[s.stem].to(device),
+                        region=regions[s.stem].to(device)
+                        if s.stem in regions
+                        else None,
                         region_weight=req.region_weight,
                         rest_weight=req.rest_weight,
                         parts=parts,
+                        tone=tone,
                     )
                 else:
                     loss = training_loss(transformer, latent, embeds, sigma, ref=ref)
@@ -782,10 +879,7 @@ def train(
                     rate = f" {per_step:.2f}s/step" if per_step is not None else ""
                     if align is not None:
                         rate += f" repa {aligns[-1]:.4f}"
-                    if parts:
-                        rate += (
-                            f" region {parts['region']:.4f} rest {parts['rest']:.4f}"
-                        )
+                    rate += "".join(f" {k} {v:.4f}" for k, v in parts.items())
                     print(
                         f"  step {step}/{total} loss {value:.4f} |g| {grad_norm:.3f} "
                         f"sigma {sigma:.3f} lr {lr_sched.get_last_lr()[0]:.2e} "

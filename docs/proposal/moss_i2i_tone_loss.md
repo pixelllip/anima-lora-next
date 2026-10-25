@@ -1,6 +1,7 @@
 # MOSS i2i: a tone term on the unedited tokens
 
-Status: proposal (2026-10-25). Nothing trained or implemented yet.
+Status: implemented (`tone_weight`, off by default), one arm trained; it overshoots.
+Results in [Results so far](#results-so-far-2026-10-25).
 
 The sanitize LoRA `moss_i2i_sanitize_wm` (e6) brightens, cools and slightly desaturates
 the whole page, including far from any text it removes. The training pairs do not teach
@@ -138,6 +139,39 @@ term starts at about 10 % of `L_mse`. Extend the winner to 6 epochs.
   dense SFX) and usual_case2 (faint tiled watermark).
 - The edit-region part of the loss (logged `region`) no worse than the control at equal
   steps.
+
+## Results so far (2026-10-25)
+
+Scripts in `project/moss_lora/src/`: `tone_map.py` (the render metric above, plus per-cell
+and per-input-L breakdowns), `tone_probe.py` (single-step x̂₀ per LoRA, no training; job
+`20261025-185512-1f2f3a`; its JSON stays local, untracked), `tone_dirs.py` (the
+latent response to a Lab shift).
+
+- **The drift is a tone curve, not an offset.** e6 lifts shadows and midtones by +2.5 to
+  +3.4 L and leaves paper white (L > 90) near 0. Removing one global Lab offset leaves
+  median ΔE 1.2-1.5; one offset per 128 px cell brings it to 0.65-1.05 (200p's raw level).
+  So `tone_pool 8`, not 0.
+- **The raw 128-channel term does not single out the drift.** Tone (L / a / b) is 1-12 %
+  of the rest tokens' DC error, and the raw term is as large for 200p (no drift) as for
+  e6. The shipped term projects each cell onto Lab with
+  `library/moss/calibration/tone_dirs.safetensors` (per-unit directions, stable across 10
+  pages at cos 0.90-0.98; projected vs decoded ΔL r = 0.67).
+- **Single-step x̂₀ already carries it, small.** Decoded at σ 0.1: e6 ΔL +0.2 to +0.5
+  (5/5 pages and pairs), 200p about 0. Renders amplify it 5-8× for e6 but not for 200p,
+  whose single-step error is as large with the opposite sign.
+- **Arm `tone_weight 0.005`** (cs0 recipe: Muon lr 1e-4, 600 steps;
+  `moss_i2i_sanitize_tone_w0005`, against the existing cs0 render, which trained on older
+  code): the brightening is gone but 4/5 pages overshoot darker and warmer (ΔL -0.7 to
+  -1.4, Δb up to +1.1; hard_to_sanitize3 lands at -0.02 / -0.34). The term is 17 % of the
+  loss at the start and dominated by σ > 0.85 steps (13-30 vs 0.3 at σ < 0.3). 0.02 put
+  it at 25-45 % and was stopped.
+- **Training length:** e3 vs e6 renders, ΔL +0.48 → +1.74 (grows), Δb -0.82 → -0.67
+  (present from e3). The exact ΔW mean of e3 and e6 lands at the midpoint (ΔL +1.00), so
+  there is no per-checkpoint noise for weight EMA to remove; EMA would act like stopping
+  earlier.
+
+Next candidates, not run: a lower `tone_weight` (~0.002), or push only the running bias
+(a stop-grad EMA of the cell tone error, `2·b̄·c`) so the push stops at zero.
 
 ## Out of scope
 
