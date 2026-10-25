@@ -449,6 +449,15 @@ def build_spectrum(req: GenerateRequest):
     )
 
 
+def _build_cns(req: GenerateRequest, cfg: float):
+    """``MossCNS`` for one job's cfg, or None."""
+    if not req.cns:
+        return None
+    from library.moss.cns import MossCNS
+
+    return MossCNS.from_spec(req.cns, req.model, cfg, req.cns_strength)
+
+
 def _build_dave(req: GenerateRequest, num_blocks: int):
     """DAVE hook for every job, or None."""
     if not req.dave:
@@ -488,6 +497,7 @@ def _fingerprint(req: GenerateRequest, job: dict) -> dict:
             if req.dave
             else None
         ),
+        **({"cns": dict(spec=req.cns, strength=req.cns_strength)} if req.cns else {}),
     )
 
 
@@ -596,6 +606,7 @@ def _denoise_pending(req, model_dir, out_dir, pending, device) -> None:
             spectrum=build_spectrum(req),
             sampler=req.sampler,
             seed=j["seed"],
+            cns=_build_cns(req, j["cfg"]),
             dave=dave,
             ref=refs[j["key"]].to(device) if j["key"] in refs else None,
         ).cpu()
@@ -654,6 +665,8 @@ def run_generate(req: GenerateRequest) -> Path:
     decode, and a rerun skips every job whose saved latent matches it, then
     decodes only the PNGs that are missing. ``decode_only`` decodes whatever is
     in ``latents/`` and loads nothing else."""
+    if req.cns and req.sampler != "er_sde":
+        raise SystemExit("cns recolors ER-SDE noise: needs --sampler er_sde")
     model_dir = resolve_model_dir(req.model_dir)
     out_dir = resolve_under_home(req.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

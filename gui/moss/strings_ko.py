@@ -221,6 +221,11 @@ FIELDS_GENERATE: dict[str, tuple[str, str]] = {
         "DAVE 강도",
         "묶음 안의 블록에서 제거하는 평균의 비율(0 = 끔, 1 = 전부)",
     ),
+    "cns": (
+        "CNS",
+        "er_sde 전용: 샘플러가 넣는 노이즈를 CNS로 재착색합니다. 'auto' = 변형·cfg에 맞춰 "
+        "보정된 내장 γ, 또는 npz 경로, '' = 끔. ComfyUI의 er_sde_cns와 같습니다",
+    ),
     "ref_image": (
         "참조 이미지",
         "i2i 참조: 이미지 한 장 또는 이미지 폴더(이미지 × 프롬프트마다 작업 하나). "

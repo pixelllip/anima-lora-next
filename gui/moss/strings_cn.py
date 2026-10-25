@@ -186,6 +186,11 @@ FIELDS_GENERATE: dict[str, tuple[str, str]] = {
         "'' = 关闭，'auto' = 内置 MOSS 掩码，'lo-hi' = 第 lo..hi 块，或 dave_alpha.npz 路径",
     ),
     "dave_strength": ("DAVE 强度", "在池内块上去除的均值比例（0 = 关闭，1 = 全部）"),
+    "cns": (
+        "CNS",
+        "仅限 er_sde：用 CNS 为采样器注入的噪声重新着色。'auto' = 按变体与 cfg 校准的内置 γ，"
+        "或 npz 路径，'' = 关闭。与 ComfyUI 的 er_sde_cns 相同",
+    ),
     "ref_image": (
         "参考图",
         "图生图参考：一张图片，或图片文件夹（每张图片 × 每个提示词一个任务）。"

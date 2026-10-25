@@ -358,6 +358,14 @@ class GenerateRequest(Request):
     dave_tau: float = _f(
         0.10, "attenuate the first tau of the steps (at least one)", advanced=True
     )
+    cns: str = _f(
+        "",
+        "er_sde only: CNS recolors the sampler's injected noise "
+        "(docs/inference/cns.md). 'auto' = the shipped γ for the variant at the "
+        "calibrated cfg nearest the job's (3 / 4 / 5), else an npz path; '' = off. "
+        "ComfyUI's er_sde_cns on MOSS is 'auto' at strength 1",
+    )
+    cns_strength: float = _f(1.0, "scale on the CNS γ", advanced=True)
     text_encoder: str = _f(
         DEFAULT_TEXT_ENCODER,
         f"Qwen3.5-9B weights for the prompts: {_TE_HELP}",
