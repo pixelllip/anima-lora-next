@@ -44,8 +44,13 @@ def test_ref_jobs_follow_each_reference(tmp_path):
     # A reference edit invalidates the saved latent.
     assert _fingerprint(req, jobs[0])["ref_mtime"] == jobs[0]["ref_mtime"]
 
+    # Any reference may stand alone (sanitize's fixed caption), vision or not;
+    # without one an empty prompt is an error.
+    alone = _jobs(GenerateRequest(prompt="", ref_image=str(tmp_path)))
+    assert [j["prompt"] for j in alone] == ["", ""]
+    assert not any(j["ref_vision"] for j in alone)
     with pytest.raises(SystemExit, match="no prompts"):
-        _jobs(GenerateRequest(prompt="", ref_image=str(tmp_path)))
+        _jobs(GenerateRequest(prompt=""))
 
 
 def test_plain_jobs_unchanged():
