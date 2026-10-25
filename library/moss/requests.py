@@ -513,6 +513,37 @@ class TrainRequest(Request):
         "attend to them. Stamped in the LoRA metadata",
         advanced=True,
     )
+    region_weight: float = _f(
+        1.0,
+        "i2i: per-token loss multiplier on the edit region (the latent tokens "
+        "where the target differs from its full-size reference; region_threshold "
+        "and friends). The loss is the mean over all tokens of the multiplied "
+        "error, not renormalised; region_weight = rest_weight = 1 is the plain MSE",
+        advanced=True,
+    )
+    rest_weight: float = _f(
+        1.0,
+        "i2i: per-token loss multiplier outside the edit region",
+        advanced=True,
+    )
+    region_threshold: float = _f(
+        0.3,
+        "per-token RMS of target − reference latent above which a token is "
+        "edited. On swap_text the copied tokens sit near 0.06 (WebP noise) and "
+        "the pasted lettering near 1",
+        advanced=True,
+    )
+    region_min_tokens: int = _f(
+        5,
+        "edited components (8-connected) smaller than this many tokens are noise "
+        "and dropped",
+        advanced=True,
+    )
+    region_dilate: int = _f(
+        1,
+        "tokens the edit region grows by (3x3 steps), so its seam is in it",
+        advanced=True,
+    )
     repa_weight: float = _f(
         0.0,
         "relational REPA (Anima's DoG-Gram term, docs/methods/repa.md): weight of "

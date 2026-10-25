@@ -17,7 +17,10 @@ plain or a variant) and no dropout, so the report bounds the worst case.
 
 Objective (report App. A.2): ``z_σ = (1−σ)·z0 + σ·ε``, the DiT predicts
 ``ε − z0`` at timestep ``1000·σ``, MSE averaged over image tokens and channels
-(text tokens never reach the head), with no σ/SNR weighting.
+(text tokens never reach the head), with no σ/SNR weighting. With
+``region_weight`` / ``rest_weight`` off 1 (i2i, full-size reference) each token's
+error is multiplied before the mean: ``region_weight`` on the tokens the edit
+changes (``edit_region``), ``rest_weight`` on the copied ones.
 
 σ follows the final Stage-3 interval exactly: ``Z ~ N(μ, s²)``, ``S = 1 − sigmoid(Z)``,
 truncated to ``S ≤ cutoff`` and rescaled onto the grid ``{1/1000 … 1}``
@@ -176,9 +179,64 @@ def sample_sigma(
     return j / total
 
 
-def training_loss(transformer, latent, embeds, sigma: float, gen=None, ref=None):
+def edit_region(
+    latent: torch.Tensor,
+    ref: torch.Tensor,
+    threshold: float,
+    min_tokens: int = 5,
+    dilate: int = 1,
+) -> torch.Tensor:
+    """``(h, w)`` bool: the tokens where ``latent`` differs from a same-size
+    ``ref`` by more than ``threshold`` (RMS over channels), components under
+    ``min_tokens`` dropped, grown by ``dilate``."""
+    import numpy as np
+    from scipy import ndimage
+
+    diff = (latent.float() - ref.float()).pow(2).mean(0).sqrt()
+    m = (diff > threshold).numpy()
+    eight = np.ones((3, 3), dtype=bool)
+    labels, n = ndimage.label(m, structure=eight)
+    sizes = ndimage.sum(m, labels, range(1, n + 1))
+    keep = np.isin(labels, 1 + np.flatnonzero(np.asarray(sizes) >= min_tokens))
+    if dilate and keep.any():
+        keep = ndimage.binary_dilation(keep, structure=eight, iterations=dilate)
+    return torch.from_numpy(keep)
+
+
+def region_mse(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    region: torch.Tensor,
+    region_weight: float,
+    rest_weight: float,
+    parts: dict | None = None,
+) -> torch.Tensor:
+    """The mean over tokens of the per-token MSE times ``region_weight`` on
+    ``region`` and ``rest_weight`` elsewhere (not renormalised). ``parts``
+    receives the plain mean over each side (``region`` / ``rest``) when both are
+    non-empty."""
+    err = (pred.float() - target.float()).pow(2).mean(1)[0]
+    if parts is not None and region.any() and not region.all():
+        parts.update(region=err[region].mean().item(), rest=err[~region].mean().item())
+    return (torch.where(region, region_weight, rest_weight) * err).mean()
+
+
+def training_loss(
+    transformer,
+    latent,
+    embeds,
+    sigma: float,
+    gen=None,
+    ref=None,
+    region=None,
+    region_weight: float = 1.0,
+    rest_weight: float = 1.0,
+    parts: dict | None = None,
+):
     """``latent (1,128,h,w)`` fp32, ``embeds (1,S,4096)`` at true length,
-    ``ref (1,128,h',w')`` an optional clean reference latent (never noised)."""
+    ``ref (1,128,h',w')`` an optional clean reference latent (never noised),
+    ``region (h,w)`` bool on the latent's device: :func:`region_mse` instead of
+    the plain MSE."""
     noise = torch.randn(
         latent.shape, generator=gen, device=latent.device, dtype=latent.dtype
     )
@@ -186,6 +244,8 @@ def training_loss(transformer, latent, embeds, sigma: float, gen=None, ref=None)
     target = noise - latent
     timestep = torch.tensor([NUM_TRAIN_TIMESTEPS * sigma], device=latent.device)
     pred = transformer(noisy, timestep, embeds, return_dict=False, ref=ref)[0]
+    if region is not None:
+        return region_mse(pred, target, region, region_weight, rest_weight, parts)
     return F.mse_loss(pred.float(), target.float())
 
 
@@ -369,6 +429,32 @@ def train(
             "read from disk each step",
             flush=True,
         )
+    regions = {}
+    if req.region_weight != 1.0 or req.rest_weight != 1.0:
+        for s in samples:
+            latent, _, _, ref = get(s)
+            if ref is None or ref.shape != latent.shape:
+                raise SystemExit(
+                    f"region_weight / rest_weight need a full-size reference (ref_scale 1); "
+                    f"{s.stem} has {None if ref is None else tuple(ref.shape)} "
+                    f"for latent {tuple(latent.shape)}"
+                )
+            regions[s.stem] = edit_region(
+                latent,
+                ref,
+                req.region_threshold,
+                req.region_min_tokens,
+                req.region_dilate,
+            )
+        area = sorted(r.float().mean().item() for r in regions.values())
+        print(
+            f"edit region: x{req.region_weight}, rest x{req.rest_weight}, threshold "
+            f"{req.region_threshold}, min {req.region_min_tokens} tokens, dilate "
+            f"{req.region_dilate}; area median {100 * area[len(area) // 2]:.2f}% "
+            f"({100 * area[0]:.2f}-{100 * area[-1]:.2f}%), "
+            f"{sum(a == 0 for a in area)} empty",
+            flush=True,
+        )
     use_variants = req.caption_variant_rate > 0
     n_variant_samples = sum(1 for s in samples if s.n_variants) if use_variants else 0
     if n_variant_samples:
@@ -537,6 +623,14 @@ def train(
             meta["ref_isolate"] = "1"
     if repa is not None:
         meta.update(repa_weight=req.repa_weight, repa_layer=req.repa_layer)
+    if regions:
+        meta.update(
+            region_weight=req.region_weight,
+            rest_weight=req.rest_weight,
+            region_threshold=req.region_threshold,
+            region_min_tokens=req.region_min_tokens,
+            region_dilate=req.region_dilate,
+        )
 
     def save(tag: str | None = None) -> Path:
         """The final file at ``out_path``; an epoch save under ``<dir>/<stem>/``."""
@@ -600,7 +694,21 @@ def train(
                         grid,
                         tuple(latent.shape[-2:]),
                     )
-                loss = training_loss(transformer, latent, embeds, sigma, ref=ref)
+                parts = {}
+                if s.stem in regions:
+                    loss = training_loss(
+                        transformer,
+                        latent,
+                        embeds,
+                        sigma,
+                        ref=ref,
+                        region=regions[s.stem].to(device),
+                        region_weight=req.region_weight,
+                        rest_weight=req.rest_weight,
+                        parts=parts,
+                    )
+                else:
+                    loss = training_loss(transformer, latent, embeds, sigma, ref=ref)
                 align = repa.loss() if repa is not None else None
                 if align is not None:
                     ((loss + req.repa_weight * align) / accum).backward()
@@ -625,7 +733,8 @@ def train(
                         "lr": lr_sched.get_last_lr()[0],
                     }
                     | ({"grad_norm": grad_norm} if updated else {})
-                    | ({"repa": aligns[-1]} if align is not None else {}),
+                    | ({"repa": aligns[-1]} if align is not None else {})
+                    | {f"loss_{k}": v for k, v in parts.items()},
                     global_step=step,
                     epoch=epoch + 1,
                 )
@@ -633,6 +742,7 @@ def train(
                 losses_all.append(
                     {"step": step, "loss": value, "sigma": sigma}
                     | ({"repa": aligns[-1]} if align is not None else {})
+                    | {f"loss_{k}": v for k, v in parts.items()}
                 )
                 if step == 1:
                     if req.fit_report:
@@ -664,6 +774,10 @@ def train(
                     rate = f" {per_step:.2f}s/step" if per_step is not None else ""
                     if align is not None:
                         rate += f" repa {aligns[-1]:.4f}"
+                    if parts:
+                        rate += (
+                            f" region {parts['region']:.4f} rest {parts['rest']:.4f}"
+                        )
                     print(
                         f"  step {step}/{total} loss {value:.4f} |g| {grad_norm:.3f} "
                         f"sigma {sigma:.3f} lr {lr_sched.get_last_lr()[0]:.2e} "

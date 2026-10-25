@@ -1,10 +1,10 @@
-"""MOSS trainer: the per-step caption choice (CPU, no model)."""
+"""MOSS trainer: the per-step caption choice and the edit-region loss (CPU, no model)."""
 
 import random
 
 import torch
 
-from library.moss.train import choose_embeds
+from library.moss.train import choose_embeds, edit_region, region_mse
 
 
 def _rows(n):
@@ -88,3 +88,29 @@ def test_missing_candidates_draw_nothing():
         assert kind == "full" and x is FULL
     fresh = _rngs()
     assert [r.random() for r in rngs.values()] == [r.random() for r in fresh.values()]
+
+
+def test_edit_region_drops_specks_and_dilates():
+    ref = torch.zeros(128, 12, 12)
+    latent = ref.clone()
+    latent[:, 2:5, 2:5] = 1.0  # a 9-token edit
+    latent[:, 9, 9] = 1.0  # a 1-token speck
+    latent[:, 7, 1] = 0.1  # below threshold
+    m = edit_region(latent, ref, 0.3, min_tokens=5, dilate=0)
+    assert m.sum() == 9 and not m[9, 9] and not m[7, 1]
+    grown = edit_region(latent, ref, 0.3, min_tokens=5, dilate=1)
+    assert grown.sum() == 25 and grown[1:6, 1:6].all()
+
+
+def test_region_mse_multiplies_each_side():
+    target = torch.zeros(1, 128, 10, 10)
+    pred = torch.zeros(1, 128, 10, 10)
+    pred[:, :, :2, :2] = 2.0  # 4 region tokens with error 4
+    pred[:, :, 9, :] = 1.0  # 10 rest tokens with error 1
+    region = torch.zeros(10, 10, dtype=torch.bool)
+    region[:2, :2] = True
+    parts = {}
+    loss = region_mse(pred, target, region, 2.0, 0.5, parts)
+    assert torch.isclose(loss, torch.tensor((2 * 4 * 4 + 0.5 * 10) / 100))
+    assert parts["region"] == 4.0 and abs(parts["rest"] - 10 / 96) < 1e-6
+    assert torch.isclose(region_mse(pred, target, region, 1.0, 1.0), (pred**2).mean())
