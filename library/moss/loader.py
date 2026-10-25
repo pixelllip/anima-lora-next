@@ -198,17 +198,24 @@ def load_transformer(model_dir, variant="base", dtype=torch.bfloat16, device=Non
 
 
 def compile_blocks(blocks, seq_range=None) -> None:
-    """``torch.compile(dynamic=True)`` on each block's ``forward`` (instance
-    attribute, so swap hooks stay outside the graph). One graph for every joint
-    length; must run after ``LoRANetwork.apply_to`` / ``load_for_inference``.
+    """``torch.compile`` on each block's ``forward`` (instance attribute, so swap
+    hooks stay outside the graph). One graph for every joint length; must run
+    after ``LoRANetwork.apply_to`` / ``load_for_inference``.
 
-    ``seq_range = (lo, hi)``: the joint token axis (``x`` / ``rope`` dim 1) is
-    marked strictly to that range on every call inside it (call-time, so the
-    checkpoint recompute re-marks); a length outside it runs unmarked. The
+    Without ``seq_range``: ``dynamic=True``. ``seq_range = (lo, hi)``:
+    ``dynamic=False``, the joint token axis (``x`` / ``rope`` dim 1) marked
+    strictly to that range on every call inside it (call-time, so the checkpoint
+    recompute re-marks) and the ``ref_span`` ints dynamic by source name
+    (``dynamic_sources``); every other dim is static. A length outside the range
+    runs unmarked. The
     compile cache moves to a per-range directory (persistent entries do not key
     on the mark's bounds). Under grad, an ``x`` without grad (block 0: the
     embedders are frozen) is made a grad leaf so every block shares one graph."""
-    from library.runtime.dynamo import pin_dynamo_limit, pin_inductor_flag
+    from library.runtime.dynamo import (
+        pin_compiler_flag,
+        pin_dynamo_limit,
+        pin_inductor_flag,
+    )
     from library.runtime.harness import compile_signature, isolate_compile_cache
 
     pin_dynamo_limit("recompile_limit", 16)
@@ -228,10 +235,16 @@ def compile_blocks(blocks, seq_range=None) -> None:
             compile_signature(
                 n_token_families=None, seq_range=(lo, hi), dynamic_seq=True
             )
-            + ";line=moss"
+            + ";line=moss;static"
         )
+        # A Python int is a constant under dynamic=False: ref_span would specialise
+        # per sample and contradict the strict mark.
+        pin_compiler_flag("dynamic_sources", "L['ref_span'][0],L['ref_span'][1]")
+    dynamic = seq_range is None
     for block in blocks:
-        block.forward = _marked(torch.compile(block.forward, dynamic=True), seq_range)
+        block.forward = _marked(
+            torch.compile(block.forward, dynamic=dynamic), seq_range
+        )
 
 
 def _marked(compiled, seq_range):

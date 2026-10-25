@@ -72,6 +72,29 @@ compiled block.
 | **P3** on P2 A: `pin_dynamo_limit`, grad leaf at block 0, range from the shortest text (`n_text_min`, empty prompt), 4096 pin, per-range compile cache | `20261025-165941-cea148` | **one graph** (`[0/0]` only, guard `5919 ≤ L ≤ 8299`), zero recompiles; the `None`-stride variant went with the block-0 `requires_grad` split. Loss tracks (step 40 0.3692); median 3.99 s/step, max 4.2; step 1 20.2 s (cold, new cache dir); peak 11.96 GB vs 12.66 SDPA |
 | FA2 vs SDPA, one `_attention` call | `20261025-163800-9a8937` | L 8211 plain / 8269 isolated, bf16: out / dq / dk / dv rel-L2 to an fp32 reference identical for both (~1e-2, bf16 rounding); FA2 vs SDPA 4e-5. fwd+bwd 31.1 vs 32.0 ms |
 
+### swap_text_600 (2026-10-25, 40 steps, `blocks_to_swap 28`, `--lr 1e-4`)
+
+600 samples, text 67–542 tokens (192 lengths), `n_img = n_ref` 910–4160, joint 1896–8750
+(straddles 4096), all eight `(n_img + n_text) % 8` classes. Sanitize's text is fixed at 19,
+so this is the set that exercises a varying text length.
+
+| Arm | Job | Result |
+|---|---|---|
+| **A** (`dynamic=True` + strict mark), budget 0.1 | `20261025-170847-3859ca` | **holds**: one graph, guard `1896 ≤ L ≤ 8750`; the `ref_span` guards are bounds and 0/1 checks only (`0 ≤ s ≤ e ≤ L`, `s ≠ 1`, `e − s ≠ 1`). Already guards `L · rope.size(2) ≤ 2³¹ − 1` (`can_use_32bit_indexing`), so int32 indexing is not what a range adds. Median 4.060 s/step, peak 11.38 GB |
+| **C** (`dynamic=False` + strict mark + `dynamic_sources` on `ref_span`), budget 0.1 | `20261025-171656-c330b4` | one graph, no violation; the rope head-dim guards go, only the marked axis and the two ints stay symbolic. Median 4.048 s/step (A: 4.060), peak 11.38 GB, loss equal (step 40 0.1289 both) |
+| C, budget 0.15 + `expandable_segments` | `20261025-172151-1caacb` | median 3.990 (−1.4 %), peak 13.38 GB (+2.0); the allocator OOM warning at budget 0.1 is gone |
+| SDPA (pre-P1 code), budget 0.1 | `20261025-172626-062099` | median 3.928, peak 12.07 GB; 9 graphs in 40 steps, stalls at step 2 (17.7 s) and step 40 (12.1 s, a new residue class); epoch 200 s vs C 178 s |
+| SDPA, budget 0.15 + expandable | `20261025-172625-3e77bd` | median 3.866, peak 14.11 GB; 9 graphs, step 40 20.3 s; epoch 219 s vs C 169 s |
+| C, budget 0.2 + expandable, `--fit_report` | `20261025-173626-cf66b4` | **OOM** at step 1 (the largest sample) in the backward, 14.12 GiB allocated of 15.51 |
+| C, budget 0.15 + expandable, `--fit_report` | `20261025-173720-229017` | largest sample (4104 image + 542 text): peak 13.35 GB allocated / 13.87 reserved, 0.53 GB free. Median 3.965, epoch 164 s |
+| SDPA, budget 0.15 + expandable, `--fit_report` | `20261025-173905-00631c` | largest sample: 14.08 / 14.38 GB, one expandable mapping OOM (recovered). Median 3.929 (−0.9 % vs C), 5 graphs, step 2 12.0 s; epoch 184 s |
+
+Budget 0.1 → 0.15 is worth ~1.5 % on both kernels for +2 GB. SDPA's steady state is
+1–3 % faster than FA2 inside the compiled block (the one-call bench had FA2 faster, so it is
+likely the graph around the call, not the kernel) and costs 0.5–0.7 GB more; its
+recompiles still cost more wall time than that over a short run, and keep growing with the
+dataset.
+
 What the switch buys is therefore not step time (SDPA already lands on a flash kernel
 here). It buys one graph per range instead of one per residue class × variant, no mid-run
 stall, a recompile count that does not grow with the dataset, and no eager fallback when a
@@ -116,8 +139,13 @@ graph per sample, and with a strict mark it contradicts the range (measured). Tw
 Recommendation: run A once (it costs one 40-step job); build B either way if A passes
 only with every dim dynamic.
 
-Outcome: A held (`96c7cb`). B parked: static non-token dims measured no step-time gain
-(`45a132`), and A + P3 reaches one graph. B stays the design if `dynamic=True` shows a cost.
+Outcome: A held (`96c7cb`, and on swap_text's varying text `3859ca`). Landed instead of
+B: **`dynamic=False` + `torch.compiler.config.dynamic_sources = "L['ref_span'][0],
+L['ref_span'][1]"`** (`c330b4`). The source allow list makes the two ints symbolic under
+`dynamic=False` (it takes precedence over it; `mark_dynamic` does not take ints), so only the
+marked axis and `ref_span` are dynamic, with no change to the block. Pinned like the other
+flags (`pin_compiler_flag`). Step time equals A's, so this buys the Anima rule, not speed.
+B is not needed.
 
 ### P3 — Anima's infrastructure, ported
 
@@ -156,13 +184,15 @@ range-free default.
 ## Open questions
 
 - ~~Does P1 alone already end the trigger stall?~~ Yes (`ff597b`): the `% 8` recompiles and the step-32 stall are gone. Open: the +5 % median step time against SDPA (one run each; the one-call bench had FA2 3 % faster).
-- ~~A vs B: does `dynamic=True` + strict mark hold?~~ It holds (`96c7cb`), with every other dim symbolic.
+- ~~A vs B: does `dynamic=True` + strict mark hold?~~ It holds (`96c7cb`, `3859ca`); `dynamic=False` + `dynamic_sources` replaces both (`c330b4`).
+- ~~Does an explicit range / static non-token dims make the step faster?~~ No: C vs A 4.048 vs 4.060 s/step (`c330b4`, `3859ca`), as `45a132` found on sanitize.
+- Can SDPA's 1–3 % be had without its `% 8` guard? An SDPA call wrapped as an opaque `torch.library.custom_op` would not get `sdpa_constraint`. Untested; it would also give back 0.5–0.7 GB of headroom.
 - ~~The `None`-stride variant: which argument?~~ Not identified; it disappeared with the block-0 grad leaf (`cea148`), so it was a branch of the no-grad block-0 graph.
 - Is one union range enough for MOSS's sets, or does i2i with mixed sizes need bands?
 
 ## WIP
 
-P1 + P2 A + P3 landed 2026-10-25, uncommitted: `model.py::_attention` (FA2), `loader.py::
-compile_blocks(seq_range)` (strict mark, grad leaf, pins, cache isolation), `train.py`
-(range from `Sample.n_text_min` / the empty prompt), `cache.py` (`CacheItem.n_text_min`).
+P1 + P2 A + P3 committed 2026-10-25 (`721466ab`); P2 as `dynamic=False` + `dynamic_sources`
+on top. Budget 0.15 + `expandable_segments` fits swap_text's largest sample at swap 28 on
+16 GB (0.2 does not); not yet in `configs/moss/i2i/swap_text/train.toml`.
 Next: P4 (generate's range), P5 (bench + tests).

@@ -82,3 +82,19 @@ def pin_inductor_flag(name: str, value: object) -> None:
             f"could not pin inductor {name} default ({e}); the value may revert "
             "in the backward-compile context"
         )
+
+
+def pin_compiler_flag(name: str, value: object) -> None:
+    """:func:`pin_inductor_flag` for ``torch.compiler.config`` (e.g.
+    ``dynamic_sources``): the override plus the entry's ``.default``, so the
+    checkpoint recompute's context reads it too."""
+    import torch.compiler.config as cfg_mod
+
+    setattr(cfg_mod, name, value)
+    try:
+        cfg_mod._config[name].default = value
+    except Exception as e:  # noqa: BLE001 - defensive against torch internals
+        logger.warning(
+            f"could not pin torch.compiler {name} default ({e}); the value may "
+            "revert in the backward-compile context"
+        )
