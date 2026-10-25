@@ -90,7 +90,8 @@ FIELDS: dict[str, tuple[str, str]] = {
     ),
     "down_init": (
         "down 初始化",
-        "仅 lora：kaiming = 默认随机初始化；weight_svd = 用基础权重前 r 个右奇异向量 / √3 初始化（Anima 的 SVD-Down）",
+        "仅 lora：kaiming = 默认随机初始化；weight_svd = 用基础权重前 r 个右奇异向量 / √3 初始化（Anima 的 SVD-Down）；"
+        "weight_svd_nodc = 同一 SVD 基底去掉校准的输入 DC 方向（channel_mean），初始 down · x̄ = 0",
     ),
     "channel_scaling_alpha": (
         "通道缩放 α",

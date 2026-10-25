@@ -102,7 +102,8 @@ FIELDS: dict[str, tuple[str, str]] = {
     "down_init": (
         "down 초기화",
         "lora 전용: kaiming = 기본 무작위 초기화; weight_svd = 베이스 가중치의 상위 r개 "
-        "오른쪽 특이벡터 / √3으로 초기화(Anima의 SVD-Down)",
+        "오른쪽 특이벡터 / √3으로 초기화(Anima의 SVD-Down); weight_svd_nodc = 같은 SVD "
+        "기저에서 보정된 입력 DC 방향(channel_mean)을 뺀 것, 초기 down · x̄ = 0",
     ),
     "channel_scaling_alpha": (
         "채널 스케일링 α",

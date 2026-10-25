@@ -479,6 +479,9 @@ def train(
     transformer.ref_isolate = req.ref_isolate
     channel_alpha = req.channel_scaling_alpha if req.algo == "lora" else 0.0
     dc_isolate = req.dc_isolate and req.algo == "lora"
+    need_mean = dc_isolate or (
+        req.algo == "lora" and req.down_init == "weight_svd_nodc"
+    )
     network = LoRANetwork(
         transformer,
         rank=req.rank,
@@ -489,15 +492,16 @@ def train(
         algo=req.algo,
         factor=req.factor,
         channel_stats=load_channel_stats(resolve_under_home(req.channel_stats))
-        if channel_alpha > 0
+        if channel_alpha > 0 or (req.algo == "lora" and req.svd_drop_loud)
         else None,
         channel_scaling_alpha=channel_alpha,
         channel_mean=load_channel_stats(resolve_under_home(req.channel_mean))
-        if dc_isolate
+        if need_mean
         else None,
         dc_isolate=dc_isolate,
         svd_slice=req.svd_slice,
         svd_slice_count=req.svd_slice_count,
+        svd_drop_loud=req.svd_drop_loud,
     )
     patched = network.apply_to()
     network.to(device)
@@ -507,6 +511,11 @@ def train(
             f" slice {req.svd_slice}"
             + (f"/{req.svd_slice_count} interleaved" if req.svd_slice_count else "")
             if req.svd_slice or req.svd_slice_count
+            else ""
+        )
+        + (
+            f", {req.svd_drop_loud} loud channel(s) dropped"
+            if req.svd_drop_loud
             else ""
         )
         + (f", channel scaling α={channel_alpha:g}" if channel_alpha > 0 else "")

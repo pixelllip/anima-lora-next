@@ -471,6 +471,104 @@ def test_dc_isolate_localises_the_dc_direction_and_saves_plain(tmp_path):
         LoRANetwork(model, rank=4, dc_isolate=True)
 
 
+def test_weight_svd_nodc_starts_orthogonal_to_the_dc(tmp_path):
+    model = _tiny()
+    x, e = _inputs()
+    means = _dc_means(model)
+    stats = _skewed_stats(model)
+    base_out = _out(model, x, e)
+    torch.manual_seed(5)
+    LoRANetwork(model, rank=4)
+    after_kaiming = torch.rand(())
+    for alpha in (0.0, 0.75):
+        torch.manual_seed(5)
+        net = LoRANetwork(
+            model,
+            rank=4,
+            alpha=2.0,
+            down_init="weight_svd_nodc",
+            channel_mean=means,
+            channel_stats=stats if alpha > 0 else None,
+            channel_scaling_alpha=alpha,
+        )
+        assert torch.equal(torch.rand(()), after_kaiming)
+        assert net.metadata()["down_init"] == "weight_svd_nodc"
+        for key, adapter in net.adapters.items():
+            down = adapter.down_weight()
+            mean = means[adapter_name(net, key)]
+            assert ((down @ mean) / (down.norm(dim=1) * mean.norm())).abs().max() < 1e-5
+            assert torch.allclose(down @ down.T * 3.0, torch.eye(4), atol=1e-4)
+            assert adapter.dc_dir is None  # init only, no re-projection
+        assert torch.equal(_out_with(model, net, x, e), base_out)
+
+    # On a weight already ⊥ x̄ the projection is a no-op: the weight_svd subspace.
+    flat = _tiny()
+    with torch.no_grad():
+        for name, module in flat.named_modules():
+            if name in means:
+                u = means[name] / means[name].norm()
+                module.weight -= torch.outer(module.weight @ u, u)
+    plain = LoRANetwork(flat, rank=4, down_init="weight_svd")
+    nodc = LoRANetwork(flat, rank=4, down_init="weight_svd_nodc", channel_mean=means)
+    for key, adapter in nodc.adapters.items():
+        a = adapter.down.weight * math.sqrt(3.0)
+        b = plain.adapters[key].down.weight * math.sqrt(3.0)
+        assert torch.allclose(a.T @ a, b.T @ b, atol=1e-4)
+
+    # Slices compose; the window may not reach the direction the projection cost.
+    sliced = LoRANetwork(
+        model, rank=4, down_init="weight_svd_nodc", channel_mean=means, svd_slice=1
+    )
+    for key, adapter in sliced.adapters.items():
+        assert (
+            adapter.down.weight @ means[adapter_name(sliced, key)]
+        ).abs().max() < 1e-5
+    with pytest.raises(ValueError, match="window ends"):
+        LoRANetwork(
+            model, rank=8, down_init="weight_svd_nodc", channel_mean=means, svd_slice=11
+        )
+
+    # svd_drop_loud: the loudest channel's column starts at zero, still ⊥ x̄.
+    loud = LoRANetwork(
+        model,
+        rank=4,
+        down_init="weight_svd_nodc",
+        channel_mean=means,
+        channel_stats=stats,
+        svd_drop_loud=1,
+    )
+    assert loud.metadata()["svd_drop_loud"] == "1"
+    for key, adapter in loud.adapters.items():
+        down = adapter.down.weight
+        assert down[:, 0].abs().max() < 1e-6  # _skewed_stats: channel 0 is loud
+        assert (down @ means[adapter_name(loud, key)]).abs().max() < 1e-5
+        assert torch.allclose(down @ down.T * 3.0, torch.eye(4), atol=1e-4)
+    with pytest.raises(ValueError, match="needs channel_stats"):
+        LoRANetwork(
+            model,
+            rank=4,
+            down_init="weight_svd_nodc",
+            channel_mean=means,
+            svd_drop_loud=1,
+        )
+    with pytest.raises(ValueError, match="svd_drop_loud applies"):
+        LoRANetwork(model, rank=4, channel_stats=stats, svd_drop_loud=1)
+
+    # plain LoRA on disk
+    for adapter in net.adapters.values():
+        torch.nn.init.normal_(adapter.up.weight, std=0.1)
+    want = _out_with(model, net, x, e)
+    path = tmp_path / "nodc.safetensors"
+    net.save(path, "fp32")
+    fresh = _tiny()
+    load_for_inference(fresh, path)
+    assert torch.allclose(_out(fresh, x, e), want, atol=1e-5)
+    assert load_network(_tiny(), path)[1]["down_init"] == "weight_svd_nodc"
+
+    with pytest.raises(ValueError, match="needs channel_mean"):
+        LoRANetwork(model, rank=4, down_init="weight_svd_nodc")
+
+
 @pytest.mark.parametrize(
     "meta, want",
     [

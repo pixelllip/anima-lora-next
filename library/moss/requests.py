@@ -417,12 +417,14 @@ class TrainRequest(Request):
         "top-r right singular vectors / sqrt 3, Anima's SVD-Down). Kaiming is the "
         "default: the SVD basis feeds 4-6x more input DC into the adapter, and under "
         "muon the output DC shift is 0.43 with kaiming vs 1.24 "
-        "(docs/moss/findings/muon_channel_init.md)",
-        choices=("kaiming", "weight_svd"),
+        "(docs/moss/findings/muon_channel_init.md). weight_svd_nodc: the SVD basis "
+        "of W with the calibrated input DC direction (channel_mean) projected out, "
+        "so down · x̄ = 0 at init (docs/proposal/moss_lora_dcfree_svd_init.md)",
+        choices=("kaiming", "weight_svd", "weight_svd_nodc"),
     )
     svd_slice: int = _f(
         0,
-        "lora + down_init weight_svd only: seed down from the base weight's right singular "
+        "lora + down_init weight_svd[_nodc] only: seed down from the base weight's right singular "
         "vectors [k·r, (k+1)·r) instead of the top-r. Slices of one basis are "
         "mutually orthogonal, so LoRAs trained on different slices own disjoint "
         "input subspaces (Anima's svd_slice, docs/methods/svd-down-lora.md); under "
@@ -436,6 +438,15 @@ class TrainRequest(Request):
         "k+2N, …}, so every slice gets one of the top-N directions instead of "
         "slice 0 holding the whole top of the spectrum. Needs svd_slice < N. "
         "0 = contiguous",
+        advanced=True,
+    )
+    svd_drop_loud: int = _f(
+        0,
+        "lora + down_init weight_svd[_nodc] only: also project the k input channels "
+        "with the largest calibrated mean|x| (channel_stats) out of the SVD basis, "
+        "so their down columns start at zero. On MOSS k=1 is ch 42 into "
+        "ffn_up_gate, a quarter of the nodc init's channel leverage there "
+        "(docs/proposal/moss_lora_dcfree_svd_init.md). Stamped as svd_drop_loud",
         advanced=True,
     )
     channel_scaling_alpha: float = _f(
@@ -466,7 +477,8 @@ class TrainRequest(Request):
     )
     channel_mean: str = _f(
         "library/moss/calibration/channel_mean.safetensors",
-        "per-target signed token-mean x̄ for dc_isolate (from "
+        "per-target signed token-mean x̄ for dc_isolate and down_init "
+        "weight_svd_nodc (from "
         "scripts/calibration/moss_channel_stats.py on Base)",
         advanced=True,
     )

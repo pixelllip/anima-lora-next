@@ -25,7 +25,13 @@ vectors ``[k·r, (k+1)·r)`` (``svd_slice_count=N``: the interleaved comb
 ``k + N·j``), Anima's ``svd_slice``: slices of one basis are mutually orthogonal,
 so LoRAs trained on different slices own disjoint input subspaces. Under
 ``dc_isolate`` row 0 becomes the DC direction in every slice, so slices share
-that one row.
+that one row. ``"weight_svd_nodc"`` takes the basis of ``W(I − uuᵀ)`` instead, with
+``u = x̄ / ‖x̄‖`` the calibrated input DC direction (``channel_mean``), so every row
+starts orthogonal to the token mean and ``down · x̄ = 0`` at init; nothing holds it
+there during training (``docs/proposal/moss_lora_dcfree_svd_init.md``).
+``svd_drop_loud=k`` also projects out the ``k`` input channels with the largest
+calibrated ``mean|x|`` (``channel_stats``; on MOSS ch 42 into ``ffn_up_gate``), so
+their ``down`` columns start at zero.
 
 ``algo`` picks the adapter: ``lora``, or the LyCORIS ``lokr`` / ``loha``. Their
 init, scale and ΔW math come from ``lycoris.functional`` (pinned ``backend="torch"``
@@ -64,11 +70,27 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 SAVED_DTYPES = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}
-DOWN_INITS = ("kaiming", "weight_svd")
+DOWN_INITS = ("kaiming", "weight_svd", "weight_svd_nodc")
+_SVD_INITS = ("weight_svd", "weight_svd_nodc")
 ALGOS = ("lora", "lokr", "loha")
 FILE_PREFIX = "lora_unet_"
 _LORA_FILE_KEYS = {"down.weight": "lora_down.weight", "up.weight": "lora_up.weight"}
 _LORA_STATE_KEYS = {v: k for k, v in _LORA_FILE_KEYS.items()}
+
+
+def _drop_directions(
+    mean: torch.Tensor | None, abs_mean: torch.Tensor | None, loud: int
+) -> torch.Tensor | None:
+    """``(in, k)`` directions a ``weight_svd`` basis is made orthogonal to: the
+    input DC ``x̄`` and the ``loud`` channels with the largest ``mean|x|``."""
+    cols = []
+    if mean is not None:
+        cols.append(mean.float() / mean.float().norm().clamp_min(1e-12))
+    if loud:
+        eye = torch.zeros(abs_mean.numel(), loud)
+        eye[torch.topk(abs_mean.float(), loud).indices, torch.arange(loud)] = 1.0
+        cols.extend(eye.T)
+    return torch.stack(cols, 1) if cols else None
 
 
 class LoRAAdapter(nn.Module):
@@ -144,12 +166,17 @@ class LoRAAdapter(nn.Module):
 
     @torch.no_grad()
     def init_down_weight_svd(
-        self, base: nn.Linear, svd_slice: int = 0, svd_slice_count: int = 0
+        self,
+        base: nn.Linear,
+        svd_slice: int = 0,
+        svd_slice_count: int = 0,
+        drop: torch.Tensor | None = None,
     ) -> None:
         """``down = V_rᵀ / √3``: the base weight's top-r right singular vectors,
         at the Kaiming default's expected row norm. ``svd_slice`` /
         ``svd_slice_count`` pick another window of the same basis (module
-        docstring). Computed on the card when there is one (an fp32 eigh of the
+        docstring). ``drop`` (``(in, k)``): the basis is that of ``W(I − P)``,
+        ``P`` the projector onto its columns' span, every row ⊥ them. Computed on the card when there is one (an fp32 eigh of the
         smaller Gram per linear)."""
         from networks.lora_modules.lora import _top_right_singular_vectors
 
@@ -159,14 +186,20 @@ class LoRAAdapter(nn.Module):
         else:
             idx = svd_slice * rank + torch.arange(rank)
         end = int(idx[-1]) + 1
-        if end > min(base.weight.shape):
+        # Each dropped direction costs one vector: past them the basis would
+        # hand the dropped span back.
+        spectrum = min(base.weight.shape) - (0 if drop is None else drop.shape[1])
+        if end > spectrum:
             raise ValueError(
                 f"svd_slice={svd_slice}: window ends at {end}, past the "
-                f"{min(base.weight.shape)}-vector spectrum of a "
+                f"{spectrum}-vector spectrum of a "
                 f"{tuple(base.weight.shape)} linear; lower the slice or the rank"
             )
         device = "cuda" if torch.cuda.is_available() else "cpu"
         weight = base.weight.detach().to(device, torch.float32)
+        if drop is not None:
+            q, _ = torch.linalg.qr(drop.to(device, torch.float32))
+            weight = weight - (weight @ q) @ q.T
         basis = _top_right_singular_vectors(weight, end)
         self.down.weight.copy_(basis[:, idx.to(basis.device)].T / math.sqrt(3.0))
 
@@ -308,6 +341,7 @@ class LoRANetwork(nn.Module):
         dc_isolate: bool = False,
         svd_slice: int = 0,
         svd_slice_count: int = 0,
+        svd_drop_loud: int = 0,
     ):
         super().__init__()
         if down_init not in DOWN_INITS:
@@ -324,15 +358,26 @@ class LoRANetwork(nn.Module):
             raise ValueError("dc_isolate applies to algo='lora' only")
         if dc_isolate and channel_mean is None:
             raise ValueError("dc_isolate needs channel_mean")
+        if down_init == "weight_svd_nodc" and channel_mean is None:
+            raise ValueError("down_init='weight_svd_nodc' needs channel_mean")
         if svd_slice < 0 or svd_slice_count < 0:
             raise ValueError("svd_slice / svd_slice_count must be non-negative")
         if (svd_slice or svd_slice_count) and (
-            algo != "lora" or down_init != "weight_svd"
+            algo != "lora" or down_init not in _SVD_INITS
         ):
             raise ValueError(
                 "svd_slice / svd_slice_count apply to algo='lora' with "
-                "down_init='weight_svd' only"
+                "down_init='weight_svd' / 'weight_svd_nodc' only"
             )
+        if svd_drop_loud < 0:
+            raise ValueError("svd_drop_loud must be non-negative")
+        if svd_drop_loud and (algo != "lora" or down_init not in _SVD_INITS):
+            raise ValueError(
+                "svd_drop_loud applies to algo='lora' with "
+                "down_init='weight_svd' / 'weight_svd_nodc' only"
+            )
+        if svd_drop_loud and channel_stats is None:
+            raise ValueError("svd_drop_loud needs channel_stats")
         if svd_slice_count and svd_slice >= svd_slice_count:
             raise ValueError(
                 f"svd_slice={svd_slice} must be < svd_slice_count={svd_slice_count}"
@@ -349,6 +394,7 @@ class LoRANetwork(nn.Module):
         self.dc_isolate = bool(dc_isolate)
         self.svd_slice = int(svd_slice)
         self.svd_slice_count = int(svd_slice_count)
+        self.svd_drop_loud = int(svd_drop_loud)
         self.num_blocks = self._num_blocks(model)
         self.adapters = nn.ModuleDict()
         self._targets: list[tuple[str, nn.Linear]] = []
@@ -363,17 +409,30 @@ class LoRANetwork(nn.Module):
                 adapter = LoRAAdapter(
                     module.in_features, module.out_features, rank, self.alpha, dtype
                 )
-                if down_init == "weight_svd":
+                if (down_init == "weight_svd_nodc" or self.dc_isolate) and (
+                    name not in channel_mean
+                ):
+                    raise ValueError(f"no channel mean for {name}")
+                if (self.svd_drop_loud or self.channel_scaling_alpha > 0) and (
+                    name not in channel_stats
+                ):
+                    raise ValueError(f"no channel stats for {name}")
+                if down_init in _SVD_INITS:
                     adapter.init_down_weight_svd(
-                        module, self.svd_slice, self.svd_slice_count
+                        module,
+                        self.svd_slice,
+                        self.svd_slice_count,
+                        drop=_drop_directions(
+                            channel_mean[name]
+                            if down_init == "weight_svd_nodc"
+                            else None,
+                            channel_stats[name] if self.svd_drop_loud else None,
+                            self.svd_drop_loud,
+                        ),
                     )
                 if self.dc_isolate:
-                    if name not in channel_mean:
-                        raise ValueError(f"no channel mean for {name}")
                     adapter.isolate_dc(channel_mean[name])
                 if self.channel_scaling_alpha > 0:
-                    if name not in channel_stats:
-                        raise ValueError(f"no channel stats for {name}")
                     adapter.absorb_channel_scale(
                         channel_scale(channel_stats[name], self.channel_scaling_alpha)
                     )
@@ -449,6 +508,8 @@ class LoRANetwork(nn.Module):
                 meta["ss_svd_slice"] = str(self.svd_slice)
             if self.svd_slice_count:
                 meta["ss_svd_slice_count"] = str(self.svd_slice_count)
+            if self.svd_drop_loud:
+                meta["svd_drop_loud"] = str(self.svd_drop_loud)
         if self.algo == "lokr":
             meta["factor"] = str(self.factor)
         meta.update({k: str(v) for k, v in extra.items()})

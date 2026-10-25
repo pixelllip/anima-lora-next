@@ -105,7 +105,8 @@ FIELDS: dict[str, tuple[str, str]] = {
     "down_init": (
         "down 初期化",
         "lora のみ: kaiming = 既定のランダム初期化。weight_svd = ベース重みの上位 r 個の"
-        "右特異ベクトル / √3 で初期化（Anima の SVD-Down）",
+        "右特異ベクトル / √3 で初期化（Anima の SVD-Down）。weight_svd_nodc = 同じ SVD "
+        "基底から較正済みの入力 DC 方向（channel_mean）を除いたもの、初期 down · x̄ = 0",
     ),
     "channel_scaling_alpha": (
         "チャネルスケーリング α",

@@ -1,6 +1,8 @@
 # MOSS LoRA: a `weight_svd` init with the input DC projected out
 
-Status: proposal (2026-10-25). Init statistics measured; nothing implemented or trained.
+Status: Phases 1–2 done (2026-10-25): `--down_init weight_svd_nodc`, plus `--svd_drop_loud`
+for the loud channel. Result: [dcfree_svd_init.md](../moss/findings/dcfree_svd_init.md); the
+default stays kaiming pending a second seed.
 
 `weight_svd` seeds `down` with the base weight's top-r right singular vectors. On MOSS those
 vectors lean on the input DC (the token-mean x̄, carried mostly by massive channel 42), so

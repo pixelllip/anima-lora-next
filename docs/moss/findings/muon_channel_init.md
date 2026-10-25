@@ -91,5 +91,5 @@ Weight space, mean over the 252 adapted linears (as in [muon_lora.md](muon_lora.
 - α 1.0 under Muon (leverage flat on the `down` side).
 - Muon without channel scaling, now with kaiming.
 - `svd_slice`: it needs `down_init weight_svd`, so slice LoRAs keep the DC-heavy basis.
-- A `weight_svd` init with x̄ projected out (keeps 98–100 % of the basis, no DC):
-  [moss_lora_dcfree_svd_init.md](../../proposal/moss_lora_dcfree_svd_init.md).
+- A `weight_svd` init with x̄ projected out: tested in
+  [dcfree_svd_init.md](dcfree_svd_init.md).
