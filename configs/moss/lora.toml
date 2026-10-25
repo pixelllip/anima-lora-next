@@ -17,10 +17,10 @@ algo = "lora"                  # lora | lokr | loha
 rank = 32
 # alpha = 128.0                # unset: 128 for lora, = rank for lokr / loha
 # factor = -1                  # lokr only
-down_init = "weight_svd"       # lora only: weight_svd | kaiming
+down_init = "kaiming"          # lora only: kaiming | weight_svd (docs/moss/findings/muon_channel_init.md)
 # svd_slice = 0                # weight_svd only: window [k·r, (k+1)·r) of W0's basis
 # svd_slice_count = 0          # > 0: interleaved slices {k, k+N, …}
-channel_scaling_alpha = 0.5     # lora only: 0 = off (docs/moss/channel_scaling.md)
+channel_scaling_alpha = 0.75    # lora only: 0 = off (docs/moss/channel_scaling.md)
 dc_isolate = false              # lora only: one rank row for the input DC; an AdamW fix (same doc)
 optimizer = "muon"             # muon | adamw (lokr / loha always adamw); docs/moss/findings/muon_lora.md
 lr = 5e-5

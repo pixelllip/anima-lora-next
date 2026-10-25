@@ -53,6 +53,7 @@ calibrated token mean x̄ from `library/moss/calibration/channel_mean.safetensor
 ## Not tested
 
 - A second seed or dataset: every arm is one 30-image set and one training seed.
-- Muon without channel scaling (α 0.5 is also an AdamW per-channel step fix).
+- Muon without channel scaling (α 0.5 is also an AdamW per-channel step fix). α 0.75 and
+  a kaiming init followed: [muon_channel_init.md](muon_channel_init.md).
 - Muon at lr 1e-4: the spread update may hold where AdamW + `dc_isolate` over-fits.
 - `lokr` / `loha` under Muon: the trainer keeps them on AdamW.

@@ -109,7 +109,7 @@ make download-model ARGS=moss-sft
 
 ## 4. 推荐设置
 
-对比在同一画师（`@channel (caststation)`）的 30 张图上进行，Base，`weight_svd`，20 轮 = 600 步（约 18–21 分钟）。
+对比在同一画师（`@channel (caststation)`）的 30 张图上进行，Base，20 轮 = 600 步（约 18–21 分钟）。
 
 | 字段 | 默认值 | 说明 |
 |---|---|---|
@@ -118,15 +118,15 @@ make download-model ARGS=moss-sft
 | `alpha` | `lora` 为 `128`（秩 32 时缩放 4）；`lokr` / `loha` 为 = 秩 | 缩放 = alpha / 秩 |
 | 学习率（`lr`） | `5e-5` | 5 % 线性预热 |
 | 优化器（`optimizer`） | `muon` | `adamw` 是此前的默认值；`lokr` / `loha` 始终使用 AdamW |
-| `channel_scaling_alpha` | `0.5` | 仅 `lora`；`0` 表示关闭 |
+| `channel_scaling_alpha` | `0.75` | 仅 `lora`；`0` 表示关闭。`adamw` 适合用 `0.5` |
 | `dc_isolate` | 关闭 | 仅 `lora`；为输入的恒定偏移单独分配一行 LoRA 秩。与 `adamw` 搭配使用 |
-| down 初始化（`down_init`） | `weight_svd` | `weight_svd` 或 `kaiming` |
+| down 初始化（`down_init`） | `kaiming` | `kaiming` 或 `weight_svd` |
 | 轮数（`epochs`） | `8` | 实测训练用 20 |
 | `plain_caption_rate` | `0.2` | 仅 `layout_json` 缓存：用普通 Anima 标注而非 layout JSON 训练的步数占比 |
 
-- **学习率、通道缩放、DC 隔离**：FFN 输入处有一个输入通道比其余通道强得多；通道缩放和 `dc_isolate` 避免 LoRA 通过它把更新浪费在全局平移上（起始时输出不变，文件是普通 LoRA）。在 AdamW、学习率 5e-5 下，这两者做到了干净、贴合提示词，风格强度与学习率 1e-4 相当。此前的默认值以及每次改动背后的对比见 `docs/moss/channel_scaling.md`。
+- **学习率、通道缩放、DC 隔离**：FFN 输入处有一个输入通道比其余通道强得多；通道缩放和 `dc_isolate` 避免 LoRA 通过它把更新浪费在全局平移上（起始时输出不变，文件是普通 LoRA）。在 AdamW、学习率 5e-5 下，这两者做到了干净、贴合提示词，风格强度与学习率 1e-4 相当。Muon 需要更强的通道缩放（`0.75`），因为它的更新步不像 AdamW 那样把各通道拉平。此前的默认值以及每次改动背后的对比见 `docs/moss/channel_scaling.md`。
 - **optimizer**：Muon（MOSS 预训练所用的优化器）在相同学习率下让 LoRA 的移动幅度与 AdamW 相同，但分散到更多方向上，同一随机种子下看起来更好。它自身就起到 `dc_isolate` 的作用，因此搭配它时 `dc_isolate` 关闭。`docs/moss/findings/muon_lora.md`。
-- **down 初始化**：`weight_svd` 用基础权重的前几个奇异向量初始化 LoRA 的 down 矩阵，`kaiming` 是随机初始化。目测 `weight_svd` 更好地保留了画师风格。两种初始化在同一种子下得到不同的样图，差异约等于换一个种子。
+- **down 初始化**：`kaiming` 是随机初始化，`weight_svd` 用基础权重的前几个奇异向量初始化 LoRA 的 down 矩阵。这些向量对输入的恒定偏移读取很强，搭配 Muon 时，`weight_svd` 的 LoRA 让每个 token 的输出平移幅度约为 `kaiming` 的三倍。图像差异约等于换一个种子。`docs/moss/findings/muon_channel_init.md`。
 - **轮数**：20 轮训练中，第 10 轮的结果更松散、更多样；第 20 轮更干净、更统一，但略微偏向正面居中的半身构图。设置 每 N 轮保存（`save_every_epochs`）即可在一次训练中比较两者。
 - **sigma_\***（高级）：默认值是 MOSS 最终预训练阶段的噪声分布。Anima 的分布（`sigma_mu 0`、`sigma_s 1`、`sigma_cutoff 1.0`、`sigma_uniform 0`）在所有设置中迁移最弱。
 

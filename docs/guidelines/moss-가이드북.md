@@ -109,7 +109,7 @@ make download-model ARGS=moss-sft
 
 ## 4. 권장 설정
 
-비교는 한 작가(`@channel (caststation)`)의 이미지 30장, Base, `weight_svd`, 20 에폭 = 600 스텝(약 18–21분)으로 진행했습니다.
+비교는 한 작가(`@channel (caststation)`)의 이미지 30장, Base, 20 에폭 = 600 스텝(약 18–21분)으로 진행했습니다.
 
 | 필드 | 기본값 | 참고 |
 |---|---|---|
@@ -118,15 +118,15 @@ make download-model ARGS=moss-sft
 | `alpha` | `lora`는 `128`(랭크 32에서 scale 4), `lokr` / `loha`는 = rank | scale = alpha / rank |
 | `lr` | `5e-5` | 5 % 선형 워밍업 |
 | `optimizer` | `muon` | `adamw`는 이전 기본값; `lokr` / `loha`는 항상 AdamW 사용 |
-| `channel_scaling_alpha` | `0.5` | `lora` 전용; `0`이면 끔 |
+| `channel_scaling_alpha` | `0.75` | `lora` 전용; `0`이면 끔. `adamw`에는 `0.5`가 적합 |
 | `dc_isolate` | 꺼짐 | `lora` 전용; 입력의 상수 오프셋에 LoRA 랭크 한 행을 할당. `adamw`와 함께 사용 |
-| `down_init` | `weight_svd` | `weight_svd` 또는 `kaiming` |
+| `down_init` | `kaiming` | `kaiming` 또는 `weight_svd` |
 | `epochs` | `8` | 측정한 학습은 20 |
 | `plain_caption_rate` | `0.2` | `layout_json` 캐시 전용: 스텝 중 layout JSON 대신 일반 Anima 캡션으로 학습하는 비율 |
 
-- **lr, 채널 스케일링, DC 격리**: FFN 입력에서 한 입력 채널이 나머지보다 훨씬 큽니다. 채널 스케일링과 `dc_isolate`는 LoRA가 이 채널을 통해 전역 이동에 업데이트를 낭비하지 않게 합니다 (시작 시점의 출력은 그대로이며 파일은 일반 LoRA입니다). AdamW에서 lr 5e-5로 이 둘을 쓰면 lr 1e-4와 같은 스타일 강도로 깨끗하고 프롬프트를 잘 따랐습니다. 이전 기본값과 각 변경의 근거가 된 비교: `docs/moss/channel_scaling.md`.
+- **lr, 채널 스케일링, DC 격리**: FFN 입력에서 한 입력 채널이 나머지보다 훨씬 큽니다. 채널 스케일링과 `dc_isolate`는 LoRA가 이 채널을 통해 전역 이동에 업데이트를 낭비하지 않게 합니다 (시작 시점의 출력은 그대로이며 파일은 일반 LoRA입니다). AdamW에서 lr 5e-5로 이 둘을 쓰면 lr 1e-4와 같은 스타일 강도로 깨끗하고 프롬프트를 잘 따랐습니다. Muon은 스텝이 AdamW처럼 채널 간 크기를 고르게 맞춰 주지 않으므로 더 강한 채널 스케일링(`0.75`)이 필요합니다. 이전 기본값과 각 변경의 근거가 된 비교: `docs/moss/channel_scaling.md`.
 - **optimizer**: Muon(MOSS를 사전학습할 때 쓴 옵티마이저)은 같은 lr에서 AdamW와 LoRA를 같은 크기만큼 움직이되 더 많은 방향에 분산시키며, 같은 시드에서 더 좋아 보였습니다. `dc_isolate`의 역할을 스스로 하므로 Muon에서는 `dc_isolate`를 끕니다. `docs/moss/findings/muon_lora.md`.
-- **down_init**: `weight_svd` 는 LoRA의 down 행렬을 베이스 가중치의 상위 특이 벡터로 시작하고, `kaiming` 은 무작위 초기화입니다. 육안으로는 `weight_svd` 가 작가 스타일을 더 잘 유지했습니다. 두 초기화는 같은 시드에서도 다른 샘플을 내며, 그 차이는 시드를 바꾼 정도입니다.
+- **down_init**: `kaiming` 은 무작위 초기화이고, `weight_svd` 는 LoRA의 down 행렬을 베이스 가중치의 상위 특이 벡터로 시작합니다. 이 벡터들은 입력의 상수 오프셋을 강하게 읽어 들이며, Muon에서는 `weight_svd` LoRA가 모든 토큰의 출력을 `kaiming` LoRA보다 약 3배 더 멀리 이동시킵니다. 이미지 차이는 시드를 바꾼 정도입니다. `docs/moss/findings/muon_channel_init.md`.
 - **epochs**: 20 에폭 중 10 에폭 시점의 결과는 더 느슨하고 다양했고, 20 에폭은 더 깔끔하고 균일했지만 정면·중앙 상반신 구도로 약간 쏠렸습니다. `save_every_epochs` 를 설정하면 한 번의 학습으로 둘을 비교할 수 있습니다.
 - **sigma_\*** (Advanced): 기본값은 MOSS의 최종 사전학습 노이즈 스케줄입니다. Anima의 스케줄(`sigma_mu 0`, `sigma_s 1`, `sigma_cutoff 1.0`, `sigma_uniform 0`)은 모든 설정 중 전이가 가장 약했습니다.
 

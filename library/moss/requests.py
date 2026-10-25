@@ -412,14 +412,17 @@ class TrainRequest(Request):
         "split; LyCORIS's usual 4 / 8 / 16 give a larger full-rank w2)",
     )
     down_init: str = _f(
-        "weight_svd",
-        "lora only, down-projection init: weight_svd (the base weight's top-r right "
-        "singular vectors / sqrt 3, Anima's SVD-Down) or kaiming",
+        "kaiming",
+        "lora only, down-projection init: kaiming or weight_svd (the base weight's "
+        "top-r right singular vectors / sqrt 3, Anima's SVD-Down). Kaiming is the "
+        "default: the SVD basis feeds 4-6x more input DC into the adapter, and under "
+        "muon the output DC shift is 0.43 with kaiming vs 1.24 "
+        "(docs/moss/findings/muon_channel_init.md)",
         choices=("kaiming", "weight_svd"),
     )
     svd_slice: int = _f(
         0,
-        "lora + weight_svd only: seed down from the base weight's right singular "
+        "lora + down_init weight_svd only: seed down from the base weight's right singular "
         "vectors [k·r, (k+1)·r) instead of the top-r. Slices of one basis are "
         "mutually orthogonal, so LoRAs trained on different slices own disjoint "
         "input subspaces (Anima's svd_slice, docs/methods/svd-down-lora.md); under "
@@ -436,11 +439,14 @@ class TrainRequest(Request):
         advanced=True,
     )
     channel_scaling_alpha: float = _f(
-        0.5,
+        0.75,
         "lora only (lokr / loha ignore it): Anima's channel scaling. Rescales each "
         "target's input channel c by mean|x[c]|^alpha inside the down projection, so "
         "Adam's step no longer favours the few high-magnitude channels (on MOSS: ch 42 "
-        "into ffn_up_gate). Same output, plain LoRA on disk. 0 = off",
+        "into ffn_up_gate). Same output, plain LoRA on disk. 0 = off. 0.75 for "
+        "muon, whose down step keeps the gradient's per-channel proportions: at 0.5 "
+        "ch 42's leverage stays 6.9x the mean channel's, at 0.75 1.6x (0.5 was "
+        "tuned for AdamW)",
     )
     channel_stats: str = _f(
         "library/moss/calibration/channel_stats.safetensors",

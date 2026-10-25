@@ -62,9 +62,10 @@ int8 became the default re-encodes on the next `cache` run unless it passes
 ## Training
 
 - **Defaults**: `--rank 32`, alpha 128 for `lora` (scale 4; `lokr` / `loha` use
-  alpha = rank), `--optimizer muon`, `--lr 5e-5`, `--channel_scaling_alpha 0.5`,
-  `--down_init weight_svd` (`--dc_isolate` off; it was the AdamW default, and `lokr` /
-  `loha` still train with AdamW). On caststation (20 epochs) this stayed clean and on-prompt at
+  alpha = rank), `--optimizer muon`, `--lr 5e-5`, `--channel_scaling_alpha 0.75`,
+  `--down_init kaiming` (`--dc_isolate` off; it was the AdamW default, and `lokr` /
+  `loha` still train with AdamW). Why α 0.75 and kaiming under Muon:
+  `docs/moss/findings/muon_channel_init.md`. On caststation (20 epochs) this stayed clean and on-prompt at
   the style strength of lr 1e-4, where a plain LoRA at lr 1e-4 added things the prompt
   never asked for. Mechanism and the lr / alpha history: `docs/moss/channel_scaling.md`.
 - **Time**: 30 images × 20 epochs (600 steps) takes about 18–21 min on a 5070 Ti. The
@@ -82,9 +83,12 @@ int8 became the default re-encodes on the next `cache` run unless it passes
   make daemon-run ARGS="scripts/moss/tune_swap.py --cache post_image_dataset/moss/<set>"
   ```
 
-- **`--down_init`**: `weight_svd` starts `down` on the base weight's top-r right singular
-  vectors (it kept the artist's style better by eye than `kaiming`; the two land samples
-  as far apart as a seed change). `--svd_slice k` seeds from singular vectors
+- **`--down_init`**: `kaiming` (default) or `weight_svd`, which starts `down` on the base
+  weight's top-r right singular vectors. Under AdamW `weight_svd` kept the artist's style
+  better by eye; under Muon it was dropped because its basis feeds 4–6× more input DC into
+  the adapter (output DC shift 1.24 vs 0.43 with kaiming, images about a seed change
+  apart). A DC-free variant is proposed in `docs/proposal/moss_lora_dcfree_svd_init.md`.
+  `--svd_slice k` (needs `--down_init weight_svd`) seeds from singular vectors
   `[k·r, (k+1)·r)` and `--svd_slice_count N` interleaves `{k, k+N, …}`, as in Anima's
   `svd_slice` (`docs/methods/svd-down-lora.md`), so LoRAs on different slices start in
   orthogonal input subspaces. MOSS's targets are all ≥ 3072 wide, so rank 32 fits 96
