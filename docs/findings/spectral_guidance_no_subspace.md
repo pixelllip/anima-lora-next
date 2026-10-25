@@ -118,6 +118,15 @@ beat. No low-dim bottleneck to exploit where editing happens → no lever.
   goal shifts from preservation to sharper edit directions, those are the
   on-target references, not this (preservation-oriented) paper.
 
+## MOSS-Image (2026-10-25): same NO-GO
+
+Re-measured on MOSS Base, where shift 5 puts 24 of the 50 sampler steps past σ 0.85.
+The top-4 energy reaches 0.5 only on steps 1–3 (σ > 0.98), where x̂₀ has lost the image
+(`recover` = 1 − ‖x̂₀ − x₀‖² / ‖x₀ − x̄₀‖² ≈ 0). By the step where recover reaches 0.3
+(σ 0.95), the operator is near-full-rank (top-4 0.23, participation ratio 26.6 of 31).
+Probe, run and table: `_archive/bench/moss_spectral_guidance/`,
+`_archive/proposals/moss_anima_negatives_revisit.md` § Spectral guidance result.
+
 ## Reproduce
 
 ```bash

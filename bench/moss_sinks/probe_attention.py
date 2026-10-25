@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Attention-sink premise probe on MOSS-Image: does a few-key set take the mass?
 
-Tier 1 §1 of ``docs/proposal/moss_anima_negatives_revisit.md``. Same prompt over N
+Tier 1 §1 of ``_archive/proposals/moss_anima_negatives_revisit.md``. Same prompt over N
 seeds, the shipped sampler (Euler, CFG, uncond skip 22, reference per-sample
 forward). On the probe steps, every joint block's ``_attention`` is recomputed
 with an explicit softmax (the block output still comes from SDPA), cond and

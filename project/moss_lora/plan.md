@@ -10,7 +10,6 @@ Code map `library/moss/CLAUDE.md`; user doc `docs/moss/README.md`.
 |---|---|---|
 | i2i / colorize (VAE reference on RoPE `r`) | v2 = `moss_colorize_3k_ocr` (shipped). **v3 planned** (§ below): text-only TE + full-size isolated ref | `done/i2i.md`, `colorize_ocr.md`, `src/colorize_*.py` |
 | Correction training (arXiv 2610.14136), dual LoRA | joint D + C holds to K 8; CFG 1.5 + K 2 ≈ CFG 3 at 2× forwards (one seed) | `correction.md`, `src/correction*.py` |
-| Anima negatives revisit | Tier 1 measured, Tier 2 unmeasured | `docs/proposal/moss_anima_negatives_revisit.md` |
 | TE quantization | INT8 W8A8 (SmoothQuant + act-aware GPTQ) is the default TE | `src/te_*.py`; comparison runs + drivers in `_archive/bench/moss_te_fp8/` |
 | Technical-report digest | reference | `report_notes.md` |
 
@@ -91,7 +90,9 @@ seed 1, ER-SDE + Spectrum, 30 steps, CFG 3, against v2's eval (10000 steps):
 Archived: REPA (parked), caption dropout, template mask → `_archive/moss_lora/`; the latent HF
 budget + VR headroom proposals (closed 2026-10-23: the matched-σ loss gap is 72 % HF texture,
 VR's control variate is uncorrelated with it at ρ² ≈ 0.01, so no VR port and no HF loss
-weighting) → `_archive/proposals/`, their benches → `_archive/bench/`; the
+weighting) → `_archive/proposals/`, their benches → `_archive/bench/`; the Anima-negatives
+sweep (sinks, RFE, σ staircase measured; spectral guidance NO-GO 2026-10-25; Oscar / CTCal /
+SSC / MIST and §4–§6 unmeasured) → `_archive/proposals/moss_anima_negatives_revisit.md`; the
 template-mask code is on `moss-template-mask` in the private `preserve` mirror.
 
 ## src/

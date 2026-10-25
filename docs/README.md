@@ -53,7 +53,6 @@ A separate line from Anima (`library/moss/`): LoRA training and sampling for Ope
 | [moss/dave.md](moss/dave.md) | DAVE on MOSS — same-prompt seed variety (`--dave auto`), ComfyUI node |
 | [moss/findings/README.md](moss/findings/README.md) | Findings — the chat template as attention sink, the vision tower as zero-shot reference |
 | [../project/moss_lora/done/i2i.md](../project/moss_lora/done/i2i.md) | i2i design + probes — a VAE reference on RoPE's `r` axis (shipped: [moss/i2i.md](moss/i2i.md)) |
-| [proposal/moss_anima_negatives_revisit.md](proposal/moss_anima_negatives_revisit.md) | Proposal — which Anima negative results are worth re-opening on MOSS |
 | [guidelines/moss-guidebook.md](guidelines/moss-guidebook.md) | GUI guidebook (English); also [가이드북](guidelines/moss-가이드북.md), [ガイドブック](guidelines/moss-ガイドブック.md), [指南书](guidelines/moss-指南书.md) |
 
 ## Structure

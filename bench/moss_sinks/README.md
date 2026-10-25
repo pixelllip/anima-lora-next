@@ -1,7 +1,7 @@
 # bench/moss_sinks
 
 Attention sinks / registers on MOSS-Image: does a small set of keys take most of the
-attention, and where is it? Tier 1 §1 of `docs/proposal/moss_anima_negatives_revisit.md`.
+attention, and where is it? Tier 1 §1 of `_archive/proposals/moss_anima_negatives_revisit.md`.
 Summary and hypotheses: `docs/moss/findings/attention_sink_chat_template.md`. This file is
 the run log.
 

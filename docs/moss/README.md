@@ -177,7 +177,7 @@ REPA, parked, `_archive/moss_lora/repa.md`); `--ref_timestep` / `--ref_isolate` 
 - Channel scaling and `--dc_isolate`: `docs/moss/channel_scaling.md`. DAVE: `docs/moss/dave.md`.
 - Findings (attention sink, vision-tower reference, σ staircase, Spectrum schedule):
   `docs/moss/findings/`.
-- i2i design + probes: `project/moss_lora/done/i2i.md`. Proposal: `docs/proposal/moss_anima_negatives_revisit.md`.
+- i2i design + probes: `project/moss_lora/done/i2i.md`. The Anima-negatives sweep is archived (`_archive/proposals/moss_anima_negatives_revisit.md`).
 - Run logs: `project/moss_lora/` (`plan.md`, open sub-lines, technical-report notes);
   finished logs (sampler, channel scaling, DAVE, seed soup) in `project/moss_lora/done/`;
   parked lines (caption dropout, REPA) in `_archive/moss_lora/`.
