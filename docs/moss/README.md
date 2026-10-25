@@ -62,11 +62,12 @@ int8 became the default re-encodes on the next `cache` run unless it passes
 ## Training
 
 - **Defaults**: `--rank 32`, alpha 128 for `lora` (scale 4; `lokr` / `loha` use
-  alpha = rank), `--optimizer muon`, `--lr 5e-5`, `--channel_scaling_alpha 0.75`,
-  `--down_init kaiming` (`--dc_isolate` off; it was the AdamW default, and `lokr` /
-  `loha` still train with AdamW). Why α 0.75 and kaiming under Muon:
-  `docs/moss/findings/muon_channel_init.md`. On caststation (20 epochs) this stayed clean and on-prompt at
-  the style strength of lr 1e-4, where a plain LoRA at lr 1e-4 added things the prompt
+  alpha = rank), `--optimizer muon`, `--lr 5e-5`, `--down_init kaiming`,
+  `--channel_scaling_alpha 0` (`--dc_isolate` off; both were AdamW fixes, and `lokr` /
+  `loha` still train with AdamW). Why kaiming and no channel scaling under Muon:
+  `docs/moss/findings/muon_channel_init.md`, `muon_no_channel_scaling.md`. With AdamW use
+  `--channel_scaling_alpha 0.5`: on caststation (20 epochs) it stayed clean and on-prompt
+  at the style strength of lr 1e-4, where a plain LoRA at lr 1e-4 added things the prompt
   never asked for. Mechanism and the lr / alpha history: `docs/moss/channel_scaling.md`.
 - **Time**: 30 images × 20 epochs (600 steps) takes about 18–21 min on a 5070 Ti. The
   LoRA moves line work and palette toward the set; character identity holds, including

@@ -5,10 +5,11 @@ than every other channel at the FFN input, and AdamW turns it into a bias knob t
 reaches for first. Channel scaling rebalances the optimizer's step per input channel. The
 forward output is unchanged and the saved file is a plain LoRA.
 
-**On by default** (`channel_scaling_alpha = 0.75`, with the Muon optimizer, lr 5e-5 and a
-kaiming `down` init at rank 32 / alpha 128; `dc_isolate` is off since the switch to Muon).
-0.5 was the AdamW default; Muon needs more (§ Under Muon). `--channel_scaling_alpha 0` turns it off. GUI: Train step →
-`channel_scaling_alpha`. `lora` only; the trainer skips it for `lokr` / `loha`.
+**Off by default** (`channel_scaling_alpha = 0`) since the default recipe moved to Muon
+with a kaiming `down` init: under that pair the trained LoRA is the same with or without
+it (§ Under Muon). Use `--channel_scaling_alpha 0.5` with `--optimizer adamw`, the setting
+it was built for. GUI: Train step → `channel_scaling_alpha`. `lora` only; the trainer skips
+it for `lokr` / `loha`.
 
 | α | effect on the loudest channel's step |
 |---|---|
@@ -83,6 +84,13 @@ output leverage over the mean channel at the FFN input is 6.9× at α 0.5 and 1.
 (AdamW α 0.5: roughly 2–5×). Loss and step size are unchanged, and α 0.75 looked better by
 eye. `docs/moss/findings/muon_channel_init.md`.
 
+That leverage was `weight_svd`'s: its ch 42 column starts 3.2× the mean column, and α only
+reaches the update of `down`, 14–20 % of the init. With a kaiming init the column starts
+at the mean, and Muon's orthogonalised step leaves it there with or without the rescale:
+α 0 and α 0.75 give the same loss to three decimals, the same ‖ΔW‖ and stable rank, and
+ch 42 at 7.3 % vs 6.8 % of the FFN input share. So the shipped Muon recipe runs with
+scaling off and reads no calibration file. `docs/moss/findings/muon_no_channel_scaling.md`.
+
 ## The `up` gradient and `--dc_isolate`
 
 Channel scaling only reaches the `down` side. The `up` gradient is `Σ_t g_t · h_tᵀ`, built
@@ -123,10 +131,13 @@ raising the scale (alpha / rank) raises the effective lr of `up` by the same fac
    by eye it beat AdamW on the same seed. Under Muon the
    `dc_isolate` row is a bias channel: the token-mean output shift is 2.57 with it and 1.24
    without (AdamW + `dc_isolate`: 1.98). `docs/moss/findings/muon_lora.md`.
-6. **α 0.75, kaiming `down` init**: the current default. α 0.5 left the loud channel at
+6. **α 0.75, kaiming `down` init**: α 0.5 left the loud channel at
    6.9× under Muon (1.6× at 0.75). The `weight_svd` basis leans on the input DC, so
    kaiming cuts the output DC shift from 1.24 to 0.43 at the same ‖ΔW‖ and stable rank.
    `docs/moss/findings/muon_channel_init.md`.
+7. **α 0, kaiming `down` init, Muon**: the current default. Same run as α 0.75 to three
+   decimals; the ch 42 leverage α was compensating came from the `weight_svd` init.
+   `docs/moss/findings/muon_no_channel_scaling.md`.
 
 ## Calibration
 

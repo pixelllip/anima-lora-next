@@ -89,7 +89,9 @@ Weight space, mean over the 252 adapted linears (as in [muon_lora.md](muon_lora.
 
 - A second seed or dataset: every arm is one 30-image set and one training seed.
 - α 1.0 under Muon (leverage flat on the `down` side).
-- Muon without channel scaling, now with kaiming.
+- Muon without channel scaling, now with kaiming: tested in
+  [muon_no_channel_scaling.md](muon_no_channel_scaling.md); it is the same run, and α 0
+  is the default from there.
 - `svd_slice`: it needs `down_init weight_svd`, so slice LoRAs keep the DC-heavy basis.
 - A `weight_svd` init with x̄ projected out: tested in
   [dcfree_svd_init.md](dcfree_svd_init.md).

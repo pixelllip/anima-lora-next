@@ -450,14 +450,15 @@ class TrainRequest(Request):
         advanced=True,
     )
     channel_scaling_alpha: float = _f(
-        0.75,
+        0.0,
         "lora only (lokr / loha ignore it): Anima's channel scaling. Rescales each "
         "target's input channel c by mean|x[c]|^alpha inside the down projection, so "
         "Adam's step no longer favours the few high-magnitude channels (on MOSS: ch 42 "
-        "into ffn_up_gate). Same output, plain LoRA on disk. 0 = off. 0.75 for "
-        "muon, whose down step keeps the gradient's per-channel proportions: at 0.5 "
-        "ch 42's leverage stays 6.9x the mean channel's, at 0.75 1.6x (0.5 was "
-        "tuned for AdamW)",
+        "into ffn_up_gate). Same output, plain LoRA on disk. 0 = off, the muon "
+        "default: with a kaiming down init, muon's orthogonalised step leaves ch 42 "
+        "at the init's share with or without scaling (docs/moss/findings/"
+        "muon_no_channel_scaling.md). 0.5 for adamw, whose per-element step is what "
+        "the rescale was built for",
     )
     channel_stats: str = _f(
         "library/moss/calibration/channel_stats.safetensors",
