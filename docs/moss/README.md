@@ -185,4 +185,5 @@ REPA, parked, `_archive/moss_lora/repa.md`); `--ref_timestep` / `--ref_isolate` 
 - Run logs: `project/moss_lora/` (`plan.md`, open sub-lines, technical-report notes);
   finished logs (sampler, channel scaling, DAVE, seed soup) in `project/moss_lora/done/`;
   parked lines (caption dropout, REPA) in `_archive/moss_lora/`.
-- Code map: `library/moss/CLAUDE.md`.
+- Architecture walkthrough (TE pass, latent boundary, blocks, loss, sampler):
+  `docs/structure/moss.md`. Code map: `library/moss/CLAUDE.md`.

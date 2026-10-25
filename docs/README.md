@@ -62,6 +62,7 @@ Architecture walkthroughs — how a component is built.
 | Doc | Description |
 |-----|-------------|
 | [structure/anima.md](structure/anima.md) | The Anima model end to end — text conditioning, VAE, DiT block stack, training-step flow |
+| [structure/moss.md](structure/moss.md) | The MOSS-Image model end to end — Qwen3.5 text pass, FLUX.2 latent boundary, single-stream DiT, training step and sampler |
 | [structure/anima-optimizations.md](structure/anima-optimizations.md) | Non-obvious perf/compile decisions and the *why* behind each |
 | [structure/lora.md](structure/lora.md) | Plain LoRA inside Anima — the scaffolding every variant stacks on |
 | [structure/hydralora.md](structure/hydralora.md) | HydraLoRA — layer-local MoE over LoRA up-heads |
