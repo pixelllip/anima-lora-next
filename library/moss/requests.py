@@ -620,6 +620,13 @@ class TrainRequest(Request):
         0.01, "mixture weight of discrete-uniform sigma", advanced=True
     )
     max_grad_norm: float = _f(1.0, "gradient clip", advanced=True)
+    ema_decay: float = _f(
+        0.0,
+        "EMA of the adapter weights per optimizer update, started at the end of "
+        "warmup (fp32 shadow on the CPU, ~0.3 GB at r32). Saves write the EMA; the "
+        "final raw weights go to <output dir>/<name>/<name>_raw. 0 = off",
+        advanced=True,
+    )
     grad_checkpointing: bool = _f(
         False,
         "per-block activation checkpointing. Off by default: the activation "

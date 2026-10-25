@@ -4,7 +4,13 @@ import random
 
 import torch
 
-from library.moss.train import choose_embeds, edit_region, region_mse, tone_loss
+from library.moss.train import (
+    choose_embeds,
+    edit_region,
+    ema_step,
+    region_mse,
+    tone_loss,
+)
 
 
 def _rows(n):
@@ -143,3 +149,13 @@ def test_tone_loss_skips_cells_under_half_coverage():
     rest[:4, 8:12] = True
     assert torch.isclose(tone_loss(err, rest, 8), torch.tensor(4.0))
     assert tone_loss(err, torch.zeros(16, 16, dtype=torch.bool), 8) == 0
+
+
+def test_ema_step_seeds_then_lerps():
+    p = torch.full((2, 3), 1.0)
+    shadow, staging = [], [torch.empty(2, 3)]
+    ema_step(shadow, staging, [p], 0.9)
+    assert torch.equal(shadow[0], p) and shadow[0] is not staging[0]
+    p.fill_(2.0)
+    ema_step(shadow, staging, [p], 0.9)
+    torch.testing.assert_close(shadow[0], torch.full((2, 3), 1.1))

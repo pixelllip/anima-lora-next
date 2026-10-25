@@ -300,6 +300,18 @@ def training_loss(
     return loss + tone["weight"] * term if tone["weight"] else loss
 
 
+def ema_step(shadow: list, staging: list, params: list, decay: float) -> None:
+    """Copy ``params`` into the pinned CPU ``staging`` buffers and lerp the fp32
+    ``shadow`` toward them; the first call (``shadow`` empty) seeds it."""
+    with torch.no_grad():
+        for buf, p in zip(staging, params):
+            buf.copy_(p)
+        if shadow:
+            torch._foreach_lerp_(shadow, staging, 1.0 - decay)
+        else:
+            shadow.extend(buf.clone() for buf in staging)
+
+
 def checkpoint_blocks(blocks) -> None:
     """Per-block activation checkpointing around ``block.forward``."""
     for block in blocks:
@@ -686,6 +698,18 @@ def train(
         + f"warmup {warmup}",
         flush=True,
     )
+    if not 0.0 <= req.ema_decay < 1.0:
+        raise SystemExit(f"ema_decay must be in [0, 1), got {req.ema_decay}")
+    shadow, staging, n_updates = [], [], 0
+    if req.ema_decay:
+        staging = [
+            torch.empty(p.shape, dtype=torch.float32, pin_memory=True) for p in params
+        ]
+        print(
+            f"EMA {req.ema_decay:g} from update {warmup} "
+            f"(~{1 / (1 - req.ema_decay):.0f} updates), CPU shadow",
+            flush=True,
+        )
 
     out_path = resolve_under_home(req.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -727,15 +751,26 @@ def train(
             tone_dirs=req.tone_dirs or "raw",
         )
 
-    def save(tag: str | None = None) -> Path:
-        """The final file at ``out_path``; an epoch save under ``<dir>/<stem>/``."""
+    def save(tag: str | None = None, raw: bool = False) -> Path:
+        """The final file at ``out_path``; an epoch save under ``<dir>/<stem>/``.
+        Once the EMA has started it is saved in place of the live weights
+        (unless ``raw``), swapped in through the staging buffers."""
         if tag is None:
             path = out_path
         else:
             folder = out_path.parent / out_path.stem
             folder.mkdir(parents=True, exist_ok=True)
             path = folder / f"{out_path.stem}_{tag}{out_path.suffix}"
-        network.save(path, req.lora_dtype, **meta)
+        if not shadow or raw:
+            network.save(path, req.lora_dtype, **meta)
+            return path
+        with torch.no_grad():
+            for buf, s, p in zip(staging, shadow, params):
+                buf.copy_(p)
+                p.copy_(s)
+            network.save(path, req.lora_dtype, **meta, ema_decay=req.ema_decay)
+            for buf, p in zip(staging, params):
+                p.copy_(buf)
         return path
 
     sink_path = command_job_path(
@@ -830,6 +865,9 @@ def train(
                     optimizer.step()
                     lr_sched.step()
                     optimizer.zero_grad(set_to_none=True)
+                    n_updates += 1
+                    if req.ema_decay and n_updates >= warmup:
+                        ema_step(shadow, staging, params, req.ema_decay)
                 value = loss.item()
                 sink.log(
                     {
@@ -911,6 +949,8 @@ def train(
 
         final = save()
         sink.ckpt(global_step=step, path=str(final))
+        if shadow:
+            print(f"  saved raw weights {save('raw', raw=True)}", flush=True)
         seconds = time.time() - t_start
         summary = {
             "output": str(final),
