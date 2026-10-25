@@ -137,22 +137,24 @@ The comparisons ran on 30 images of one artist (`@channel (caststation)`), Base,
 | LoKr f8 | `rank 100000`, `factor 8` | 2.26 s/step, 3.6 GB free | Close to the LoRA, slightly less character in the faces |
 | LoHa r16 | `rank 16` | 2.49 s/step, 1.7 GB free | Overshot: grey-teal palette shift, the set's costume on other characters |
 
-- Both need more memory than a LoRA: set `blocks_to_swap 24` and `activation_memory_budget 0.1` (Advanced). The earlier defaults (swap 12, budget 0.15) ran out of memory at 1024².
+- Both need more memory than a LoRA: set `activation_memory_budget 0.1` (Advanced) and keep `blocks_to_swap` at 24 or more. Swap 12 with budget 0.15 ran out of memory at 1024².
 - LoKr with `rank` at or above half the larger factor's side (the `rank 100000` above) uses a full matrix for that factor and ignores alpha (scale 1).
 - LoHa: lr 5e-5 is the next setting to try; it has not been measured.
 
 ### 4.2 Memory plan (16 GB)
 
-Defaults: `grad_checkpointing` off, `compile` on, and under Advanced `blocks_to_swap 12` (DiT blocks kept on the CPU and streamed in) and `activation_memory_budget 0.1` (how much of the forward pass is kept for the backward; the rest is recomputed).
+Defaults: `grad_checkpointing` off, `compile` on, and under Advanced `blocks_to_swap 28` (DiT blocks kept on the CPU and streamed in), `activation_memory_budget 0.15` (how much of the forward pass is kept for the backward; the rest is recomputed) and `expandable_segments` on (keeps the CUDA memory pool from fragmenting when sequence lengths vary).
 
 | Plan | Fields | s/step | Free VRAM |
 |---|---|---|---|
-| Default | swap 12, budget 0.1 (rank 32) | 1.85 | ~1.7 GiB |
-| Earlier default | swap 12, budget 0.15 (rank 16) | 1.77 | ~0.7 GiB |
+| Earlier default | swap 12, budget 0.1 (rank 32) | 1.85 | ~1.7 GiB |
+| Older default | swap 12, budget 0.15 (rank 16) | 1.77 | ~0.7 GiB |
 | More room | swap 24, budget 0.2 | 1.78 | 2.26 GiB |
 | Checkpointing | `grad_checkpointing` on, swap 0 | 2.09 | 1.60 GiB |
 
-Synthetic 1024² image + 300 text tokens (~4.4k tokens in all), LoRA rank 16, RTX 5070 Ti. The current default (rank 32, budget 0.1, swap 12) measured 1.85 s/step with ~1.7 GB free and a peak reserved of ~13.1 GB at ~4.5k joint tokens (image 4096 + text 455); rank 16 at budget 0.1 measured 1.82 s/step with ~2.0 GB free. Real samples ran up to ~4.9k tokens, and longer captions use more memory, which `swap 24` leaves room for at the same speed.
+The current default (swap 28, budget 0.15, `expandable_segments`, rank 32) was set on i2i swap_text, whose samples carry a reference image as well: its largest sample (4.1k image + 0.5k text tokens) peaked at 13.35 GB allocated with 0.53 GB free on 16 GB, and budget 0.2 ran out of memory. Swap 8–36 run at the same speed, so on t2i the larger swap costs nothing in step time; it only moves more blocks to CPU RAM.
+
+Table: synthetic 1024² image + 300 text tokens (~4.4k tokens in all), LoRA rank 16, RTX 5070 Ti. The earlier default (rank 32, budget 0.1, swap 12) measured 1.85 s/step with ~1.7 GB free and a peak reserved of ~13.1 GB at ~4.5k joint tokens (image 4096 + text 455); rank 16 at budget 0.1 measured 1.82 s/step with ~2.0 GB free. Real samples ran up to ~4.9k tokens, and longer captions use more memory, which `swap 24` leaves room for at the same speed.
 
 - Between swap 8 and 36 the speed barely moves (1.75–1.84 s/step), and budgets 0.1–0.3 barely change it either; swap 40 is slower (2.34 s/step) because the PCIe transfers stop hiding behind compute. Below that point, the swap count trades VRAM, not speed.
 - The best pair depends on the PCIe link and the GPU. `scripts/moss/tune_swap.py` (CLI, [Appendix](#appendix-cli), about 4 minutes) times each swap count on the cache's largest sample and prints the fields to train with.

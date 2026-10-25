@@ -596,18 +596,20 @@ class TrainRequest(Request):
         "with --blocks_to_swap 0 to keep the whole DiT on the card",
     )
     activation_memory_budget: float = _f(
-        0.1,
+        0.15,
         "cap on the compiled blocks' saved-for-backward set (Inductor's min-cut "
         "partitioner recomputes the rest); applies with --compile and "
-        "--no-grad_checkpointing, ignored otherwise. 0.1 at rank 32 leaves ~1.7 GB "
-        "free on 16 GB at ~4.5k joint tokens",
+        "--no-grad_checkpointing, ignored otherwise. 0.15 at swap 28 fits "
+        "swap_text's largest i2i sample (4.6k joint tokens) on 16 GB with 0.5 GB "
+        "free, 1.5 %% faster than 0.1; 0.2 OOMs there",
         advanced=True,
     )
     blocks_to_swap: int = _f(
-        12,
-        "DiT blocks to swap to CPU (-1 = size from free VRAM). 12 fits budget "
-        "0.1 at rank 32 on 16 GB (24 for more room); more swap costs PCIe time the "
-        "step cannot hide. scripts/moss/tune_swap.py measures this machine's pair",
+        28,
+        "DiT blocks to swap to CPU (-1 = size from free VRAM). 28 fits budget "
+        "0.15 at rank 32 on 16 GB for i2i samples (target + reference tokens); "
+        "swap 8-36 run at the same speed, past ~40 the PCIe time stops hiding. "
+        "scripts/moss/tune_swap.py measures this machine's pair",
         advanced=True,
     )
     fit_report: bool = _f(
@@ -619,17 +621,19 @@ class TrainRequest(Request):
     )
     compile: bool = _f(
         True,
-        "torch.compile each block with dynamic shapes (the joint image+text "
-        "length changes with every caption): 2.0 vs 3.1 s/step at ~4.5k joint "
-        "tokens and 0.7 GB lower peak, for ~30 s of compile and one recompile. "
-        "--no-compile for a quick smoke",
+        "torch.compile each block once: dynamic=False with the joint token axis "
+        "marked over the samples' range and FA2 attention, so one graph serves "
+        "every caption length with no recompiles. 2.0 vs 3.1 s/step at ~4.5k "
+        "joint tokens and 0.7 GB lower peak, for ~30 s of compile. --no-compile "
+        "for a quick smoke",
         advanced=True,
     )
     expandable_segments: bool = _f(
-        False,
+        True,
         "set PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True before CUDA starts "
-        "(an existing setting wins): long captions that vary per step, such as "
-        "colorize's OCR layouts, fragment the allocator's pool without it",
+        "(an existing setting wins): lengths that vary per step, such as "
+        "colorize's OCR layouts, fragment the allocator's pool without it, and "
+        "budget 0.15 at swap 28 relies on it. --no-expandable_segments to skip",
         advanced=True,
     )
     log_every: int = _f(10, "full log line every N steps", advanced=True)

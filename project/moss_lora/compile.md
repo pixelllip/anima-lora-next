@@ -194,5 +194,5 @@ range-free default.
 
 P1 + P2 A + P3 committed 2026-10-25 (`721466ab`); P2 as `dynamic=False` + `dynamic_sources`
 on top. Budget 0.15 + `expandable_segments` fits swap_text's largest sample at swap 28 on
-16 GB (0.2 does not); not yet in `configs/moss/i2i/swap_text/train.toml`.
+16 GB (0.2 does not); now the TrainRequest default (swap 28, budget 0.15, expandable).
 Next: P4 (generate's range), P5 (bench + tests).

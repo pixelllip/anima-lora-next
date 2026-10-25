@@ -137,22 +137,24 @@ make download-model ARGS=moss-sft
 | LoKr f8 | `rank 100000`, `factor 8` | 2.26 s/step, 여유 3.6 GB | LoRA에 근접, 얼굴의 개성은 약간 덜함 |
 | LoHa r16 | `rank 16` | 2.49 s/step, 여유 1.7 GB | 과적합: 회청색으로 팔레트가 바뀌고, 세트의 의상이 다른 캐릭터에 입혀짐 |
 
-- 둘 다 LoRA보다 메모리를 더 씁니다. **Advanced** 에서 `blocks_to_swap 24`, `activation_memory_budget 0.1` 로 설정하세요. 이전 기본값(swap 12, budget 0.15)으로는 1024²에서 메모리가 부족했습니다.
+- 둘 다 LoRA보다 메모리를 더 씁니다. **Advanced** 에서 `activation_memory_budget 0.1` 로 설정하고 `blocks_to_swap` 은 24 이상으로 유지하세요. swap 12에 budget 0.15로는 1024²에서 메모리가 부족했습니다.
 - LoKr의 `rank` 가 큰 인수 변의 절반 이상이면(위의 `rank 100000`) 그 인수는 전체 행렬이 되고 alpha는 무시됩니다(scale 1).
 - LoHa: 다음으로 시도할 값은 lr 5e-5이며, 아직 측정하지 않았습니다.
 
 ### 4.2 메모리 구성 (16 GB)
 
-기본값: `grad_checkpointing` 끔, `compile` 켬, 그리고 **Advanced** 의 `blocks_to_swap 12` (CPU에 두고 필요할 때 올리는 DiT 블록 수)와 `activation_memory_budget 0.1` (forward 결과 중 backward용으로 보관하는 비율, 나머지는 재계산).
+기본값: `grad_checkpointing` 끔, `compile` 켬, 그리고 **Advanced** 의 `blocks_to_swap 28` (CPU에 두고 필요할 때 올리는 DiT 블록 수), `activation_memory_budget 0.15` (forward 결과 중 backward용으로 보관하는 비율, 나머지는 재계산), `expandable_segments` 켬 (시퀀스 길이가 달라질 때 CUDA 메모리 풀이 조각나지 않게 함).
 
 | 구성 | 필드 | s/step | 여유 VRAM |
 |---|---|---|---|
-| 기본값 | swap 12, budget 0.1 (랭크 32) | 1.85 | 약 1.7 GiB |
-| 이전 기본값 | swap 12, budget 0.15 (랭크 16) | 1.77 | 약 0.7 GiB |
+| 이전 기본값 | swap 12, budget 0.1 (랭크 32) | 1.85 | 약 1.7 GiB |
+| 그 이전 기본값 | swap 12, budget 0.15 (랭크 16) | 1.77 | 약 0.7 GiB |
 | 여유 확보 | swap 24, budget 0.2 | 1.78 | 2.26 GiB |
 | 체크포인팅 | `grad_checkpointing` 켬, swap 0 | 2.09 | 1.60 GiB |
 
-합성 1024² 이미지 + 텍스트 300 토큰(합계 약 4.4k 토큰), LoRA 랭크 16, RTX 5070 Ti 기준입니다. 현재 기본값(랭크 32, budget 0.1, swap 12)은 약 4.5k 토큰(이미지 4096 + 텍스트 455)에서 1.85 s/step, 여유 약 1.7 GB, 최대 reserved 약 13.1 GB였고, 랭크 16에 budget 0.1은 1.82 s/step, 여유 약 2.0 GB였습니다. 실제 샘플은 최대 약 4.9k 토큰까지 나왔고, 캡션이 길수록 메모리를 더 쓰는데, `swap 24` 는 같은 속도로 그만큼의 여유를 남깁니다.
+현재 기본값(swap 28, budget 0.15, `expandable_segments`, 랭크 32)은 참조 이미지까지 샘플에 포함되는 i2i swap_text에서 정했습니다. 가장 큰 샘플(이미지 4.1k + 텍스트 0.5k 토큰)은 16 GB에서 allocated 최대 13.35 GB, 여유 0.53 GB였고, budget 0.2에서는 메모리가 부족했습니다. swap 8–36은 속도가 같으므로 t2i에서는 swap을 크게 잡아도 step 시간이 늘지 않고, 더 많은 블록이 CPU RAM으로 옮겨갈 뿐입니다.
+
+표: 합성 1024² 이미지 + 텍스트 300 토큰(합계 약 4.4k 토큰), LoRA 랭크 16, RTX 5070 Ti 기준입니다. 이전 기본값(랭크 32, budget 0.1, swap 12)은 약 4.5k 토큰(이미지 4096 + 텍스트 455)에서 1.85 s/step, 여유 약 1.7 GB, 최대 reserved 약 13.1 GB였고, 랭크 16에 budget 0.1은 1.82 s/step, 여유 약 2.0 GB였습니다. 실제 샘플은 최대 약 4.9k 토큰까지 나왔고, 캡션이 길수록 메모리를 더 쓰는데, `swap 24` 는 같은 속도로 그만큼의 여유를 남깁니다.
 
 - swap 8에서 36 사이는 속도가 거의 같고(1.75–1.84 s/step), budget 0.1–0.3도 속도에 거의 영향이 없습니다. swap 40은 PCIe 전송이 연산 뒤에 숨지 못해 느려집니다(2.34 s/step). 그 아래 구간에서 swap 수는 속도가 아니라 VRAM을 정하는 값입니다.
 - 최적 조합은 PCIe 링크와 GPU에 따라 다릅니다. `scripts/moss/tune_swap.py` (CLI, [부록](#부록-cli), 약 4분)가 캐시에서 가장 큰 샘플로 swap 수별 속도를 재고, 학습에 쓸 필드 값을 출력합니다.

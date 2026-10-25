@@ -71,10 +71,12 @@ int8 became the default re-encodes on the next `cache` run unless it passes
 - **Time**: 30 images × 20 epochs (600 steps) takes about 18–21 min on a 5070 Ti. The
   LoRA moves line work and palette toward the set; character identity holds, including
   characters the set does not contain.
-- **Memory**: the default plan is no checkpointing, `--blocks_to_swap 12`,
-  `--activation_memory_budget 0.1`: 1.85 s/step, ~13.1 GB peak reserved, ~1.7 GB free at
-  ~4.5k joint tokens. `--blocks_to_swap 24` leaves room for longer captions at the same
-  speed; `--grad_checkpointing --blocks_to_swap 0` fits without swap, slower. The best swap
+- **Memory**: the default plan is no checkpointing, `--blocks_to_swap 28`,
+  `--activation_memory_budget 0.15`, `--expandable_segments`: it fits swap_text's largest
+  i2i sample (4.1k image + 0.5k text tokens) on 16 GB with ~0.5 GB free; budget 0.2 does
+  not. Swap 8–36 run at the same speed, so the swap count trades VRAM, not step time
+  (the earlier swap 12 / budget 0.1 ran t2i at 1.85 s/step with ~1.7 GB free at ~4.5k
+  joint tokens). `--grad_checkpointing --blocks_to_swap 0` fits without swap, slower. The best swap
   count depends on the PCIe link and GPU; `tune_swap.py` times each count on the cache's
   largest sample (about 4 min) and prints the flags to train with. Full plan table:
   guidebook §4.2.
@@ -97,8 +99,8 @@ int8 became the default re-encodes on the next `cache` run unless it passes
   Kronecker product (`--factor` caps the small factor; a `--rank` at or above half the
   larger factor's side makes `w2` full and the scale 1, hence `--rank 100000 --factor 8`),
   LoHa the Hadamard product of two rank-r pairs. Files keep LyCORIS tensor names and load
-  through the same `--lora`. Both need `--blocks_to_swap 24 --activation_memory_budget 0.1`
-  at 1024² (swap 12 / budget 0.15 ran out of memory); `tune_swap.py` measures a LoRA only.
+  through the same `--lora`. Both need `--activation_memory_budget 0.1` with
+  `--blocks_to_swap 24` or more at 1024² (swap 12 / budget 0.15 ran out of memory); `tune_swap.py` measures a LoRA only.
   `--down_init` applies to `lora` only. At lr 1e-4, LoKr f8 came close to the LoRA and LoHa
   r16 overshot (palette shift, costume leakage); LoHa at lr 5e-5 is unmeasured.
 - **Checkpoints**: `--save_every_epochs N` also saves `<name>/<name>_eN.safetensors`

@@ -137,22 +137,24 @@ make download-model ARGS=moss-sft
 | LoKr f8 | `rank 100000`，`factor 8` | 2.26 s/step，剩余 3.6 GB | 接近 LoRA，面部的个性略少 |
 | LoHa r16 | `rank 16` | 2.49 s/step，剩余 1.7 GB | 过头：色调偏灰青，数据集的服装出现在其他角色身上 |
 
-- 两者都比 LoRA 占用更多显存：在 **高级** 中设置 `blocks_to_swap 24` 和 `activation_memory_budget 0.1`。此前的默认值（swap 12，budget 0.15）在 1024² 下会显存不足。
+- 两者都比 LoRA 占用更多显存：在 **高级** 中设置 `activation_memory_budget 0.1`，并让 `blocks_to_swap` 保持在 24 或更高。swap 12 配 budget 0.15 在 1024² 下会显存不足。
 - LoKr 的 `rank` 达到较大因子边长的一半及以上时（如上面的 `rank 100000`），该因子为满矩阵，alpha 被忽略（缩放为 1）。
 - LoHa：下一个要尝试的是学习率 5e-5，尚未实测。
 
 ### 4.2 显存方案（16 GB）
 
-默认：梯度检查点（`grad_checkpointing`）关闭，`compile` 开启，**高级** 中 `blocks_to_swap 12`（放在 CPU 上、用时再传入的 DiT 块数）和 `activation_memory_budget 0.1`（前向结果中为反向保留的比例，其余重新计算）。
+默认：梯度检查点（`grad_checkpointing`）关闭，`compile` 开启，**高级** 中 `blocks_to_swap 28`（放在 CPU 上、用时再传入的 DiT 块数）、`activation_memory_budget 0.15`（前向结果中为反向保留的比例，其余重新计算）以及 `expandable_segments` 开启（序列长度变化时避免 CUDA 显存池碎片化）。
 
 | 方案 | 字段 | s/step | 剩余显存 |
 |---|---|---|---|
-| 默认 | swap 12，budget 0.1（秩 32） | 1.85 | 约 1.7 GiB |
-| 此前的默认 | swap 12，budget 0.15（秩 16） | 1.77 | 约 0.7 GiB |
+| 此前的默认 | swap 12，budget 0.1（秩 32） | 1.85 | 约 1.7 GiB |
+| 更早的默认 | swap 12，budget 0.15（秩 16） | 1.77 | 约 0.7 GiB |
 | 留更多余量 | swap 24，budget 0.2 | 1.78 | 2.26 GiB |
 | 检查点 | 梯度检查点开启，swap 0 | 2.09 | 1.60 GiB |
 
-测试条件：合成 1024² 图像 + 300 个文本 token（共约 4.4k token），LoRA 秩 16，RTX 5070 Ti。当前默认值（秩 32，budget 0.1，swap 12）在约 4.5k token（图像 4096 + 文本 455）下实测 1.85 s/step，剩余约 1.7 GB，峰值 reserved 约 13.1 GB；秩 16、budget 0.1 为 1.82 s/step，剩余约 2.0 GB。真实样本最多约 4.9k token，标注越长显存占用越多，`swap 24` 在相同速度下留出了这部分余量。
+当前默认值（swap 28，budget 0.15，`expandable_segments`，秩 32）是在 i2i swap_text 上确定的，其样本还带有参考图：最大样本（图像 4.1k + 文本 0.5k token）在 16 GB 上峰值 allocated 为 13.35 GB，剩余 0.53 GB，budget 0.2 则显存不足。swap 8–36 速度相同，所以在 t2i 上加大 swap 不会增加单步时间，只是把更多块移到 CPU 内存。
+
+表格测试条件：合成 1024² 图像 + 300 个文本 token（共约 4.4k token），LoRA 秩 16，RTX 5070 Ti。此前的默认值（秩 32，budget 0.1，swap 12）在约 4.5k token（图像 4096 + 文本 455）下实测 1.85 s/step，剩余约 1.7 GB，峰值 reserved 约 13.1 GB；秩 16、budget 0.1 为 1.82 s/step，剩余约 2.0 GB。真实样本最多约 4.9k token，标注越长显存占用越多，`swap 24` 在相同速度下留出了这部分余量。
 
 - swap 在 8 到 36 之间速度几乎不变（1.75–1.84 s/step），budget 0.1–0.3 对速度也几乎没有影响；swap 40 时 PCIe 传输无法被计算掩盖，变慢（2.34 s/step）。在此之下，swap 数决定的是显存，不是速度。
 - 最佳组合取决于 PCIe 链路和 GPU。`scripts/moss/tune_swap.py`（CLI，[附录](#附录-cli)，约 4 分钟）会用缓存中最大的样本测试各个 swap 数的速度，并输出训练应使用的字段值。

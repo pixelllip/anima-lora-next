@@ -137,22 +137,24 @@ make download-model ARGS=moss-sft
 | LoKr f8 | `rank 100000`、`factor 8` | 2.26 s/step、空き 3.6 GB | LoRA に近い。顔の個性はやや弱い |
 | LoHa r16 | `rank 16` | 2.49 s/step、空き 1.7 GB | 行き過ぎ: 灰青緑へのパレット変化、セットの衣装が他のキャラクターに出る |
 
-- どちらも LoRA よりメモリを使います。**Advanced** で `blocks_to_swap 24` と `activation_memory_budget 0.1` を設定してください。以前のデフォルト（swap 12、budget 0.15）では 1024² でメモリ不足になりました。
+- どちらも LoRA よりメモリを使います。**Advanced** で `activation_memory_budget 0.1` を設定し、`blocks_to_swap` は 24 以上にしてください。swap 12・budget 0.15 では 1024² でメモリ不足になりました。
 - LoKr の `rank` が大きい因子の辺の半分以上（上の `rank 100000`）だと、その因子はフル行列になり、alpha は無視されます（scale 1）。
 - LoHa: 次に試す値は lr 5e-5 で、まだ計測していません。
 
 ### 4.2 メモリ構成（16 GB）
 
-デフォルト: `grad_checkpointing` オフ、`compile` オン、**Advanced** の `blocks_to_swap 12`（CPU に置き、必要なときに転送する DiT ブロック数）と `activation_memory_budget 0.1`（forward の結果のうち backward 用に保持する割合。残りは再計算）。
+デフォルト: `grad_checkpointing` オフ、`compile` オン、**Advanced** の `blocks_to_swap 28`（CPU に置き、必要なときに転送する DiT ブロック数）、`activation_memory_budget 0.15`（forward の結果のうち backward 用に保持する割合。残りは再計算）、`expandable_segments` オン（シーケンス長が変わっても CUDA メモリプールが断片化しないようにする）。
 
 | 構成 | 項目 | s/step | 空き VRAM |
 |---|---|---|---|
-| デフォルト | swap 12、budget 0.1（ランク 32） | 1.85 | 約 1.7 GiB |
-| 以前のデフォルト | swap 12、budget 0.15（ランク 16） | 1.77 | 約 0.7 GiB |
+| 以前のデフォルト | swap 12、budget 0.1（ランク 32） | 1.85 | 約 1.7 GiB |
+| さらに前のデフォルト | swap 12、budget 0.15（ランク 16） | 1.77 | 約 0.7 GiB |
 | 余裕あり | swap 24、budget 0.2 | 1.78 | 2.26 GiB |
 | チェックポイント | `grad_checkpointing` オン、swap 0 | 2.09 | 1.60 GiB |
 
-条件: 合成 1024² 画像 + テキスト 300 トークン（合計約 4.4k トークン）、LoRA ランク 16、RTX 5070 Ti。現在のデフォルト（ランク 32、budget 0.1、swap 12）は約 4.5k トークン（画像 4096 + テキスト 455）で 1.85 s/step、空き約 1.7 GB、ピーク reserved 約 13.1 GB。ランク 16、budget 0.1 では 1.82 s/step、空き約 2.0 GB でした。実際のサンプルは最大約 4.9k トークンで、キャプションが長いほどメモリを使いますが、`swap 24` なら同じ速度でその分の余裕が残ります。
+現在のデフォルト（swap 28、budget 0.15、`expandable_segments`、ランク 32）は、参照画像もサンプルに含まれる i2i の swap_text で決めました。最大のサンプル（画像 4.1k + テキスト 0.5k トークン）は 16 GB 上でピーク allocated 13.35 GB、空き 0.53 GB で、budget 0.2 ではメモリ不足になりました。swap 8～36 は速度が同じなので、t2i では swap を大きくしても step 時間は増えず、CPU RAM に移るブロックが増えるだけです。
+
+表の条件: 合成 1024² 画像 + テキスト 300 トークン（合計約 4.4k トークン）、LoRA ランク 16、RTX 5070 Ti。以前のデフォルト（ランク 32、budget 0.1、swap 12）は約 4.5k トークン（画像 4096 + テキスト 455）で 1.85 s/step、空き約 1.7 GB、ピーク reserved 約 13.1 GB。ランク 16、budget 0.1 では 1.82 s/step、空き約 2.0 GB でした。実際のサンプルは最大約 4.9k トークンで、キャプションが長いほどメモリを使いますが、`swap 24` なら同じ速度でその分の余裕が残ります。
 
 - swap 8 から 36 の間は速度がほとんど変わらず（1.75–1.84 s/step）、budget 0.1–0.3 も速度にほぼ影響しません。swap 40 では PCIe 転送が計算の裏に隠れきれず遅くなります（2.34 s/step）。それより下では、swap 数は速度ではなく VRAM を決める値です。
 - 最適な組み合わせは PCIe リンクと GPU によって変わります。`scripts/moss/tune_swap.py`（CLI、[付録](#付録-cli)、約 4 分）がキャッシュ内の最大サンプルで swap 数ごとの速度を測り、学習に使う項目の値を表示します。
