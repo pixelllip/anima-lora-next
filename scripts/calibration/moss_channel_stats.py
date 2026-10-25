@@ -22,8 +22,8 @@ Per (block, target):
 
 Writes ``channel_stats.safetensors`` (``mean|x|`` per target, keyed
 ``layers.N.proj.{q,k,v,o,ffn_up_gate,ffn_down}``), ``channel_mean.safetensors`` (the
-signed token mean ``x̄`` per target, same keys: the DC direction ``dc_isolate``
-reads), ``stats.npz``, ``dominance.png`` and
+signed token mean ``x̄`` per target, same keys: the DC direction ``down_init
+weight_svd_nodc`` reads; ``svd_drop_loud`` reads ``mean|x|``), ``stats.npz``, ``dominance.png`` and
 ``result.json``.
 """
 
@@ -180,7 +180,12 @@ def main() -> None:
     if attached is not None:
         attached.detach()
 
-    run_dir = make_run_dir("moss_channel_stats", args.label, root=Path(__file__).resolve().parents[2] / "output/calibration/moss_channel_stats")
+    run_dir = make_run_dir(
+        "moss_channel_stats",
+        args.label,
+        root=Path(__file__).resolve().parents[2]
+        / "output/calibration/moss_channel_stats",
+    )
     dump, dump_mean, dom, lev, p2m = {}, {}, {}, {}, {}
     arrays = {}
     massive_rows = {}

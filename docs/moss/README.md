@@ -63,12 +63,11 @@ int8 became the default re-encodes on the next `cache` run unless it passes
 
 - **Defaults**: `--rank 32`, alpha 128 for `lora` (scale 4; `lokr` / `loha` use
   alpha = rank), `--optimizer muon`, `--lr 5e-5`, `--down_init kaiming`,
-  `--channel_scaling_alpha 0` (`--dc_isolate` off; both were AdamW fixes, and `lokr` /
-  `loha` still train with AdamW). Why kaiming and no channel scaling under Muon:
-  `docs/moss/findings/muon_channel_init.md`, `muon_no_channel_scaling.md`. With AdamW use
-  `--channel_scaling_alpha 0.5`: on caststation (20 epochs) it stayed clean and on-prompt
-  at the style strength of lr 1e-4, where a plain LoRA at lr 1e-4 added things the prompt
-  never asked for. Mechanism and the lr / alpha history: `docs/moss/channel_scaling.md`.
+  no channel scaling. Why kaiming and no channel scaling under Muon:
+  `docs/moss/findings/muon_channel_init.md`, `muon_no_channel_scaling.md`. Channel scaling
+  and `dc_isolate`, the AdamW-era fixes for the loud FFN input channel, were removed once
+  Muon made them no-ops; mechanism and the lr / alpha history:
+  `docs/moss/channel_scaling.md`.
 - **Time**: 30 images × 20 epochs (600 steps) takes about 18–21 min on a 5070 Ti. The
   LoRA moves line work and palette toward the set; character identity holds, including
   characters the set does not contain.
@@ -93,7 +92,7 @@ int8 became the default re-encodes on the next `cache` run unless it passes
   `[k·r, (k+1)·r)` and `--svd_slice_count N` interleaves `{k, k+N, …}`, as in Anima's
   `svd_slice` (`docs/methods/svd-down-lora.md`), so LoRAs on different slices start in
   orthogonal input subspaces. MOSS's targets are all ≥ 3072 wide, so rank 32 fits 96
-  slices. Under `--dc_isolate` row 0 is the same DC direction in every slice.
+  slices.
 - **LyCORIS** (`--algo lokr` / `--algo loha`, from `lycoris-lora`): LoKr is the
   Kronecker product (`--factor` caps the small factor; a `--rank` at or above half the
   larger factor's side makes `w2` full and the scale 1, hence `--rank 100000 --factor 8`),
@@ -179,7 +178,7 @@ REPA, parked, `_archive/moss_lora/repa.md`); `--ref_timestep` / `--ref_isolate` 
 
 ## More
 
-- Channel scaling and `--dc_isolate`: `docs/moss/channel_scaling.md`. DAVE: `docs/moss/dave.md`.
+- Channel scaling and `dc_isolate` (removed): `docs/moss/channel_scaling.md`. DAVE: `docs/moss/dave.md`.
 - Findings (attention sink, vision-tower reference, σ staircase, Spectrum schedule):
   `docs/moss/findings/`.
 - i2i design + probes: `project/moss_lora/done/i2i.md`. The Anima-negatives sweep is archived (`_archive/proposals/moss_anima_negatives_revisit.md`).

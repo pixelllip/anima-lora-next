@@ -66,6 +66,6 @@ GPU scripts, run through the daemon (`make daemon-run ARGS="scripts/calibration/
 | Script | Produces |
 |---|---|
 | `moss_cns_calibrate.py` | `networks/calibration/moss_cns_gamma*.npz` (CNS γ per variant × cfg) |
-| `moss_channel_stats.py` | `channel_stats.safetensors` + `channel_mean.safetensors` in its run dir; copy into `library/moss/calibration/` (channel scaling, `dc_isolate`) |
+| `moss_channel_stats.py` | `channel_stats.safetensors` + `channel_mean.safetensors` in its run dir; copy into `library/moss/calibration/` (`svd_drop_loud`, `down_init weight_svd_nodc`) |
 | `moss_dc_probe.py` | `channels.npz` (per-block channel ranking), the input of the next row |
 | `moss_massive_channels.py` | `library/moss/calibration/massive_channels.npz` (CPU; `--probe <run>/channels.npz`) |

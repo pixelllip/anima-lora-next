@@ -5,11 +5,11 @@ than every other channel at the FFN input, and AdamW turns it into a bias knob t
 reaches for first. Channel scaling rebalances the optimizer's step per input channel. The
 forward output is unchanged and the saved file is a plain LoRA.
 
-**Off by default** (`channel_scaling_alpha = 0`) since the default recipe moved to Muon
-with a kaiming `down` init: under that pair the trained LoRA is the same with or without
-it (§ Under Muon). Use `--channel_scaling_alpha 0.5` with `--optimizer adamw`, the setting
-it was built for. GUI: Train step → `channel_scaling_alpha`. `lora` only; the trainer skips
-it for `lokr` / `loha`.
+**Removed 2026-10-25**, together with `dc_isolate` (§ The `up` gradient). Under the Muon
+default with a kaiming `down` init the trained LoRA is the same with or without channel
+scaling (§ Under Muon), and Muon does `dc_isolate`'s job on its own. The last commit with
+the code is `f21bc206`. This page keeps the mechanism and the measurements; the
+calibration files stay for `down_init weight_svd_nodc` and `svd_drop_loud`.
 
 | α | effect on the loudest channel's step |
 |---|---|
@@ -146,8 +146,10 @@ Two files under `library/moss/calibration/`, both from
 σ {0.1, 0.3, 0.5, 0.7, 0.9}, the training forward), keyed
 `layers.N.proj.{q,k,v,o,ffn_up_gate,ffn_down}` (k / v share q's input):
 
-- `channel_stats.safetensors` (3.9 MB): `mean|x|` per channel, for `channel_scaling_alpha`.
-- `channel_mean.safetensors`: the signed token mean `x̄`, for `dc_isolate`.
+- `channel_stats.safetensors` (3.9 MB): `mean|x|` per channel; read by `svd_drop_loud`
+  (it was `channel_scaling_alpha`'s input).
+- `channel_mean.safetensors`: the signed token mean `x̄`; read by `down_init
+  weight_svd_nodc` (it was `dc_isolate`'s input).
 
 ```bash
 make daemon-run ARGS="scripts/calibration/moss_channel_stats.py --label <name>"
@@ -162,13 +164,8 @@ the σ grid need not match training. Regenerate only if the base DiT changes.
 
 ## Code
 
-- `library/lines/adapters.py`: `absorb_channel_scale`, `down_weight`, `channel_scale`,
-  `isolate_dc`, `reproject_dc`, `load_channel_stats`;
-  `LoRANetwork(channel_stats=, channel_scaling_alpha=, channel_mean=, dc_isolate=)`.
-- `library/moss/requests.py`: `TrainRequest.channel_scaling_alpha` / `channel_stats` /
-  `dc_isolate` / `channel_mean`.
-- `scripts/calibration/moss_channel_stats.py`: the calibration probe (both files).
-- `_archive/bench/moss_channel_stats/probe_up_gradient.py`: the `up`-gradient decomposition
-  (`--dc_isolate` to measure the isolated init).
-- `tests/test_moss_lora.py`: output equality, gradient `= g · s⁻¹`, plain-LoRA round
-  trip; the `dc_isolate` orthogonality / re-projection / round-trip test.
+Removed; see `f21bc206` for `absorb_channel_scale`, `isolate_dc`, `reproject_dc` in
+`library/lines/adapters.py` and their tests in `tests/test_moss_lora.py`. Still live:
+`scripts/calibration/moss_channel_stats.py` (both files) and
+`_archive/bench/moss_channel_stats/probe_up_gradient.py` (the `up`-gradient
+decomposition).

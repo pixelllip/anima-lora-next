@@ -105,17 +105,6 @@ FIELDS: dict[str, tuple[str, str]] = {
         "오른쪽 특이벡터 / √3으로 초기화(Anima의 SVD-Down); weight_svd_nodc = 같은 SVD "
         "기저에서 보정된 입력 DC 방향(channel_mean)을 뺀 것, 초기 down · x̄ = 0",
     ),
-    "channel_scaling_alpha": (
-        "채널 스케일링 α",
-        "lora 전용: 입력 채널별 AdamW 스텝을 mean|x[c]|^α로 재조정(Anima의 channel scaling). "
-        "출력은 같고 일반 LoRA로 저장됩니다. 0 = 끔, 0.5 = Anima 기본값",
-    ),
-    "dc_isolate": (
-        "DC 분리",
-        "lora 전용: 보정된 입력 DC 방향(타깃별 토큰 평균 x̄)을 down의 한 행에 넣고 나머지 "
-        "행은 그것과 직교하게 유지해, up의 한 열만 토큰과 무관한 바이어스를 배우게 합니다. "
-        "초기 출력은 같고 일반 LoRA로 저장됩니다. AdamW용 장치라 기본으로 꺼짐(Muon 기본값)",
-    ),
     "lr": ("학습률", "학습률 (Muon 기본, lokr / loha는 AdamW)"),
     "warmup_ratio": ("워밍업 비율", "선형 워밍업이 전체 스텝에서 차지하는 비율"),
     "grad_accum": (

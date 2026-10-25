@@ -427,9 +427,8 @@ class TrainRequest(Request):
         "lora + down_init weight_svd[_nodc] only: seed down from the base weight's right singular "
         "vectors [k·r, (k+1)·r) instead of the top-r. Slices of one basis are "
         "mutually orthogonal, so LoRAs trained on different slices own disjoint "
-        "input subspaces (Anima's svd_slice, docs/methods/svd-down-lora.md); under "
-        "dc_isolate every slice shares row 0, the DC direction. Stamped as "
-        "ss_svd_slice. 0 = the top-r",
+        "input subspaces (Anima's svd_slice, docs/methods/svd-down-lora.md). "
+        "Stamped as ss_svd_slice. 0 = the top-r",
         advanced=True,
     )
     svd_slice_count: int = _f(
@@ -449,51 +448,28 @@ class TrainRequest(Request):
         "(docs/proposal/moss_lora_dcfree_svd_init.md). Stamped as svd_drop_loud",
         advanced=True,
     )
-    channel_scaling_alpha: float = _f(
-        0.0,
-        "lora only (lokr / loha ignore it): Anima's channel scaling. Rescales each "
-        "target's input channel c by mean|x[c]|^alpha inside the down projection, so "
-        "Adam's step no longer favours the few high-magnitude channels (on MOSS: ch 42 "
-        "into ffn_up_gate). Same output, plain LoRA on disk. 0 = off, the muon "
-        "default: with a kaiming down init, muon's orthogonalised step leaves ch 42 "
-        "at the init's share with or without scaling (docs/moss/findings/"
-        "muon_no_channel_scaling.md). 0.5 for adamw, whose per-element step is what "
-        "the rescale was built for",
-    )
     channel_stats: str = _f(
         "library/moss/calibration/channel_stats.safetensors",
-        "per-target mean|x| calibration for channel_scaling_alpha (from "
+        "per-target mean|x| calibration for svd_drop_loud (from "
         "scripts/calibration/moss_channel_stats.py on Base)",
         advanced=True,
     )
-    dc_isolate: bool = _f(
-        False,
-        "lora only: put the calibrated input DC direction (token-mean x̄ per target) "
-        "into one rank row of down and keep the other rows orthogonal to it, so only "
-        "one up column learns the token-independent bias and the rest of the up "
-        "gradient is centered. Same output at init, plain LoRA on disk, composes "
-        "with channel scaling. Made for AdamW (pairs with lr 5e-5; at 1e-4 it "
-        "over-fits). Under muon the dedicated row doubles the output DC shift, so "
-        "it is off by default (docs/moss/findings/muon_lora.md)",
-    )
     channel_mean: str = _f(
         "library/moss/calibration/channel_mean.safetensors",
-        "per-target signed token-mean x̄ for dc_isolate and down_init "
-        "weight_svd_nodc (from "
+        "per-target signed token-mean x̄ for down_init weight_svd_nodc (from "
         "scripts/calibration/moss_channel_stats.py on Base)",
         advanced=True,
     )
     lr: float = _f(
         5e-5,
-        "learning rate (5e-5 for rank 32 / alpha 128 with channel scaling, under "
-        "muon or AdamW + dc_isolate; AdamW at 1e-4 over-fits with dc_isolate)",
+        "learning rate (5e-5 for rank 32 / alpha 128 under muon)",
     )
     optimizer: str = _f(
         "muon",
         "muon: Newton–Schulz-orthogonalised updates on the adapter matrices "
         "(Moonlight lr scaling 0.2·sqrt(max(m, n)), so AdamW's lr carries over; "
         "MOSS was pretrained with Muon–AdamW; needs 2D adapter weights, so "
-        "lokr / loha take adamw). adamw: the earlier default, best with dc_isolate",
+        "lokr / loha take adamw). adamw: the earlier default",
         choices=("adamw", "muon"),
         advanced=True,
     )

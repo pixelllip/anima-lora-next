@@ -93,17 +93,6 @@ FIELDS: dict[str, tuple[str, str]] = {
         "仅 lora：kaiming = 默认随机初始化；weight_svd = 用基础权重前 r 个右奇异向量 / √3 初始化（Anima 的 SVD-Down）；"
         "weight_svd_nodc = 同一 SVD 基底去掉校准的输入 DC 方向（channel_mean），初始 down · x̄ = 0",
     ),
-    "channel_scaling_alpha": (
-        "通道缩放 α",
-        "仅 lora：按 mean|x[c]|^α 重新平衡各输入通道的 AdamW 步长（Anima 的 channel scaling）；"
-        "输出不变，保存为普通 LoRA。0 = 关闭，0.5 = Anima 默认",
-    ),
-    "dc_isolate": (
-        "DC 隔离",
-        "仅 lora：把校准得到的输入直流方向（各目标的 token 均值 x̄）放进 down 的一行，"
-        "其余行保持与它正交，使只有一列 up 学习与 token 无关的偏置。初始输出不变，"
-        "保存为普通 LoRA。为 AdamW 设计，默认关闭（默认使用 Muon）",
-    ),
     "lr": ("学习率", "学习率（默认 Muon，lokr / loha 用 AdamW）"),
     "warmup_ratio": ("预热比例", "线性预热占总步数的比例"),
     "grad_accum": (

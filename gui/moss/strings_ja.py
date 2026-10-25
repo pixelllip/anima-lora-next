@@ -108,19 +108,6 @@ FIELDS: dict[str, tuple[str, str]] = {
         "右特異ベクトル / √3 で初期化（Anima の SVD-Down）。weight_svd_nodc = 同じ SVD "
         "基底から較正済みの入力 DC 方向（channel_mean）を除いたもの、初期 down · x̄ = 0",
     ),
-    "channel_scaling_alpha": (
-        "チャネルスケーリング α",
-        "lora のみ: 入力チャネルごとの AdamW のステップを mean|x[c]|^α で再調整"
-        "（Anima の channel scaling）。出力は同じで、通常の LoRA として保存されます。"
-        "0 = オフ、0.5 = Anima の既定",
-    ),
-    "dc_isolate": (
-        "DC 分離",
-        "lora のみ: 較正した入力 DC 方向（ターゲットごとのトークン平均 x̄）を down の1行に"
-        "入れ、残りの行をそれと直交させて、up の1列だけがトークンに依存しないバイアスを"
-        "学習するようにします。初期出力は同じで、通常の LoRA として保存されます。"
-        "AdamW 向けの仕組みなので既定でオフ（既定は Muon）",
-    ),
     "lr": ("学習率", "学習率（既定は Muon、lokr / loha は AdamW）"),
     "warmup_ratio": (
         "ウォームアップ比率",

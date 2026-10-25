@@ -477,11 +477,6 @@ def train(
     transformer.requires_grad_(False)
     transformer.ref_timestep = req.ref_timestep if req.ref_timestep >= 0 else None
     transformer.ref_isolate = req.ref_isolate
-    channel_alpha = req.channel_scaling_alpha if req.algo == "lora" else 0.0
-    dc_isolate = req.dc_isolate and req.algo == "lora"
-    need_mean = dc_isolate or (
-        req.algo == "lora" and req.down_init == "weight_svd_nodc"
-    )
     network = LoRANetwork(
         transformer,
         rank=req.rank,
@@ -492,13 +487,11 @@ def train(
         algo=req.algo,
         factor=req.factor,
         channel_stats=load_channel_stats(resolve_under_home(req.channel_stats))
-        if channel_alpha > 0 or (req.algo == "lora" and req.svd_drop_loud)
+        if req.algo == "lora" and req.svd_drop_loud
         else None,
-        channel_scaling_alpha=channel_alpha,
         channel_mean=load_channel_stats(resolve_under_home(req.channel_mean))
-        if need_mean
+        if req.algo == "lora" and req.down_init == "weight_svd_nodc"
         else None,
-        dc_isolate=dc_isolate,
         svd_slice=req.svd_slice,
         svd_slice_count=req.svd_slice_count,
         svd_drop_loud=req.svd_drop_loud,
@@ -517,9 +510,7 @@ def train(
             f", {req.svd_drop_loud} loud channel(s) dropped"
             if req.svd_drop_loud
             else ""
-        )
-        + (f", channel scaling α={channel_alpha:g}" if channel_alpha > 0 else "")
-        + (", dc isolate" if dc_isolate else ""),
+        ),
         "lokr": f"factor {req.factor}",
         "loha": "hadamard",
     }[req.algo]
@@ -731,7 +722,6 @@ def train(
                         params, req.max_grad_norm
                     ).item()
                     optimizer.step()
-                    network.reproject_dc()
                     lr_sched.step()
                     optimizer.zero_grad(set_to_none=True)
                 value = loss.item()

@@ -49,7 +49,7 @@ A separate line from Anima (`library/moss/`): LoRA training and sampling for Ope
 | Doc | Description |
 |-----|-------------|
 | [moss/README.md](moss/README.md) | MOSS-Image LoRA (alpha) — setup, GUI, CLI, defaults and what to expect |
-| [moss/channel_scaling.md](moss/channel_scaling.md) | Channel scaling + `dc_isolate` on MOSS, and how the lr / alpha defaults got here |
+| [moss/channel_scaling.md](moss/channel_scaling.md) | Channel scaling + `dc_isolate` on MOSS (removed), and how the lr / alpha defaults got here |
 | [moss/dave.md](moss/dave.md) | DAVE on MOSS — same-prompt seed variety (`--dave auto`), ComfyUI node |
 | [moss/findings/README.md](moss/findings/README.md) | Findings — the chat template as attention sink, the vision tower as zero-shot reference |
 | [../project/moss_lora/done/i2i.md](../project/moss_lora/done/i2i.md) | i2i design + probes — a VAE reference on RoPE's `r` axis (shipped: [moss/i2i.md](moss/i2i.md)) |

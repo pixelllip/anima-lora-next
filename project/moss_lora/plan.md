@@ -85,7 +85,7 @@ seed 1, ER-SDE + Spectrum, 30 steps, CFG 3, against v2's eval (10000 steps):
 
 ## Done (shipped or settled)
 
-`done/`: `channel_scaling.md` (shipped, on by default), `dave.md` (shipped),
+`done/`: `channel_scaling.md` (shipped, removed 2026-10-25 with `dc_isolate` once Muon made both no-ops), `dave.md` (shipped),
 `sampler.md` (ER-SDE default; CNS bench-only), `soup.md` (3-seed soup keeps the style),
 `i2i.md` (the i2i design + probes; shipped as `docs/moss/i2i.md`).
 Archived: REPA (parked), caption dropout, template mask → `_archive/moss_lora/`; the latent HF

@@ -187,7 +187,7 @@ Defaults come from the reference pipeline (`requests.py`: `DEFAULT_STEPS` 50, `D
 
 `library/moss/lora.py` binds the shared `library.lines.adapters` (LoRA / LoKr / LoHa) to `layers.N.proj.{q,k,v,o,ffn_up_gate,ffn_down}` — 252 linears. The fused `ffn_up_gate` gets one adapter over its full 16384-wide output, so the hidden and gate halves share the rank. `networks/` is bound to Anima module names and does not apply.
 
-Adapters are held **outside** the blocks: the block swapper moves every `.weight` under a block between CPU and GPU, and an adapter registered inside would move with it. Shipped defaults (`configs/moss/lora.toml`): rank 32, alpha 128, Muon at lr 5e-5, kaiming `down` init, input-channel scaling α 0.75 — the reasoning is in [`moss/channel_scaling.md`](../moss/channel_scaling.md) and [`moss/findings/muon_channel_init.md`](../moss/findings/muon_channel_init.md).
+Adapters are held **outside** the blocks: the block swapper moves every `.weight` under a block between CPU and GPU, and an adapter registered inside would move with it. Shipped defaults (`configs/moss/lora.toml`): rank 32, alpha 128, Muon at lr 5e-5, kaiming `down` init — the reasoning is in [`moss/findings/muon_channel_init.md`](../moss/findings/muon_channel_init.md) and [`moss/findings/muon_no_channel_scaling.md`](../moss/findings/muon_no_channel_scaling.md); channel scaling and `dc_isolate` were removed ([`moss/channel_scaling.md`](../moss/channel_scaling.md)).
 
 ---
 

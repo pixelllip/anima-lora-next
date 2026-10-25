@@ -71,7 +71,7 @@ class _Corrector(CorrectorLoRA):
 def _lora_detached(adapter, x, base_out):
     """``LoRAAdapter.forward`` with its weights cut from the graph."""
     work = base_out.dtype
-    lx = F.linear(x.to(work), adapter.down_weight().detach().to(work))
+    lx = F.linear(x.to(work), adapter.down.weight.detach().to(work))
     delta = F.linear(lx, adapter.up.weight.detach().to(work))
     return base_out + delta * (adapter.scale * adapter.multiplier)
 
@@ -90,7 +90,7 @@ def _joint_forward(module, d, c):
 
 class _Joint(_Corrector):
     """C with a trainable D inside it (``self.denoiser``), so the trainer's one
-    optimizer, clip and ``reproject_dc`` cover both."""
+    optimizer and clip cover both."""
 
     def __init__(self, model, *args, **kwargs):
         if kwargs.get("algo", "lora") != "lora":
@@ -107,11 +107,6 @@ class _Joint(_Corrector):
             )
         self._applied = self.denoiser._applied = True
         return len(self._targets)
-
-    @torch.no_grad()
-    def reproject_dc(self) -> None:
-        super().reproject_dc()
-        self.denoiser.reproject_dc()
 
     def save(self, path, dtype: str = "bf16", **extra_meta) -> None:
         d = self._modules.pop("denoiser")
