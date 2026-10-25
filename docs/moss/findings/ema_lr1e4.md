@@ -6,8 +6,10 @@ its "Muon at lr 1e-4" item. Runs: `output/ckpt_moss/caststation_ema097{,_lr1e4}`
 and `…/caststation_ema097{,_lr1e4}/…_raw.safetensors` (the live weights of the same run);
 grids: `output/tests/ab_caststation_ema097{,_raw,_lr1e4,_lr1e4_raw}_50st`.
 
-New default: **`ema_decay` 0.97** (t2i). lr stays 5e-5; the i2i configs pin
-`ema_decay = 0`.
+New default: **`ema_decay` 0.97** (t2i). lr stays 5e-5. Since replaced by `ema_window`, the
+span as a fraction of the run's updates, default 0.1 for t2i and i2i (0.958 here; 0.14 would
+be this 0.97). The i2i point measured so far is 0.97 at 600 updates (span 0.055; sanitize
+`tone_w0002_ema`, where the EMA edited cleaner than the raw weights of the same run).
 
 ## Setting
 

@@ -63,8 +63,9 @@ int8 became the default re-encodes on the next `cache` run unless it passes
 
 - **Defaults**: `--rank 32`, alpha 128 for `lora` (scale 4; `lokr` / `loha` use
   alpha = rank), `--optimizer muon`, `--lr 5e-5`, `--down_init kaiming`,
-  no channel scaling, `--ema_decay 0.97` (the saved file is the EMA; the raw weights
-  land in `<name>/<name>_raw`; `docs/moss/findings/ema_lr1e4.md`). Why kaiming and no channel scaling under Muon:
+  no channel scaling, `--ema_window 0.1` (an EMA over 10 % of the updates, t2i and i2i;
+  the saved file is the EMA, the raw weights land in
+  `<name>/<name>_raw`, `--ema_extra` adds more spans; `docs/moss/findings/ema_lr1e4.md`). Why kaiming and no channel scaling under Muon:
   `docs/moss/findings/muon_channel_init.md`, `muon_no_channel_scaling.md`. Channel scaling
   and `dc_isolate`, the AdamW-era fixes for the loud FFN input channel, were removed once
   Muon made them no-ops; mechanism and the lr / alpha history:

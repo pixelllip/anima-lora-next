@@ -300,16 +300,24 @@ def training_loss(
     return loss + tone["weight"] * term if tone["weight"] else loss
 
 
-def ema_step(shadow: list, staging: list, params: list, decay: float) -> None:
-    """Copy ``params`` into the pinned CPU ``staging`` buffers and lerp the fp32
-    ``shadow`` toward them; the first call (``shadow`` empty) seeds it."""
+def ema_decay(span: float, updates: int) -> float:
+    """Decay whose EMA averages ``span`` of the run's ``updates`` (1/(1 - decay))."""
+    return 1.0 - 1.0 / max(1.0, span * updates)
+
+
+def ema_step(
+    shadows: list[list], staging: list, params: list, decays: list[float]
+) -> None:
+    """Copy ``params`` into the pinned CPU ``staging`` buffers once and lerp each
+    fp32 shadow toward them at its decay; a shadow's first call (empty) seeds it."""
     with torch.no_grad():
         for buf, p in zip(staging, params):
             buf.copy_(p)
-        if shadow:
-            torch._foreach_lerp_(shadow, staging, 1.0 - decay)
-        else:
-            shadow.extend(buf.clone() for buf in staging)
+        for shadow, decay in zip(shadows, decays):
+            if shadow:
+                torch._foreach_lerp_(shadow, staging, 1.0 - decay)
+            else:
+                shadow.extend(buf.clone() for buf in staging)
 
 
 def checkpoint_blocks(blocks) -> None:
@@ -698,16 +706,29 @@ def train(
         + f"warmup {warmup}",
         flush=True,
     )
-    if not 0.0 <= req.ema_decay < 1.0:
-        raise SystemExit(f"ema_decay must be in [0, 1), got {req.ema_decay}")
-    shadow, staging, n_updates = [], [], 0
-    if req.ema_decay:
+    try:
+        extra = [float(x) for x in req.ema_extra.split(",") if x.strip()]
+    except ValueError:
+        raise SystemExit(
+            f"ema_extra must be comma-separated floats: {req.ema_extra!r}"
+        ) from None
+    spans = ([req.ema_window] if req.ema_window else []) + extra
+    if not all(0.0 < s <= 1.0 for s in spans):
+        raise SystemExit(f"EMA spans must be in (0, 1], got {spans}")
+    decays = [ema_decay(s, updates) for s in spans]
+    shadows = [[] for _ in spans]
+    main_shadow = shadows[0] if req.ema_window else None
+    staging, n_updates = [], 0
+    if spans:
         staging = [
             torch.empty(p.shape, dtype=torch.float32, pin_memory=True) for p in params
         ]
         print(
-            f"EMA {req.ema_decay:g} from update {warmup} "
-            f"(~{1 / (1 - req.ema_decay):.0f} updates), CPU shadow",
+            f"EMA from update {warmup}, CPU shadow: "
+            + ", ".join(
+                f"span {s:g} = decay {d:.4f} (~{1 / (1 - d):.0f} updates)"
+                for s, d in zip(spans, decays)
+            ),
             flush=True,
         )
 
@@ -751,24 +772,31 @@ def train(
             tone_dirs=req.tone_dirs or "raw",
         )
 
-    def save(tag: str | None = None, raw: bool = False) -> Path:
+    def save(tag: str | None = None, shadow: list | None = None) -> Path:
         """The final file at ``out_path``; an epoch save under ``<dir>/<stem>/``.
-        Once the EMA has started it is saved in place of the live weights
-        (unless ``raw``), swapped in through the staging buffers."""
+        A started EMA ``shadow`` is saved in place of the live weights, swapped in
+        through the staging buffers."""
         if tag is None:
             path = out_path
         else:
             folder = out_path.parent / out_path.stem
             folder.mkdir(parents=True, exist_ok=True)
             path = folder / f"{out_path.stem}_{tag}{out_path.suffix}"
-        if not shadow or raw:
+        if not shadow:
             network.save(path, req.lora_dtype, **meta)
             return path
+        k = next(i for i, s in enumerate(shadows) if s is shadow)
         with torch.no_grad():
             for buf, s, p in zip(staging, shadow, params):
                 buf.copy_(p)
                 p.copy_(s)
-            network.save(path, req.lora_dtype, **meta, ema_decay=req.ema_decay)
+            network.save(
+                path,
+                req.lora_dtype,
+                **meta,
+                ema_window=spans[k],
+                ema_decay=round(decays[k], 6),
+            )
             for buf, p in zip(staging, params):
                 p.copy_(buf)
         return path
@@ -866,8 +894,8 @@ def train(
                     lr_sched.step()
                     optimizer.zero_grad(set_to_none=True)
                     n_updates += 1
-                    if req.ema_decay and n_updates >= warmup:
-                        ema_step(shadow, staging, params, req.ema_decay)
+                    if shadows and n_updates >= warmup:
+                        ema_step(shadows, staging, params, decays)
                 value = loss.item()
                 sink.log(
                     {
@@ -943,14 +971,19 @@ def train(
                 and (epoch + 1) % req.save_every_epochs == 0
                 and epoch + 1 < epochs
             ):
-                saved = save(f"e{epoch + 1}")
+                saved = save(f"e{epoch + 1}", main_shadow)
                 sink.ckpt(global_step=step, path=str(saved))
                 print(f"  saved {saved}", flush=True)
 
-        final = save()
+        final = save(shadow=main_shadow)
         sink.ckpt(global_step=step, path=str(final))
-        if shadow:
-            print(f"  saved raw weights {save('raw', raw=True)}", flush=True)
+        if any(shadows):
+            print(f"  saved raw weights {save('raw')}", flush=True)
+        for span, shadow in zip(spans, shadows):
+            if shadow is not main_shadow and shadow:
+                print(
+                    f"  saved EMA {span:g} {save(f'ema{span:g}', shadow)}", flush=True
+                )
         seconds = time.time() - t_start
         summary = {
             "output": str(final),

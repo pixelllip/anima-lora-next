@@ -620,12 +620,20 @@ class TrainRequest(Request):
         0.01, "mixture weight of discrete-uniform sigma", advanced=True
     )
     max_grad_norm: float = _f(1.0, "gradient clip", advanced=True)
-    ema_decay: float = _f(
-        0.97,
-        "EMA of the adapter weights per optimizer update, started at the end of "
-        "warmup (fp32 shadow on the CPU, ~0.3 GB at r32). Saves write the EMA; the "
-        "final raw weights go to <output dir>/<name>/<name>_raw. 0 = off "
-        "(docs/moss/findings/ema_lr1e4.md)",
+    ema_window: float = _f(
+        0.1,
+        "EMA of the adapter weights, its span as a fraction of the run's optimizer "
+        "updates: decay 1 - 1/(ema_window x updates), so 0.1 is 0.958 at 240 "
+        "updates and 0.983 at 600. Starts at the end of warmup (fp32 shadow on the CPU, ~0.3 GB at "
+        "r32). Saves write the EMA; the final raw weights go to "
+        "<output dir>/<name>/<name>_raw. 0 = off (docs/moss/findings/ema_lr1e4.md)",
+        advanced=True,
+    )
+    ema_extra: str = _f(
+        "",
+        "more EMA spans tracked beside ema_window, comma-separated fractions "
+        "(e.g. 0.05,0.3); each final EMA goes to <output dir>/<name>/<name>_ema<span>. "
+        "One more CPU shadow and lerp per update each",
         advanced=True,
     )
     grad_checkpointing: bool = _f(

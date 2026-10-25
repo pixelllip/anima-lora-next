@@ -7,6 +7,7 @@ import torch
 from library.moss.train import (
     choose_embeds,
     edit_region,
+    ema_decay,
     ema_step,
     region_mse,
     tone_loss,
@@ -153,9 +154,17 @@ def test_tone_loss_skips_cells_under_half_coverage():
 
 def test_ema_step_seeds_then_lerps():
     p = torch.full((2, 3), 1.0)
-    shadow, staging = [], [torch.empty(2, 3)]
-    ema_step(shadow, staging, [p], 0.9)
-    assert torch.equal(shadow[0], p) and shadow[0] is not staging[0]
+    shadows, staging = [[], []], [torch.empty(2, 3)]
+    ema_step(shadows, staging, [p], [0.9, 0.5])
+    for shadow in shadows:
+        assert torch.equal(shadow[0], p) and shadow[0] is not staging[0]
     p.fill_(2.0)
-    ema_step(shadow, staging, [p], 0.9)
-    torch.testing.assert_close(shadow[0], torch.full((2, 3), 1.1))
+    ema_step(shadows, staging, [p], [0.9, 0.5])
+    torch.testing.assert_close(shadows[0][0], torch.full((2, 3), 1.1))
+    torch.testing.assert_close(shadows[1][0], torch.full((2, 3), 1.5))
+
+
+def test_ema_decay_from_span():
+    assert abs(ema_decay(0.14, 240) - 0.97) < 1e-3
+    assert abs(ema_decay(0.055, 600) - 0.97) < 1e-3
+    assert ema_decay(0.1, 5) == 0.0  # a span under one update is no average

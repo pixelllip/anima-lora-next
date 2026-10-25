@@ -1,7 +1,9 @@
 # MOSS i2i: a tone term on the unedited tokens
 
-Status: implemented (`tone_weight`, off by default), one arm trained; it overshoots.
-Results in [Results so far](#results-so-far-2026-10-25).
+Status: implemented (`tone_weight`, off by default), two arms trained; neither passes the
+gates. Per-checkpoint tone noise (~1 L) is as large as the gates, and most of the
+brightening rides on the adapter's DC bias, which also carries part of "copy the
+reference". Results in [Results so far](#results-so-far-2026-10-25).
 
 The sanitize LoRA `moss_i2i_sanitize_wm` (e6) brightens, cools and slightly desaturates
 the whole page, including far from any text it removes. The training pairs do not teach
@@ -170,8 +172,54 @@ latent response to a Lab shift).
   there is no per-checkpoint noise for weight EMA to remove; EMA would act like stopping
   earlier.
 
-Next candidates, not run: a lower `tone_weight` (~0.002), or push only the running bias
-(a stop-grad EMA of the cell tone error, `2·b̄·c`) so the push stops at zero.
+- **Arm `tone_weight 0.002` + adapter EMA 0.97** (same cs0 recipe, seed 0;
+  `moss_i2i_sanitize_tone_w0002_ema`, the raw weights of the same run in
+  `…/moss_i2i_sanitize_tone_w0002_ema_raw`). Renders as above, mean over the five pages:
+
+  | run | ΔL | Δb | sat× | max \|ΔL\| |
+  |---|---|---|---|---|
+  | 200p | −0.07 | −0.02 | 0.99 | 0.33 |
+  | cs0 | +1.37 | −0.64 | 0.93 | 1.74 |
+  | w0005 | −0.75 | +0.45 | 1.03 | 1.42 |
+  | w0002 raw | −0.36 | −0.96 | 1.08 | 1.41 |
+  | w0002 EMA | +0.55 | −0.69 | 1.02 | 1.10 |
+
+  Only 200p passes. w0002 raw splits in sign across pages (hard_to_sanitize1 −1.41,
+  hard_to_sanitize2 +0.51), is bluer than the control and raises saturation (h1 1.21).
+- **Checkpoint noise is gate-sized.** EMA vs raw of the same run (~33 updates apart in
+  weights, ‖b‖ 14 % apart) differ by +0.6 to +1.3 L, the same sign on all five pages: one
+  weight perturbation moves every page together, so more eval pages do not average it
+  out. Single-checkpoint arm comparisons (cs0 / w0005 / w0002) do not resolve at this
+  size. Not yet split: averaging vs the EMA reading an earlier point (no raw checkpoint
+  ~30 updates before the end).
+- **Edit quality by eye** (input, cs0, w0005, w0002 raw, w0002 EMA): w0005 leaves the
+  「無断転載禁止」 watermark on hard_to_sanitize1, both w0002 files remove it. On
+  hard_to_sanitize2 w0002 raw leaves the most red-box remnant and the EMA fills it
+  cleanest. usual_case2's faint watermark needs a full-size look.
+- **lr 5e-5 alone is not the fix:** e6 trained at 5e-5 and drifted most.
+- **The DC bias** (`project/moss_lora/src/dc_bias.py`): per linear, `b = s·up·(down·x̄)`
+  with x̄ the calibrated signed input mean (`calibration/channel_mean.safetensors`), the
+  shift every token gets. Its size is not the cause: Σ‖b‖ is 1130 for 200p (the
+  `dc_isolate` bias row), 1048 for e6, 746 for cs0, 563-639 for the tone arms. Its
+  direction is shared: every Muon run sits at cos 0.55-0.98 to e6 across lr, init and
+  data, 200p at 0.41. The tone term moves b off that direction (cs0 0.73 → 0.55-0.62).
+  All runs used training seed 0, so a shared noise realisation is not excluded.
+- **Ablation:** e6 with x̄ projected out of `down` (`dc_bias.py --ablate`), same renders.
+  On v / o / ffn the mean ΔL goes +1.52 → +0.42 (h1 +1.88 → +0.26, u2 +2.13 → +0.50); Δb
+  stays (|Δb| 0.55 → 0.69) and saturation rises (0.93 → 1.07). Adding q / k is worse
+  (ΔL +1.01, ΔE 2.38). The ablated LoRAs also edit more: they clear red boxes e6 left on
+  hard_to_sanitize2, and with q / k they erase non-text content (the man's body on
+  hard_to_sanitize2, a held object on usual_case1). So the DC bias carries most of the
+  brightening and part of "leave the rest untouched"; projecting it out during training
+  was dropped for that reason.
+
+Next candidates, not run: `tone_weight` with lr 5e-5 (the shipped sanitize lr; halves
+the per-step noise, not the shared DC direction); a control on another training seed
+with several late checkpoints, to measure the per-checkpoint floor and test the shared
+direction; the stop-grad running bias (`2·b̄·c`), which stops pushing at zero.
+
+The i2i configs now train with the adapter EMA (`ema_window` 0.1, the t2i default;
+`docs/moss/findings/ema_lr1e4.md`).
 
 ## Out of scope
 
