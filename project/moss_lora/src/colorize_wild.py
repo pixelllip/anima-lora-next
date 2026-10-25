@@ -12,7 +12,7 @@ named by source path digest and size, the latents by a digest of the LoRA
 matches.
 
     make daemon-run ARGS="project/moss_lora/src/colorize_wild.py \
-        --pages a.png b.webp --loras output/ckpt_moss/x.safetensors output/ckpt_moss/y.safetensors"
+        --pages a.png b.webp --loras output/ckpt_moss_i2i/x.safetensors output/ckpt_moss_i2i/y.safetensors"
 """
 
 import argparse

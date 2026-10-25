@@ -47,7 +47,7 @@ def main() -> None:
     ap.add_argument("--activation_memory_budget", type=float, default=0.15)
     args = ap.parse_args()
     cache = f"post_image_dataset/moss/{args.name}"
-    out = f"output/ckpt_moss/{args.name}.safetensors"
+    out = f"output/ckpt_moss_i2i/{args.name}.safetensors"
 
     if args.ocr_from:
         dst = resolve_under_home(cache) / "ocr.json"

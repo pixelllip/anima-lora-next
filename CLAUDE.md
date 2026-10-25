@@ -77,7 +77,7 @@ Running it:
   ref flags (`ref_timestep` / `ref_isolate` are stamped in the LoRA) and status:
   `docs/moss/i2i.md`.
 - Caches land in `post_image_dataset/moss[/<set>]` (flat, two files per image), LoRAs in
-  `output/ckpt_moss/`.
+  `output/ckpt_moss/` (i2i: `output/ckpt_moss_i2i/`).
 
 Invariants that bite:
 

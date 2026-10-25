@@ -34,7 +34,7 @@ make i2i-stage TASK=<task>                      # pair tree under post_image_dat
 make i2i-preprocess TASK=<task> MODEL=moss      # cache (colorize: scripts/moss/colorize_cache.py; sanitize, swap_text: cache.py)
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --config configs/moss/i2i/<task>/train.toml"
 make daemon-run ARGS="scripts/moss/generate.py --config configs/moss/i2i/<task>/generate.toml \
-    --lora output/ckpt_moss/moss_i2i_<task>.safetensors --ref_image <page or folder>"
+    --lora output/ckpt_moss_i2i/moss_i2i_<task>.safetensors --ref_image <page or folder>"
 ```
 
 `--ref_image` takes one image or a folder (one job per image and prompt). The output keeps
