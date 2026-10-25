@@ -107,11 +107,3 @@ User-facing guides and references.
 Active design docs for unbuilt work — see [proposal/](proposal/) for the live
 list. Closed proposals move to the gitignored `_archive/proposals/` with a
 closure note explaining the verdict.
-
-## Architecture notes
-
-Repo-wide planning docs.
-
-| Doc | Description |
-|-----|-------------|
-| [multi_model_support.md](multi_model_support.md) | Terrain map for adding a second image model (e.g. Z-Image-Base) alongside Anima — exploratory |

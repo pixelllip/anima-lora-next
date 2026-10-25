@@ -217,24 +217,21 @@ A new entry in `networks/lora_modules/` or `networks/methods/`, or a new variant
 
 **Currently not accepted.**
 
-This repo is Anima-specific by design. Adding a second base model is a multi-week project that touches the trainer forward path, every adapter monkey-patch, the cache filename convention, and every `configs/methods/*.toml` LoRA target list. The blocker is `AnimaStep.get_noise_pred_and_target` (`library/anima/trainer/step.py`) and the per-adapter Anima coupling, not the DiT class itself. See [`docs/multi_model_support.md`](docs/multi_model_support.md) for the full terrain map and effort estimate.
+Each base model is a *line* with its own code, caches and configs: Anima (`train.py`, `library/anima/`, `networks/`), MOSS-Image (`library/moss/`) and Qwen-Image-2.1 (`library/qwen21/`). Lines share `library/lines/` (request base, LoRA / LoKr / LoHa adapters) and `library/runtime/` (offloading, block swap, compile). Adding a line is a maintainer decision.
 
 What is in scope:
-- **Improving `docs/multi_model_support.md`** — sharper coupling map, more accurate effort estimates, concrete protocol sketches, a worked example of what a `ModelFamily` port would look like for a specific candidate model. Pure-doc PRs of this kind are welcome.
-- **Decoupling work that has standalone value on Anima** — e.g. parameterizing cache suffixes, lifting the LoRA target regex into a `lora_target_spec()`, moving strategy base classes up. If a refactor makes the Anima code cleaner *and* incidentally reduces the multi-model blocker, propose it as its own PR with the Anima-side justification leading.
+- **Decoupling work that has standalone value on an existing line** — e.g. lifting a duplicated piece into `library/lines/` or `library/runtime/`. Propose it as its own PR with the existing-line justification leading.
 
 What is not in scope:
-- A second `library/models/<family>/` namespace populated for a real second model.
-- A new `forward_for_loss` slot on a hypothetical `ModelFamily` protocol that nothing else uses yet.
-- Caches, configs, or test fixtures for a second model.
+- A new line subpackage, or caches, configs or test fixtures for one.
 
-If you want to fork the repo to support a different base model, that's fine and encouraged — but the upstream stays Anima-only until a maintainer decides otherwise.
+If you want to fork the repo to support a different base model, that's fine and encouraged.
 
 ## PR checklist
 
 Copy this into your PR description and tick what applies:
 
-- [ ] Tier identified (1 / 1.5 / 2 / 3-eligible doc work).
+- [ ] Tier identified (1 / 1.5 / 2 / 3-eligible decoupling work).
 - [ ] `make test-unit` passes locally.
 - [ ] `ruff check` and `ruff format` clean.
 - [ ] (Tier 1.5) Bench script added or extended; before/after numbers in the PR description.
