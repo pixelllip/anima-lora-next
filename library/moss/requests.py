@@ -596,20 +596,21 @@ class TrainRequest(Request):
         "with --blocks_to_swap 0 to keep the whole DiT on the card",
     )
     activation_memory_budget: float = _f(
-        0.15,
+        0.5,
         "cap on the compiled blocks' saved-for-backward set (Inductor's min-cut "
         "partitioner recomputes the rest); applies with --compile and "
-        "--no-grad_checkpointing, ignored otherwise. 0.15 at swap 28 fits "
-        "swap_text's largest i2i sample (4.6k joint tokens) on 16 GB with 0.5 GB "
-        "free, 1.5 %% faster than 0.1; 0.2 OOMs there",
+        "--no-grad_checkpointing, ignored otherwise. 0.5 at swap 36 leaves 0.85 GB "
+        "free on 16 GB at t2i's ~4.6k joint tokens (1.9 vs 2.05 s/step at 0.3; "
+        "speed flat past ~0.45). i2i samples carry reference tokens: the i2i "
+        "configs run 0.15 at swap 28 (0.2 OOMs there)",
         advanced=True,
     )
     blocks_to_swap: int = _f(
-        28,
-        "DiT blocks to swap to CPU (-1 = size from free VRAM). 28 fits budget "
-        "0.15 at rank 32 on 16 GB for i2i samples (target + reference tokens); "
-        "swap 8-36 run at the same speed, past ~40 the PCIe time stops hiding. "
-        "scripts/moss/tune_swap.py measures this machine's pair",
+        36,
+        "DiT blocks to swap to CPU (-1 = size from free VRAM). 36 is the room "
+        "budget 0.5 needs at rank 32 on 16 GB; swap 28-36 run at the same speed, "
+        "past ~40 the PCIe time stops hiding. scripts/moss/tune_swap.py measures "
+        "this machine's pair",
         advanced=True,
     )
     fit_report: bool = _f(
@@ -632,8 +633,8 @@ class TrainRequest(Request):
         True,
         "set PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True before CUDA starts "
         "(an existing setting wins): lengths that vary per step, such as "
-        "colorize's OCR layouts, fragment the allocator's pool without it, and "
-        "budget 0.15 at swap 28 relies on it. --no-expandable_segments to skip",
+        "colorize's OCR layouts, fragment the allocator's pool without it. "
+        "--no-expandable_segments to skip",
         advanced=True,
     )
     log_every: int = _f(10, "full log line every N steps", advanced=True)

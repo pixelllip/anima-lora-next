@@ -6,3 +6,6 @@ cache = "post_image_dataset/moss/i2i_sanitize"
 output = "output/ckpt_moss_i2i/moss_i2i_sanitize.safetensors"
 ref_timestep = 0.0             # the reference is clean
 ref_isolate = true             # ref queries see only ref keys (colorize v3)
+# i2i samples carry reference tokens: the t2i default (swap 36, budget 0.5) OOMs.
+blocks_to_swap = 28
+activation_memory_budget = 0.15

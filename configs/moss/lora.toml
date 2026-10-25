@@ -30,8 +30,8 @@ caption_variant_rate = 0.0     # cache with embeds_v{k} (colorize probe): x (1 -
 lora_dtype = "bf16"            # bf16 | fp16 | fp32
 
 # Memory / speed (16 GB card). scripts/moss/tune_swap.py measures this machine's pair.
-blocks_to_swap = 28
-activation_memory_budget = 0.15
+blocks_to_swap = 36
+activation_memory_budget = 0.5
 compile = true
 expandable_segments = true
 grad_checkpointing = false

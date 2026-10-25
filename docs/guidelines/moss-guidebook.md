@@ -143,7 +143,7 @@ The comparisons ran on 30 images of one artist (`@channel (caststation)`), Base,
 
 ### 4.2 Memory plan (16 GB)
 
-Defaults: `grad_checkpointing` off, `compile` on, and under Advanced `blocks_to_swap 28` (DiT blocks kept on the CPU and streamed in), `activation_memory_budget 0.15` (how much of the forward pass is kept for the backward; the rest is recomputed) and `expandable_segments` on (keeps the CUDA memory pool from fragmenting when sequence lengths vary).
+Defaults: `grad_checkpointing` off, `compile` on, and under Advanced `blocks_to_swap 36` (DiT blocks kept on the CPU and streamed in), `activation_memory_budget 0.5` (how much of the forward pass is kept for the backward; the rest is recomputed) and `expandable_segments` on (keeps the CUDA memory pool from fragmenting when sequence lengths vary).
 
 | Plan | Fields | s/step | Free VRAM |
 |---|---|---|---|
@@ -152,7 +152,7 @@ Defaults: `grad_checkpointing` off, `compile` on, and under Advanced `blocks_to_
 | More room | swap 24, budget 0.2 | 1.78 | 2.26 GiB |
 | Checkpointing | `grad_checkpointing` on, swap 0 | 2.09 | 1.60 GiB |
 
-The current default (swap 28, budget 0.15, `expandable_segments`, rank 32) was set on i2i swap_text, whose samples carry a reference image as well: its largest sample (4.1k image + 0.5k text tokens) peaked at 13.35 GB allocated with 0.53 GB free on 16 GB, and budget 0.2 ran out of memory. Swap 8–36 run at the same speed, so on t2i the larger swap costs nothing in step time; it only moves more blocks to CPU RAM.
+The current default (swap 36, budget 0.5, `expandable_segments`, rank 32) runs 1.9 s/step on the caststation set with 0.85 GB free on its largest sample (4.2k image + 0.4k text tokens). Raising the budget stops helping past ~0.45 (0.3: 2.05 s/step), and swap 28–36 run at the same speed, so a lower swap only gives up free VRAM. i2i samples also carry a reference image, so the i2i task configs use swap 28, budget 0.15: on swap_text's largest sample (4.1k image + 0.5k text tokens) that leaves 0.53 GB free, and budget 0.2 runs out of memory.
 
 Table: synthetic 1024² image + 300 text tokens (~4.4k tokens in all), LoRA rank 16, RTX 5070 Ti. The earlier default (rank 32, budget 0.1, swap 12) measured 1.85 s/step with ~1.7 GB free and a peak reserved of ~13.1 GB at ~4.5k joint tokens (image 4096 + text 455); rank 16 at budget 0.1 measured 1.82 s/step with ~2.0 GB free. Real samples ran up to ~4.9k tokens, and longer captions use more memory, which `swap 24` leaves room for at the same speed.
 

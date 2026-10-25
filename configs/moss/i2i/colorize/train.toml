@@ -14,3 +14,6 @@ caption_variant_rate = 0.3     # of the rest, sparse / bare colour tags under th
 ref_timestep = 0.0             # the reference is clean
 # OCR layouts run to ~2.2k text rows: start on the worst case.
 fit_report = true
+# i2i samples carry reference tokens: the t2i default (swap 36, budget 0.5) OOMs.
+blocks_to_swap = 28
+activation_memory_budget = 0.15

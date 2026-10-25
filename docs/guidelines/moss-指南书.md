@@ -143,7 +143,7 @@ make download-model ARGS=moss-sft
 
 ### 4.2 显存方案（16 GB）
 
-默认：梯度检查点（`grad_checkpointing`）关闭，`compile` 开启，**高级** 中 `blocks_to_swap 28`（放在 CPU 上、用时再传入的 DiT 块数）、`activation_memory_budget 0.15`（前向结果中为反向保留的比例，其余重新计算）以及 `expandable_segments` 开启（序列长度变化时避免 CUDA 显存池碎片化）。
+默认：梯度检查点（`grad_checkpointing`）关闭，`compile` 开启，**高级** 中 `blocks_to_swap 36`（放在 CPU 上、用时再传入的 DiT 块数）、`activation_memory_budget 0.5`（前向结果中为反向保留的比例，其余重新计算）以及 `expandable_segments` 开启（序列长度变化时避免 CUDA 显存池碎片化）。
 
 | 方案 | 字段 | s/step | 剩余显存 |
 |---|---|---|---|
@@ -152,7 +152,7 @@ make download-model ARGS=moss-sft
 | 留更多余量 | swap 24，budget 0.2 | 1.78 | 2.26 GiB |
 | 检查点 | 梯度检查点开启，swap 0 | 2.09 | 1.60 GiB |
 
-当前默认值（swap 28，budget 0.15，`expandable_segments`，秩 32）是在 i2i swap_text 上确定的，其样本还带有参考图：最大样本（图像 4.1k + 文本 0.5k token）在 16 GB 上峰值 allocated 为 13.35 GB，剩余 0.53 GB，budget 0.2 则显存不足。swap 8–36 速度相同，所以在 t2i 上加大 swap 不会增加单步时间，只是把更多块移到 CPU 内存。
+当前默认值（swap 36，budget 0.5，`expandable_segments`，秩 32）在 caststation 数据集上为 1.9 s/step，最大样本（图像 4.2k + 文本 0.4k token）剩余 0.85 GB。budget 超过约 0.45 后再提高也没有帮助（0.3：2.05 s/step），swap 28–36 速度相同，所以调低 swap 只会损失剩余显存。i2i 样本还带有参考图，因此 i2i 任务配置使用 swap 28、budget 0.15：在 swap_text 的最大样本（图像 4.1k + 文本 0.5k token）上剩余 0.53 GB，budget 0.2 则显存不足。
 
 表格测试条件：合成 1024² 图像 + 300 个文本 token（共约 4.4k token），LoRA 秩 16，RTX 5070 Ti。此前的默认值（秩 32，budget 0.1，swap 12）在约 4.5k token（图像 4096 + 文本 455）下实测 1.85 s/step，剩余约 1.7 GB，峰值 reserved 约 13.1 GB；秩 16、budget 0.1 为 1.82 s/step，剩余约 2.0 GB。真实样本最多约 4.9k token，标注越长显存占用越多，`swap 24` 在相同速度下留出了这部分余量。
 

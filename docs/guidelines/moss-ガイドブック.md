@@ -143,7 +143,7 @@ make download-model ARGS=moss-sft
 
 ### 4.2 メモリ構成（16 GB）
 
-デフォルト: `grad_checkpointing` オフ、`compile` オン、**Advanced** の `blocks_to_swap 28`（CPU に置き、必要なときに転送する DiT ブロック数）、`activation_memory_budget 0.15`（forward の結果のうち backward 用に保持する割合。残りは再計算）、`expandable_segments` オン（シーケンス長が変わっても CUDA メモリプールが断片化しないようにする）。
+デフォルト: `grad_checkpointing` オフ、`compile` オン、**Advanced** の `blocks_to_swap 36`（CPU に置き、必要なときに転送する DiT ブロック数）、`activation_memory_budget 0.5`（forward の結果のうち backward 用に保持する割合。残りは再計算）、`expandable_segments` オン（シーケンス長が変わっても CUDA メモリプールが断片化しないようにする）。
 
 | 構成 | 項目 | s/step | 空き VRAM |
 |---|---|---|---|
@@ -152,7 +152,7 @@ make download-model ARGS=moss-sft
 | 余裕あり | swap 24、budget 0.2 | 1.78 | 2.26 GiB |
 | チェックポイント | `grad_checkpointing` オン、swap 0 | 2.09 | 1.60 GiB |
 
-現在のデフォルト（swap 28、budget 0.15、`expandable_segments`、ランク 32）は、参照画像もサンプルに含まれる i2i の swap_text で決めました。最大のサンプル（画像 4.1k + テキスト 0.5k トークン）は 16 GB 上でピーク allocated 13.35 GB、空き 0.53 GB で、budget 0.2 ではメモリ不足になりました。swap 8～36 は速度が同じなので、t2i では swap を大きくしても step 時間は増えず、CPU RAM に移るブロックが増えるだけです。
+現在のデフォルト（swap 36、budget 0.5、`expandable_segments`、ランク 32）は、caststation セットで 1 step あたり 1.9 秒、最大のサンプル（画像 4.2k + テキスト 0.4k トークン）で空き 0.85 GB です。budget は約 0.45 を超えると上げても効果がなく（0.3: 2.05 s/step）、swap 28～36 は速度が同じなので、swap を下げても空き VRAM を手放すだけです。i2i のサンプルは参照画像も含むため、i2i のタスク設定では swap 28、budget 0.15 を使います。swap_text の最大のサンプル（画像 4.1k + テキスト 0.5k トークン）で空きは 0.53 GB で、budget 0.2 ではメモリ不足になります。
 
 表の条件: 合成 1024² 画像 + テキスト 300 トークン（合計約 4.4k トークン）、LoRA ランク 16、RTX 5070 Ti。以前のデフォルト（ランク 32、budget 0.1、swap 12）は約 4.5k トークン（画像 4096 + テキスト 455）で 1.85 s/step、空き約 1.7 GB、ピーク reserved 約 13.1 GB。ランク 16、budget 0.1 では 1.82 s/step、空き約 2.0 GB でした。実際のサンプルは最大約 4.9k トークンで、キャプションが長いほどメモリを使いますが、`swap 24` なら同じ速度でその分の余裕が残ります。
 

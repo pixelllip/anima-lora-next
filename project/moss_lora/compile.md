@@ -194,5 +194,25 @@ range-free default.
 
 P1 + P2 A + P3 committed 2026-10-25 (`721466ab`); P2 as `dynamic=False` + `dynamic_sources`
 on top. Budget 0.15 + `expandable_segments` fits swap_text's largest sample at swap 28 on
-16 GB (0.2 does not); now the TrainRequest default (swap 28, budget 0.15, expandable).
+16 GB (0.2 does not); the i2i train configs pin it. Swap 36 / budget 0.2 (`679482`, stopped at
+step ~13) fits with 0.42 GB free but ran 3.92 s/step at step 10, ~1 % off 0.15's 3.965: not taken. The TrainRequest default is the t2i
+plan below (swap 36, budget 0.5, expandable).
+
+### t2i swap / budget (2026-10-25, caststation layout, 40 steps, `--fit_report`, expandable)
+
+Free = on the largest sample (4189 image + 407 text, token range 4188–4596), step 1.
+
+| swap / budget | job | s/step (steps 10–40) | epoch 1 | peak | free |
+|---|---|---|---|---|---|
+| 28 / 0.3 | `92ab98` | 2.02–2.06 | 74 s | 10.50 GB | 3.53 GB |
+| 28 / 0.4 | `3bf857` | 1.92–2.00 | 64 s | 12.86 GB | 1.30 GB |
+| 28 / 0.45 | `58bbf6` | 1.89–1.92 | 66 s | 13.95 GB | 0.16 GB |
+| 28 / 0.5 | `98fd97` | OOM at step 1 (14.31 GiB allocated of 15.51) | | | |
+| 32 / 0.45 | `010c56` | 1.91–1.95 | 62 s | 13.11 GB | 1.04 GB |
+| 36 / 0.45 | `03c64c` | 1.91–1.96 | 62 s | 12.26 GB | 1.79 GB |
+| **36 / 0.5** | `d6ec8b` | 1.87–1.93 | 61 s | 13.36 GB | 0.85 GB |
+
+The step time flattens at ~1.9 s/step from budget 0.45; swap 28–36 cost nothing. Epoch-1
+loss 0.2578–0.2580 across all arms. The pre-FA2 swap 12 / budget 0.1 run (`7002e8`) was
+1.98–2.03 s/step, epoch 1 98 s.
 Next: P4 (generate's range), P5 (bench + tests).

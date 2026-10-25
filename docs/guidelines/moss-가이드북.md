@@ -143,7 +143,7 @@ make download-model ARGS=moss-sft
 
 ### 4.2 메모리 구성 (16 GB)
 
-기본값: `grad_checkpointing` 끔, `compile` 켬, 그리고 **Advanced** 의 `blocks_to_swap 28` (CPU에 두고 필요할 때 올리는 DiT 블록 수), `activation_memory_budget 0.15` (forward 결과 중 backward용으로 보관하는 비율, 나머지는 재계산), `expandable_segments` 켬 (시퀀스 길이가 달라질 때 CUDA 메모리 풀이 조각나지 않게 함).
+기본값: `grad_checkpointing` 끔, `compile` 켬, 그리고 **Advanced** 의 `blocks_to_swap 36` (CPU에 두고 필요할 때 올리는 DiT 블록 수), `activation_memory_budget 0.5` (forward 결과 중 backward용으로 보관하는 비율, 나머지는 재계산), `expandable_segments` 켬 (시퀀스 길이가 달라질 때 CUDA 메모리 풀이 조각나지 않게 함).
 
 | 구성 | 필드 | s/step | 여유 VRAM |
 |---|---|---|---|
@@ -152,7 +152,7 @@ make download-model ARGS=moss-sft
 | 여유 확보 | swap 24, budget 0.2 | 1.78 | 2.26 GiB |
 | 체크포인팅 | `grad_checkpointing` 켬, swap 0 | 2.09 | 1.60 GiB |
 
-현재 기본값(swap 28, budget 0.15, `expandable_segments`, 랭크 32)은 참조 이미지까지 샘플에 포함되는 i2i swap_text에서 정했습니다. 가장 큰 샘플(이미지 4.1k + 텍스트 0.5k 토큰)은 16 GB에서 allocated 최대 13.35 GB, 여유 0.53 GB였고, budget 0.2에서는 메모리가 부족했습니다. swap 8–36은 속도가 같으므로 t2i에서는 swap을 크게 잡아도 step 시간이 늘지 않고, 더 많은 블록이 CPU RAM으로 옮겨갈 뿐입니다.
+현재 기본값(swap 36, budget 0.5, `expandable_segments`, 랭크 32)은 caststation 세트에서 step당 1.9초이며, 가장 큰 샘플(이미지 4.2k + 텍스트 0.4k 토큰)에서 여유 VRAM이 0.85 GB입니다. budget은 약 0.45를 넘으면 더 올려도 도움이 되지 않고(0.3: 2.05 s/step), swap 28–36은 속도가 같으므로 swap을 낮추면 여유 VRAM만 포기하게 됩니다. i2i 샘플에는 참조 이미지도 포함되므로 i2i 작업 설정은 swap 28, budget 0.15를 사용합니다. swap_text의 가장 큰 샘플(이미지 4.1k + 텍스트 0.5k 토큰)에서 여유가 0.53 GB 남고, budget 0.2에서는 메모리가 부족합니다.
 
 표: 합성 1024² 이미지 + 텍스트 300 토큰(합계 약 4.4k 토큰), LoRA 랭크 16, RTX 5070 Ti 기준입니다. 이전 기본값(랭크 32, budget 0.1, swap 12)은 약 4.5k 토큰(이미지 4096 + 텍스트 455)에서 1.85 s/step, 여유 약 1.7 GB, 최대 reserved 약 13.1 GB였고, 랭크 16에 budget 0.1은 1.82 s/step, 여유 약 2.0 GB였습니다. 실제 샘플은 최대 약 4.9k 토큰까지 나왔고, 캡션이 길수록 메모리를 더 쓰는데, `swap 24` 는 같은 속도로 그만큼의 여유를 남깁니다.
 
