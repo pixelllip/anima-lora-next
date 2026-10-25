@@ -155,7 +155,7 @@ def test_train_adaln_defaults_on_and_reaches_the_network():
     merged, provenance = load_method_preset("lora", "default", return_provenance=True)
     assert merged["train_adaln"] is True
     assert provenance["train_adaln"] == "configs/base.toml"
-    # train.py::resolve_network_kwargs only forwards allowlisted top-level keys.
+    # cli.resolve_network_kwargs (library/anima/trainer) only forwards allowlisted top-level keys.
     assert {"train_adaln", "adaln_rank", "adaln_alpha"} <= set(all_network_kwargs())
 
 

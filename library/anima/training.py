@@ -1072,7 +1072,7 @@ def _sample_image_inference(
 
     # Train-time sampling runs through the same compiled blocks as training. The
     # compile token budget already covers the prompts present at startup
-    # (train.py::_sample_prompt_token_counts), but prompts are re-read from disk
+    # (library.anima.trainer.data.sample_prompt_token_counts), but prompts are re-read from disk
     # at every sample event — a resolution added mid-run can fall outside the
     # dynamic-seq mark_dynamic range and would crash the run with a
     # ConstraintViolationError (#42). Skip it instead.

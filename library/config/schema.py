@@ -1,6 +1,6 @@
 """Config key schema and TOML validation.
 
-The schema is seeded at runtime by walking ``train.setup_parser()._actions``
+The schema is seeded at runtime by walking ``library.anima.trainer.cli.setup_parser()._actions``
 (via :func:`populate_schema`). TOML-only or non-argparse keys are registered
 manually via ``extras``.
 
@@ -100,7 +100,7 @@ def populate_schema(
     """(Re)populate ``CONFIG_SCHEMA`` from a parser's actions + manual extras.
 
     Idempotent: replaces the previous contents. Call this once after
-    ``setup_parser()`` in ``train.py``; tests may call it directly.
+    ``setup_parser()`` in ``library/anima/trainer/cli.py``; tests may call it directly.
     """
     CONFIG_SCHEMA.clear()
     ALIAS_MAP.clear()

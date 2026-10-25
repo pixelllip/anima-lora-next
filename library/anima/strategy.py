@@ -780,7 +780,7 @@ def setup_text_encoder_outputs_caching_strategy(
 ) -> Optional[AnimaTextEncoderOutputsCachingStrategy]:
     """Build + install the TE-outputs caching strategy; ``None`` when caching is off.
 
-    Reads ``args.cache_llm_adapter_outputs``, which ``assert_extra_args`` may
+    Reads ``args.cache_llm_adapter_outputs``, which ``data.configure_dataset_features`` may
     still mutate (it auto-disables the flag when text caching is off) — call it
     after that, and before anything probes the TE cache for completeness.
     """

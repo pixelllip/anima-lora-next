@@ -60,7 +60,7 @@ AR-snaps at load.
 **Training does not need `--target_res`** (a preprocess-only knob): every cached latent
 exact-matches its true `(W,H)`, and the `compile_blocks(n_token_families=…)` dynamo budget
 is derived from the buckets the `path_pattern`-filtered images **actually populate**
-(`train.py::_derive_token_budget`) **plus the sample-prompt resolutions when sampling is
+(`library/anima/trainer/data.py::derive_token_budget`) **plus the sample-prompt resolutions when sampling is
 enabled**. A sample prompt outside the training range added to the file *mid-run* is
 skipped with a warning at sample time.
 

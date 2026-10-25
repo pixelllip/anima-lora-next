@@ -42,7 +42,7 @@ Training — the working recipe on 16GB is `--preset low_vram` with
 The surviving step shows the 40-block forward/backward path is correct and the
 failure is a VRAM ceiling. `blocks_to_swap` and
 `unsloth_offload_checkpointing` are mutually exclusive (hard assert in
-`train.py::assert_extra_args`), so the two offload levers do not stack.
+`library/anima/trainer/data.py::configure_dataset_features`), so the two offload levers do not stack.
 
 `torch_compile` is already on in `base.toml`; gradient checkpointing is the next
 memory lever.

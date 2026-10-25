@@ -1,15 +1,15 @@
 """Training-loop orchestration.
 
-Owns the per-epoch / per-step body of ``AnimaTrainer.train()``. The entrypoint
-is :func:`run_training_loop`, which takes a built :class:`LoopState` plus the
-trainer instance so override hooks (``process_batch``, ``on_step_start``,
-``sample_images``, ``generate_step_logs``, ``step_logging``,
-``epoch_logging``) stay overridable. The validation pass lives in
-:mod:`library.training.validation`.
+Owns the per-epoch / per-step body of ``AnimaTrainer.train()``
+(``library.anima.trainer``). The entrypoint is :func:`run_training_loop`,
+which takes a built :class:`LoopState` plus the trainer instance and calls
+back into its hooks (``process_batch``, ``on_step_start``, ``sample_images``,
+``generate_step_logs``, ``step_logging``, ``epoch_logging``). The validation
+pass lives in :mod:`library.training.validation`.
 
 Cross-call signaling state — ``_last_router_H_postfix``,
-``_cudagraph_mark_step``, ``_hydra_warmup_step``, ``_adapters`` — lives on the
-trainer; this module reads it through the ``trainer`` handle.
+``_cudagraph_mark_step`` — lives on the trainer; the method adapters and the
+liveness ledger on ``trainer.step``.
 """
 
 from __future__ import annotations
@@ -108,7 +108,6 @@ def build_loop_state(
     saver: CheckpointSaver,
     network,
     unet,
-    text_encoder,
     text_encoders,
     vae,
     tokenizers,
@@ -126,8 +125,6 @@ def build_loop_state(
     vae_dtype,
     text_encoding_strategy,
     tokenize_strategy,
-    train_text_encoder,
-    train_unet,
     current_epoch,
     current_step,
     num_train_epochs,
@@ -137,7 +134,7 @@ def build_loop_state(
     resume_step: int = 0,
 ) -> LoopState:
     """Build :class:`LoopState`: the pre-loop setup between
-    ``_prepare_with_accelerator()`` and the for-epoch loop — noise scheduler, trackers, loss recorders, optional text
+    ``optim.prepare_with_accelerator()`` and the for-epoch loop — noise scheduler, trackers, loss recorders, optional text
     encoder eviction, ``--sample_at_first``, train/val ctx construction,
     progress bar, profiler parsing.
     """
@@ -156,7 +153,8 @@ def build_loop_state(
         def on_step_start_for_network(*args, **kwargs):
             return None
 
-    if trainer.is_text_encoder_not_needed_for_training(args):
+    text_encoder = text_encoders
+    if args.cache_text_encoder_outputs:
         logger.info("text_encoder is not needed for training. deleting to save memory.")
         for t_enc in text_encoders:
             del t_enc
@@ -195,8 +193,6 @@ def build_loop_state(
         tokenize_strategy=tokenize_strategy,
         vae_dtype=vae_dtype,
         weight_dtype=weight_dtype,
-        train_text_encoder=train_text_encoder,
-        train_unet=train_unet,
         optimizer_eval_fn=optimizer_eval_fn,
         optimizer_train_fn=optimizer_train_fn,
         is_tracking=is_tracking,
@@ -644,12 +640,10 @@ def _log_step(
             None,  # mean_grad_norm — not tracked here
             None,  # mean_combined_norm — not tracked here
         )
-        producers = [_unwrapped_net, *trainer._adapters]
+        producers = [_unwrapped_net, *trainer.step.adapters]
         # Ledger is a MetricProducer — liveness/<name> coverage is the live
         # view of the run-end LIVENESS audit.
-        _ledger = getattr(trainer, "_liveness", None)
-        if _ledger is not None:
-            producers.append(_ledger)
+        producers.append(trainer.step.liveness)
         logs.update(
             collect_metrics(
                 producers,
@@ -721,16 +715,14 @@ def _audit_liveness(trainer, state: LoopState, *, where: str) -> None:
     """Liveness audit: a configured-ON aux loss that never
     consumed its aux input is a silent baseline — flag it loudly.
 
-    Reads the trainer-owned ``LivenessLedger`` that the per-step composer
-    feeds (``train.py`` threads it through ``build_loss_composer``). Dead
+    Reads the ``LivenessLedger`` that the per-step composer feeds
+    (``AnimaStep`` threads it through ``build_loss_composer``). Dead
     features ERROR-log with the greppable ``LIVENESS:`` prefix (main process
     only — counts are per-rank but a dead dispatch is dead on every rank);
     ``--liveness_strict`` escalates to a hard abort, evaluated on each rank's
     own ledger so distributed runs fail together instead of hanging.
     """
-    ledger = getattr(trainer, "_liveness", None)
-    if ledger is None:
-        return
+    ledger = trainer.step.liveness
     if state.accelerator.is_main_process:
         dead = ledger.audit(where=where)
     else:
@@ -746,7 +738,7 @@ def _run_adapter_epoch_hooks(trainer, state: LoopState) -> None:
     """Per-method end-of-epoch hooks (IP-Adapter diagnostic dump, …).
     Main process only — adapters that need cross-rank reduction should do
     that internally."""
-    if not (trainer._adapters and state.accelerator.is_main_process):
+    if not (trainer.step.adapters and state.accelerator.is_main_process):
         return
     epoch_end_ctx = StepCtx(
         args=state.args,
@@ -754,5 +746,5 @@ def _run_adapter_epoch_hooks(trainer, state: LoopState) -> None:
         network=state.network,
         weight_dtype=state.weight_dtype,
     )
-    for adapter in trainer._adapters:
+    for adapter in trainer.step.adapters:
         adapter.on_epoch_end(epoch_end_ctx)

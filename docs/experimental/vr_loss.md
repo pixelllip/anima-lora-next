@@ -249,7 +249,7 @@ not nulled (it can't be: postfix isn't an additive residual on weights).
 
 Hooks on the unet (functional MSE captures) fire on this forward too,
 but they are consumed before the VR block runs — see the order in
-`train.py::get_noise_pred_and_target`.
+`AnimaStep.get_noise_pred_and_target` (`library/anima/trainer/step.py`).
 
 ## Implementation map
 
@@ -257,7 +257,7 @@ but they are consumed before the VR block runs — see the order in
 |---|---|---|
 | CLI args | `library/anima/training.py` | `--vr_loss_weight`, `--vr_fei_sigma_low_div`, `--vr_sigma_min`, `--vr_lambda_beta` |
 | Config gate | method TOML / CLI | `vr_loss_weight > 0` enables (default `0.0`) |
-| Forward + stash | `train.py::get_noise_pred_and_target` | Builds `x_0^L`, `x_t^L`, calls `network.set_multiplier(0)` + no-grad `anima(...)` + restore, stashes `ctx.aux['vr'] = {'z': ..., 'state': ...}` |
+| Forward + stash | `AnimaStep.get_noise_pred_and_target` (`library/anima/trainer/step.py`) | Builds `x_0^L`, `x_t^L`, calls `network.set_multiplier(0)` + no-grad `anima(...)` + restore, stashes `ctx.aux['vr'] = {'z': ..., 'state': ...}` |
 | Loss handler | `library/training/losses.py::_flow_matching_vr_loss` | Computes `(y + λ·z)²`, updates `state['lambda_ema']` in place |
 | Composer gate | `library/training/losses.py::build_loss_composer` | Replaces `flow_match` → `flow_matching_vr` when `vr_loss_weight > 0` |
 | Headroom bench | (removed) | The Stage 0 ρ² probe + integration plan this doc summarizes |

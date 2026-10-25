@@ -81,7 +81,7 @@ padding_mask.unsqueeze(2).expand(-1, -1, n_heads)
    ```
    **Critical:** compiles `_forward` (the actual attention/MLP), NOT `forward` (the checkpointing wrapper). The gradient checkpointing decorator (`unsloth_checkpoint`) uses `@torch._disable_dynamo`, which would cause an immediate graph break if `forward` itself were compiled — dynamo compiles nothing useful but still checks shape guards, causing recompile storms.
 
-The budget is `recompile_limit = max(current, 2*n + 8)` (via `pin_dynamo_limit`), where `n` is the number of token-count families — derived by `train.py::_derive_token_budget` from the buckets actually populated, defaulting to the 1024 tier's count. The `2*` covers fwd+bwd sharing the one `_forward` bytecode, the `+8` covers requires_grad / stride specializations. The `max()` lets a multi-resolution caller (e.g. a distill loop whose downsampled stages produce more distinct shapes) pre-raise the limit without `compile_blocks` lowering it.
+The budget is `recompile_limit = max(current, 2*n + 8)` (via `pin_dynamo_limit`), where `n` is the number of token-count families — derived by `library/anima/trainer/data.py::derive_token_budget` from the buckets actually populated, defaulting to the 1024 tier's count. The `2*` covers fwd+bwd sharing the one `_forward` bytecode, the `+8` covers requires_grad / stride specializations. The `max()` lets a multi-resolution caller (e.g. a distill loop whose downsampled stages produce more distinct shapes) pre-raise the limit without `compile_blocks` lowering it.
 
 ### 2.6 Dynamic-seq marks disable inductor mix-order reduction
 

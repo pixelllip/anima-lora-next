@@ -130,7 +130,7 @@ to override. `adaln_rank` / `adaln_alpha` without `train_adaln` raise.
 
 They reach the network as top-level TOML keys, not `network_args` — the
 allowlist is AST-derived from the `kwargs.get()` reads (`networks/__init__.py::
-_derive_network_kwargs`) and `train.py::resolve_network_kwargs` forwards them. So
+_derive_network_kwargs`) and `library/anima/trainer/cli.py::resolve_network_kwargs` forwards them. So
 `configs/base.toml`'s `train_adaln = true` applies to every LoRA-family method
 (lora / soup) with no per-method opt-in. Verify a merge with
 `make print-config METHOD=<m> PRESET=<p>`.

@@ -29,8 +29,16 @@ def test_inference_getattr_reads_are_declared_flags():
     assert_closed(reads, declared, what="inference args (generation.py)")
 
 
+def _trainer_getattr_reads() -> set[str]:
+    """Literal ``getattr(args, …)`` keys across the trainer package."""
+    reads: set[str] = set()
+    for path in sorted((_REPO / "library/anima/trainer").glob("*.py")):
+        reads |= getattr_keys(path, receiver="args")
+    return reads
+
+
 def test_train_getattr_reads_are_declared_flags():
-    """``getattr(args, …)`` in train.py ⊆ train argparse flags.
+    """``getattr(args, …)`` in library/anima/trainer/ ⊆ train argparse flags.
 
     Three intentional non-flag reads are allowlisted:
 
@@ -47,25 +55,25 @@ def test_train_getattr_reads_are_declared_flags():
     import train as trainmod
 
     declared = declared_argparse_keys(trainmod.setup_parser())
-    reads = getattr_keys(_REPO / "train.py", receiver="args")
+    reads = _trainer_getattr_reads()
     assert_closed(
         reads,
         declared,
-        what="train args (train.py)",
+        what="train args (library/anima/trainer)",
         allow_unregistered=frozenset({"_network_kwargs", "_yarnsig_parsed", "sampler"}),
     )
 
 
 def test_sigma_rule2_flags_are_statically_visible():
-    """The rule-2 σ flags must be read by LITERAL name in train.py.
+    """The rule-2 σ flags must be read by LITERAL name in the trainer.
 
-    ``_sigma_rule_cfg`` deliberately spells each rule's flags out instead of
+    ``sigma_route.rule_cfg`` deliberately spells each rule's flags out instead of
     building ``f"sigma_lowres_threshold{sfx}"``: the closure guard above
     AST-scans for literal names, so a computed name is invisible to it — the
     flag could be renamed in cli_args.py and every read would silently fall
     back to its default. This pins the property the guard depends on.
     """
-    reads = getattr_keys(_REPO / "train.py", receiver="args")
+    reads = _trainer_getattr_reads()
     for flag in (
         "sigma_lowres_threshold",
         "sigma_lowres_threshold_max",
@@ -76,6 +84,6 @@ def test_sigma_rule2_flags_are_statically_visible():
         "sigma_lowres_route2",
     ):
         assert flag in reads, (
-            f"{flag} is not read by literal name in train.py — a computed "
+            f"{flag} is not read by literal name in the trainer — a computed "
             "getattr name escapes the H2 drift guard"
         )

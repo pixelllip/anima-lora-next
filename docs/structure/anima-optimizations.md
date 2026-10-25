@@ -116,7 +116,7 @@ Caches are the source of truth: `make_buckets()` uses the actual on-disk cached 
 
 ### The compile coupling: dynamic seq, bounded per tier
 
-Free-fit populates *many* distinct token counts inside a band — statically compiling each one would be the recompile storm all over again. The answer is `compile_dynamic_seq`: mark only the sequence axis dynamic and bound it to the tier's band, collapsing the whole band to one graph per tier. `train.py` auto-enables it whenever `torch_compile` is on, and derives the dynamo budget (`compile_blocks(n_token_families=…)`) from the buckets the filtered dataset actually populates (`_derive_token_budget`), plus sample-prompt resolutions when sampling is enabled.
+Free-fit populates *many* distinct token counts inside a band — statically compiling each one would be the recompile storm all over again. The answer is `compile_dynamic_seq`: mark only the sequence axis dynamic and bound it to the tier's band, collapsing the whole band to one graph per tier. `train.py` auto-enables it whenever `torch_compile` is on, and derives the dynamo budget (`compile_blocks(n_token_families=…)`) from the buckets the filtered dataset actually populates (`derive_token_budget` in `library/anima/trainer/data.py`), plus sample-prompt resolutions when sampling is enabled.
 
 The mechanism that makes "one guard per tier" possible is the fake-5D flatten (`_native_flatten`): under compile, the block input `(B, T, H, W, D)` is flattened to `(B, 1, seq_len, 1, D)`:
 

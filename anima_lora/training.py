@@ -5,7 +5,7 @@ The exports ``examples/02_config_and_train.py`` uses to reproduce
 
 | export | canonical home |
 |--------|----------------|
-| ``AnimaTrainer`` / ``setup_parser`` / ``build_network_extras`` / ``verify_command_line_training_args`` | repo-root ``train.py`` |
+| ``AnimaTrainer`` / ``setup_parser`` / ``build_network_extras`` / ``verify_command_line_training_args`` | ``library.anima.trainer`` (re-exported by repo-root ``train.py``) |
 | ``create_network`` | ``networks.lora_anima`` |
 | ``resolve_network_spec`` | ``networks`` |
 

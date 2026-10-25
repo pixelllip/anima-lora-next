@@ -2012,7 +2012,7 @@ class EasyControlMethodAdapter(MethodAdapter):
         if cond_src is None:
             cond_src = latents
         elif cond_src.ndim == 5:
-            # 5D fallback (old cache), as in train.py's get_noise_pred_and_target.
+            # 5D fallback (old cache), as in AnimaStep.get_noise_pred_and_target.
             cond_src = cond_src.squeeze(2)
         cond_latent = cond_src.to(ctx.accelerator.device, dtype=ctx.weight_dtype)
 

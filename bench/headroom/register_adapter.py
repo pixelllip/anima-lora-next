@@ -24,7 +24,7 @@ Implementation notes (the load-bearing invariants):
 * **Native-flatten, no compile.** We force ``anima._native_flatten = True`` so the
   block stream is ``(B, 1, seq, 1, D)`` and appending K on the seq axis is clean.
   We do NOT torch.compile — a bench runs eager, which sidesteps the whole
-  ``EDGE_TOKEN_BANDS``/``_derive_token_budget`` +K threading. (Shipping would need
+  ``EDGE_TOKEN_BANDS``/``derive_token_budget`` +K threading. (Shipping would need
   that; a bench does not.)
 * **Rope-exempt registers for free.** We extend ``rope_cos_sin`` by K rows of
   ``cos=1, sin=0`` — identity rotation. No attention-path slicing (which would

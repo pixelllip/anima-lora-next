@@ -19,7 +19,7 @@ The repo has surprisingly clean bones in some places and surprisingly tight Anim
 | Cache filename suffixes | `library/io/cache.py` | `_anima.npz`, `_anima_te.safetensors` | small |
 | Weights loader | `library/anima/weights.py` | Fixed config dict + Anima-specific rename hooks | medium |
 | DiT class | `library/anima/models.py` | Monolithic Anima architecture (~2700 LOC) | medium-large |
-| Trainer forward path | `train.py::get_noise_pred_and_target` | Reaches into `unet.llm_adapter`, `_mod_guidance_*`, fused-projection assumptions, Anima's cross-attention LSE invariant | **large — biggest blocker** |
+| Trainer forward path | `AnimaStep.get_noise_pred_and_target` (`library/anima/trainer/step.py`) | Reaches into `unet.llm_adapter`, `_mod_guidance_*`, fused-projection assumptions, Anima's cross-attention LSE invariant | **large — biggest blocker** |
 | Adapter monkey-patches | `networks/methods/{ip_adapter,easycontrol,postfix}.py` | Target Anima's exact module names + cross-attention shape | large (per adapter) |
 
 ## Proposed boundary
@@ -64,7 +64,7 @@ Most layers are already close to this shape: `attention_dispatch.py` is fully ge
 
 ## The main blocker
 
-`train.py::get_noise_pred_and_target` and the wider trainer forward path — not the DiT class itself.
+`AnimaStep.get_noise_pred_and_target` (`library/anima/trainer/step.py`) and the wider trainer forward path — not the DiT class itself.
 
 The DiT can be solved with a factory in an afternoon. The real pain is that `train.py` reaches *into* the Anima DiT for adapter-specific knobs:
 

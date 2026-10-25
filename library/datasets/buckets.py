@@ -164,7 +164,7 @@ def demote_bucket_for(
 
 def demoted_token_counts(resos, native_edge: int, demote_edge: int) -> set:
     """Distinct token counts the σ-demote siblings of ``resos`` will run at.
-    Unioned into the compile token budget (``train.py::_derive_token_budget``)
+    Unioned into the compile token budget (``library.anima.trainer.data.derive_token_budget``)
     when sigma_lowres is on, so demoted forwards stay inside the compiled range.
     """
     counts: set = set()

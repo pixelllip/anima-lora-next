@@ -1603,7 +1603,7 @@ class Anima(nn.Module):
         from library.runtime.dynamo import pin_dynamo_limit
 
         # Defaults to the canonical 1024 tier (2: 4032/4200); callers pass the
-        # count derived from the buckets actually populated (train.py::_derive_token_budget).
+        # count derived from the buckets actually populated (library.anima.trainer.data.derive_token_budget).
         if n_token_families is not None:
             n = n_token_families
         else:
