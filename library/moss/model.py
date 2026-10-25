@@ -17,7 +17,8 @@ Changes from the reference, all additive:
 - ``layer_hook``: optional ``(index, x, n_img) -> x`` run on each block's output
   (rows that ran the block only), outside the compiled block. DAVE
   (``library.moss.dave``) and its probe use it; ``None`` is the reference.
-- ``ref`` (i2i probe): clean reference latents on RoPE's ``r = 1`` axis.
+- ``ref`` (i2i probe): clean reference latents on RoPE's ``r = 1`` axis, last in
+  the sequence (image, text, reference), so one int ``ref_start`` bounds them.
   ``ref_timestep`` (None = the image's timestep) gives the reference tokens their
   own block modulation, e.g. ``0`` for a clean latent. ``ref_isolate`` restricts
   the reference queries to the reference keys; image and text still read it.
@@ -96,10 +97,10 @@ def _sdpa(q, k, v, attn_mask=None):
     return F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask).transpose(1, 2)
 
 
-def _attention(q, k, v, rope, heads, key_mask=None, ref_span=None, ref_isolate=False):
+def _attention(q, k, v, rope, heads, key_mask=None, ref_start=None, ref_isolate=False):
     """``key_mask``: bool ``(B, L)``, True = attend. None = the reference path.
-    ``ref_isolate``: the queries in ``ref_span = (start, end)`` attend only to its
-    keys. Unmasked CUDA half-precision calls run FA2, the rest SDPA (the ref-only
+    ``ref_isolate``: the reference queries (``ref_start`` on) attend only to the
+    reference keys. Unmasked CUDA half-precision calls run FA2, the rest SDPA (the ref-only
     call is unmasked: its keys are all reference tokens)."""
     shape = (*q.shape[:2], heads, q.shape[-1] // heads)
     q = rotate(q.reshape(shape), rope).to(v.dtype)
@@ -113,13 +114,12 @@ def _attention(q, k, v, rope, heads, key_mask=None, ref_span=None, ref_isolate=F
             return flash_attn_func(q, k, v)
         return _sdpa(q, k, v, mask)
 
-    if not ref_isolate or ref_span is None:
+    if not ref_isolate or ref_start is None:
         out = attend(q, k, v, mask)
     else:
-        s, e = ref_span
-        main = attend(torch.cat((q[:, :s], q[:, e:]), 1), k, v, mask)
-        ref = attend(q[:, s:e], k[:, s:e], v[:, s:e])
-        out = torch.cat((main[:, :s], ref, main[:, s:]), 1)
+        s = ref_start
+        main = attend(q[:, :s], k, v, mask)
+        out = torch.cat((main, attend(q[:, s:], k[:, s:], v[:, s:])), 1)
     return out.flatten(2)
 
 
@@ -156,29 +156,26 @@ class _TextProjection(nn.Module):
         return x
 
 
-def _affine(y, scale, shift, ref_span):
+def _affine(y, scale, shift, ref_start):
     """``y·(1 + scale) + shift``. ``scale``/``shift`` are ``(B, D)``, or ``(B, 2, D)``
-    with the second row applied to the tokens in ``ref_span = (start, end)``."""
+    with the second row applied to the tokens from ``ref_start`` on."""
     if scale.ndim == 2:
         return y * (1 + scale[:, None]) + shift[:, None]
-    s, e = ref_span
+    s = ref_start
     scale, shift = (1 + scale).unbind(1), shift.unbind(1)
 
     def seg(part, i):
         return part * scale[i][:, None] + shift[i][:, None]
 
-    return torch.cat((seg(y[:, :s], 0), seg(y[:, s:e], 1), seg(y[:, e:], 0)), 1)
+    return torch.cat((seg(y[:, :s], 0), seg(y[:, s:], 1)), 1)
 
 
-def _gated(y, gate, ref_span):
+def _gated(y, gate, ref_start):
     if gate.ndim == 2:
         return y * gate[:, None]
-    s, e = ref_span
+    s = ref_start
     main, ref = gate.unbind(1)
-    return torch.cat(
-        (y[:, :s] * main[:, None], y[:, s:e] * ref[:, None], y[:, e:] * main[:, None]),
-        1,
-    )
+    return torch.cat((y[:, :s] * main[:, None], y[:, s:] * ref[:, None]), 1)
 
 
 class _Block(nn.Module):
@@ -194,24 +191,24 @@ class _Block(nn.Module):
         self.proj["ffn_down"] = nn.Linear(ffn_dim, dim, bias=False)
 
     def forward(
-        self, x, rope, modulation, key_mask=None, ref_span=None, ref_isolate=False
+        self, x, rope, modulation, key_mask=None, ref_start=None, ref_isolate=False
     ):
-        """``ref_span = (start, end)``: the reference tokens, if any. ``modulation``
+        """``ref_start``: where the reference tokens (the sequence tail) begin, if any. ``modulation``
         is ``(B,6,D)``, or ``(B,6,2,D)`` with the second set modulating the
         reference tokens. ``ref_isolate``: see ``_attention``."""
         shift_a, scale_a, gate_a, shift_f, scale_f, gate_f = modulation.unbind(1)
-        y = _affine(self.norm1(x), scale_a, shift_a, ref_span)
+        y = _affine(self.norm1(x), scale_a, shift_a, ref_start)
         dtype = self.proj["q"].weight.dtype
         y = y.to(dtype)
         q = self.q_norm(self.proj["q"](y).unflatten(-1, (self.heads, -1))).flatten(2)
         k = self.k_norm(self.proj["k"](y).unflatten(-1, (self.heads, -1))).flatten(2)
         attn = _attention(
-            q, k, self.proj["v"](y), rope, self.heads, key_mask, ref_span, ref_isolate
+            q, k, self.proj["v"](y), rope, self.heads, key_mask, ref_start, ref_isolate
         )
-        x = x + _gated(self.proj["o"](attn), gate_a, ref_span)
-        y = _affine(self.norm2(x), scale_f, shift_f, ref_span)
+        x = x + _gated(self.proj["o"](attn), gate_a, ref_start)
+        y = _affine(self.norm2(x), scale_f, shift_f, ref_start)
         hidden, gate = self.proj["ffn_up_gate"](y.to(dtype)).chunk(2, -1)
-        return x + _gated(self.proj["ffn_down"](_situ(hidden, gate)), gate_f, ref_span)
+        return x + _gated(self.proj["ffn_down"](_situ(hidden, gate)), gate_f, ref_start)
 
 
 class _RoPE(nn.Module):
@@ -241,15 +238,15 @@ class _RoPE(nn.Module):
         self.bands = self._default_bands(self.bands.device)
 
     def forward(self, height, width, text_length, device, ref_hw=None):
-        """``(1, H·W [+ h·w] + text_length, head_dim)``, fp32. Image tokens first.
+        """``(1, H·W + text_length [+ h·w], head_dim)``, fp32. Image tokens first.
 
-        ``ref_hw = (h, w)`` adds a reference grid after the image tokens on the
+        ``ref_hw = (h, w)`` adds a reference grid after the text tokens on the
         reserved ``r = 1`` axis, its ``(h, w)`` coordinates stretched onto the
         image's grid so each reference token sits over the image region it covers."""
         # Diffusers/Accelerate can install tensors directly, bypassing load hooks.
         if self.bands.dtype != torch.float32:
             self.bands = self._default_bands(device)
-        # Coordinates: (r, f, h, w); sequence order is image followed by text.
+        # Coordinates: (r, f, h, w); sequence order is image, text, reference.
         h, w = torch.meshgrid(
             torch.arange(height, device=device),
             torch.arange(width, device=device),
@@ -264,7 +261,9 @@ class _RoPE(nn.Module):
         )
         image[:, 2] -= (height - 1) / 2
         image[:, 3] -= (width - 1) / 2
-        parts = [image]
+        text = torch.zeros(text_length, 4, device=device, dtype=torch.float32)
+        text[:, 1] = torch.arange(text_length, device=device)
+        parts = [image, text]
         if ref_hw is not None:
             rh, rw = ref_hw
             h, w = torch.meshgrid(
@@ -278,9 +277,7 @@ class _RoPE(nn.Module):
             ref[:, 2] -= (height - 1) / 2
             ref[:, 3] -= (width - 1) / 2
             parts.append(ref)
-        text = torch.zeros(text_length, 4, device=device, dtype=torch.float32)
-        text[:, 1] = torch.arange(text_length, device=device)
-        phase = torch.cat((*parts, text), 0).unsqueeze(-1) * self.bands
+        phase = torch.cat(parts, 0).unsqueeze(-1) * self.bands
         return torch.cat((phase.sin(), phase.cos()), -2).flatten(-2).unsqueeze(0)
 
 
@@ -362,23 +359,22 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
         )
         return mod.view(batch, 6, -1), head.view(batch, 2, -1)
 
-    def ref_modulation(self, mod, n_img, ref_hw):
-        """``(mod, ref_span)`` for the blocks: ``ref_span`` the reference tokens
-        (None without a reference); ``mod`` unchanged when the reference shares
-        the image's timestep, else ``(B,6,2,D)`` with the ``ref_timestep`` set
-        second."""
+    def ref_modulation(self, mod, ref_hw):
+        """``(mod, n_ref)`` for ``run_layers``: ``n_ref`` the reference token count
+        (0 without a reference); ``mod`` unchanged when the reference shares the
+        image's timestep, else ``(B,6,2,D)`` with the ``ref_timestep`` set second."""
         if ref_hw is None:
-            return mod, None
-        span = (n_img, n_img + ref_hw[0] * ref_hw[1])
+            return mod, 0
+        n_ref = ref_hw[0] * ref_hw[1]
         if self.ref_timestep is None:
-            return mod, span
+            return mod, n_ref
         ref_mod, _ = self.time_conditioning(self.ref_timestep, mod.shape[0])
-        return torch.stack((mod, ref_mod.to(mod.dtype)), 2), span
+        return torch.stack((mod, ref_mod.to(mod.dtype)), 2), n_ref
 
     def embed_sample(self, latent, context, ref=None):
         """One sample: ``latent (1,C,H,W)``, ``context (1,S,text_dim)`` at its true
         length, optional clean reference latent ``ref (1,C,h,w)`` → ``x (1, H·W
-        [+ h·w] + S, D)``, ``rope`` to match."""
+        + S [+ h·w], D)``, ``rope`` to match."""
         _, _, height, width = latent.shape
         video = self._embed_latent(latent)
         ref_hw = None if ref is None else tuple(ref.shape[-2:])
@@ -386,12 +382,11 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
         rope = self.rope(height, width, context.shape[1], latent.device, ref_hw).to(
             video.dtype
         )
-        parts = [video]
+        n_img, n_text = video.shape[1], context.shape[1]
+        parts = [video, self.text_embedder(context, rope[:, n_img : n_img + n_text])]
         if ref is not None:
             parts.append(self._embed_latent(ref))
-        n = sum(p.shape[1] for p in parts)
-        text = self.text_embedder(context, rope[:, n:])
-        return torch.cat((*parts, text), 1), rope
+        return torch.cat(parts, 1), rope
 
     def _embed_latent(self, latent):
         tokens = latent.flatten(2).transpose(1, 2)
@@ -407,16 +402,18 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
         skip_layers=frozenset(),
         key_mask=None,
         n_img=None,
-        ref_span=None,
+        n_ref=0,
     ):
         """The 42 blocks. ``skip_layers``: one frozenset for the whole batch, or a
         sequence of frozensets, one per sample (rows skipping a block keep ``x``).
-        ``n_img`` (leading image tokens) is what ``layer_hook`` sees. ``ref_span``
-        and ``mod`` come from ``ref_modulation``; ``ref_isolate`` applies to that
-        span, and then a skipped block still runs it (``_ref_only``) unless
-        ``ref_follows_skip``."""
+        ``n_img`` (leading image tokens) is what ``layer_hook`` sees. ``n_ref``
+        (the trailing reference tokens) and ``mod`` come from ``ref_modulation``;
+        ``ref_isolate`` applies to those tokens, and then a skipped block still runs
+        them (``_ref_only``) unless ``ref_follows_skip``. The blocks get the
+        reference's start as one int, ``ref_start``."""
         per_sample = not isinstance(skip_layers, (frozenset, set))
-        iso = self.ref_isolate and ref_span is not None
+        ref_start = x.shape[1] - n_ref if n_ref else None
+        iso = self.ref_isolate and ref_start is not None
         ref_runs = iso and not self.ref_follows_skip
         hook = self.layer_hook
         for index, layer in enumerate(self.layers):
@@ -432,7 +429,7 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
                             x,
                             rope,
                             mod,
-                            ref_span,
+                            ref_start,
                             torch.tensor(idle, device=x.device),
                         )
                     if not active:
@@ -443,7 +440,7 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
                         rope[rows],
                         mod[rows],
                         None if key_mask is None else key_mask[rows],
-                        ref_span,
+                        ref_start,
                         iso,
                     )
                     if hook is not None:
@@ -452,25 +449,24 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
                     continue
             elif index in skip_layers:
                 if ref_runs:
-                    x = self._ref_only(layer, x, rope, mod, ref_span)
+                    x = self._ref_only(layer, x, rope, mod, ref_start)
                 continue
-            x = layer(x, rope, mod, key_mask, ref_span, iso)
+            x = layer(x, rope, mod, key_mask, ref_start, iso)
             if hook is not None:
                 x = hook(index, x, n_img)
         return x
 
     @staticmethod
-    def _ref_only(layer, x, rope, mod, ref_span, rows=None):
+    def _ref_only(layer, x, rope, mod, ref_start, rows=None):
         """``x`` with the reference tokens of ``rows`` (None = all) through ``layer``
         on their own: under ``ref_isolate`` what the whole block gives them."""
-        s, e = ref_span
+        s = ref_start
         if mod.ndim == 4:
             mod = mod[:, :, 1]
         sub, sub_rope, sub_mod = (
             (x, rope, mod) if rows is None else (x[rows], rope[rows], mod[rows])
         )
-        ref = layer(sub[:, s:e], sub_rope[:, s:e], sub_mod)
-        sub = torch.cat((sub[:, :s], ref, sub[:, e:]), 1)
+        sub = torch.cat((sub[:, :s], layer(sub[:, s:], sub_rope[:, s:], sub_mod)), 1)
         return sub if rows is None else x.index_copy(0, rows, sub)
 
     def head(self, features, head_mod, height, width):
@@ -527,7 +523,7 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
         batch, _, height, width = hidden_states.shape
         mod, head = self.time_conditioning(timestep, batch)
         ref_hw = None if ref is None else tuple(ref.shape[-2:])
-        mod, ref_span = self.ref_modulation(mod, height * width, ref_hw)
+        mod, n_ref = self.ref_modulation(mod, ref_hw)
         outputs = []
         for index in range(batch):
             context = encoder_hidden_states[index : index + 1, mask[index]]
@@ -542,7 +538,7 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
                 mod[index : index + 1],
                 skip_layers,
                 n_img=height * width,
-                ref_span=ref_span,
+                n_ref=n_ref,
             )
             features = x[:, : height * width]
             if return_features:
@@ -595,7 +591,7 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
         mod, head = self.time_conditioning(timestep, batch)
         n_img = height * width
         ref_hw = None if ref is None else tuple(ref.shape[-2:])
-        n_ref = 0 if ref is None else ref_hw[0] * ref_hw[1]
+        mod, n_ref = self.ref_modulation(mod, ref_hw)
         lengths = mask.sum(1)
         s_max = int(lengths.max())
         device = hidden_states.device
@@ -611,18 +607,20 @@ class MOSSImageTransformer(ModelMixin, ConfigMixin):
             text_mask[b, :n] = True
             rope = self.rope(height, width, n, device, ref_hw)
             if n < s_max:
-                rope = F.pad(rope, (0, 0, 0, s_max - n))
+                # Pad rows sit between the text and the reference.
+                pad = rope.new_zeros(1, s_max - n, rope.shape[-1])
+                rope = torch.cat((rope[:, : n_img + n], pad, rope[:, n_img + n :]), 1)
             ropes.append(rope)
         video = self._embed_latent(hidden_states)
         rope = torch.cat(ropes).to(video.dtype)
-        text = self.text_embedder(context, rope[:, n_img + n_ref :], text_mask)
-        parts = [video] if ref is None else [video, self._embed_latent(ref)]
-        x = torch.cat((*parts, text), 1)
-        key_mask = torch.cat((text_mask.new_ones(batch, n_img + n_ref), text_mask), 1)
+        text = self.text_embedder(context, rope[:, n_img : n_img + s_max], text_mask)
+        parts = [video, text] if ref is None else [video, text, self._embed_latent(ref)]
+        x = torch.cat(parts, 1)
+        ones = text_mask.new_ones
+        key_mask = torch.cat((ones(batch, n_img), text_mask, ones(batch, n_ref)), 1)
         if bool(text_mask.all()):
             key_mask = None
-        mod, ref_span = self.ref_modulation(mod, n_img, ref_hw)
-        x = self.run_layers(x, rope, mod, skips, key_mask, n_img, ref_span)
+        x = self.run_layers(x, rope, mod, skips, key_mask, n_img, n_ref)
         features = x[:, :n_img]
         if return_features:
             return features

@@ -147,6 +147,21 @@ marked axis and `ref_span` are dynamic, with no change to the block. Pinned like
 flags (`pin_compiler_flag`). Step time equals A's, so this buys the Anima rule, not speed.
 B is not needed.
 
+Then the reference moved to the sequence tail (image, text, reference), so the block takes
+one int, `ref_start = L − n_ref` (`dynamic_sources = "L['ref_start']"`): three symbols →
+two, and `_affine` / `_gated` / the isolated attention split two ways (the main queries
+are a view, no cat). swap_text_600, 40 steps (`20261025-181444-e69890` vs `1caacb`): one
+graph, zero recompiles, guards on `ref_start` are bounds and 0/1 checks only; median
+3.946 vs 3.998 s/step, peak 13.43 vs 13.38 GB, step 40 loss 0.1281 vs 0.1282.
+
+Gradient check (step 1, swap_text sample 1, per-block LoRA grad and residual grad per
+token group): fp32 eager old ≡ new on every block and group, and one `_attention` call at
+real shapes has the same bf16 error in both layouts. The bf16 arms all drift on blocks
+0–24, where the fp32 image-token gradient grows ~10× toward block 0: old compiled
+residual grad at block 0 is 0.89 / 1.60 / 0.86 of fp32 (image / text / ref), new compiled
+5.4 / 1.8 / 5.5; step-1 LoRA grad norm 0.197 old vs 0.404 new (fp32 0.2025). Swap count
+(28 vs 36) and the compile cache do not change it. Norms only, not direction; not chased.
+
 ### P3 — Anima's infrastructure, ported
 
 Done 2026-10-25 for training (`loader.py::compile_blocks(seq_range=…)`, range from

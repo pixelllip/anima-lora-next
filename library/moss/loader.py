@@ -205,9 +205,9 @@ def compile_blocks(blocks, seq_range=None) -> None:
     Without ``seq_range``: ``dynamic=True``. ``seq_range = (lo, hi)``:
     ``dynamic=False``, the joint token axis (``x`` / ``rope`` dim 1) marked
     strictly to that range on every call inside it (call-time, so the checkpoint
-    recompute re-marks) and the ``ref_span`` ints dynamic by source name
+    recompute re-marks) and the ``ref_start`` int dynamic by source name
     (``dynamic_sources``); every other dim is static. A length outside the range
-    runs unmarked. The
+    runs unmarked (one warning per length for the whole stack). The
     compile cache moves to a per-range directory (persistent entries do not key
     on the mark's bounds). Under grad, an ``x`` without grad (block 0: the
     embedders are frozen) is made a grad leaf so every block shares one graph."""
@@ -237,19 +237,19 @@ def compile_blocks(blocks, seq_range=None) -> None:
             )
             + ";line=moss;static"
         )
-        # A Python int is a constant under dynamic=False: ref_span would specialise
+        # A Python int is a constant under dynamic=False: ref_start would specialise
         # per sample and contradict the strict mark.
-        pin_compiler_flag("dynamic_sources", "L['ref_span'][0],L['ref_span'][1]")
+        pin_compiler_flag("dynamic_sources", "L['ref_start']")
     dynamic = seq_range is None
+    warned = set()
     for block in blocks:
         block.forward = _marked(
-            torch.compile(block.forward, dynamic=dynamic), seq_range
+            torch.compile(block.forward, dynamic=dynamic), seq_range, warned
         )
 
 
-def _marked(compiled, seq_range):
+def _marked(compiled, seq_range, warned):
     lo, hi = seq_range or (0, 0)
-    warned = set()
 
     def forward(x, rope, *args, **kwargs):
         if torch.is_grad_enabled() and not x.requires_grad:
