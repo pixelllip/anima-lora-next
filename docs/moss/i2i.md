@@ -25,7 +25,7 @@ is `library.moss.requests.I2I_CACHE`.
 |---|---|---|---|
 | `colorize` | B&W page, half size, joint | the page through the vision tower, then the colour caption's layout JSON plus one text item per OCR line | v2 recipe in the configs (`moss_colorize_3k_ocr`). The Hub's `colorize/moss_colorize_3k_v4` is the v3 recipe (full size, `ref_isolate`, caption only): `project/moss_lora/plan.md` |
 | `sanitize` | texted image, full size, isolated | one fixed caption for every pair: `no sfx, no dialogue, no watermark` | trained, private on the Hub |
-| `swap_text` | JA manga page, full size, isolated | layout JSON, one text item per line to letter (translated text + bbox) | probe run on 100 pairs (`moss_i2i_swap_text_muon_lr1e4`): English near-clean, Korean not yet |
+| `swap_text` | JA manga page, full size, isolated | layout JSON, one text item per line to letter (translated text + bbox) | 1,300-pair run (`moss_i2i_swap_text_1300_ema5e5`): English clean on the held-out pages, Korean down to one-syllable swaps |
 
 ## Running
 
@@ -135,7 +135,27 @@ were measured.
 - Outside the text, 22–25 dB PSNR against the target. The difference is the screentone's
   dot phase (the VAE round trip), not drift.
 
-Next: a larger cache weighted toward `ko`, with misread lines dropped from the captions.
+**Second run (`moss_i2i_swap_text_1300_ema5e5`).** `pairs_en300_ko1000.jsonl`: 1,300
+pairs drawn at random (seed 0) from the staging tree, the four review works held out.
+Muon at lr 5e-5, EMA (`ema_window 0.1`), plain MSE, 2 epochs = 2,600 steps, 173 min at
+13.7 GB peak; cache 7 GB, 11 min. Between the two, `600_r2x05` (600 pairs, lr 1e-4,
+`region_weight 2`, `rest_weight 0.5`, 3,600 steps) wrote ~5 wrong Korean syllables on the
+same lines; its edit-region loss stalled at 0.15–0.18 from step 400 while the rest kept
+falling. `region05` (`region_weight 0.5`, 100 pairs) was not reviewed.
+Seed 0 on the four held-out pages (`output/tests/moss_i2i_swap_text_region/`), against
+the first run:
+
+- English (4 lines): all exact in e1, EMA and raw. EMA and raw keep the outline of the
+  short exclamation (`Uwah…`).
+- Korean (6 lines, the misread caption line aside): 3–4 wrong syllables against ~7 for the
+  first run, all one-syllable swaps (no drops or reordering). All three checkpoints write
+  `이건` → `이전` and `싼다` → `씬다`. The misread caption line is still drawn as captioned,
+  in magenta type.
+- e1 / EMA / raw differ by one syllable at most; raw letters heavier and slanted. The EMA
+  final is the default.
+
+Next: count Hangul syllables in the `ko` captions (all 1,690 held-in `ko` pairs cover only
+106 works), and drop misread lines from the captions.
 
 **ComfyUI.** Toolkit 0.7.0 or later: the sanitize wiring, with the layout-JSON prompt as
 the positive (typed into `CLIP Text Encode`, or through Caption Helper `task layout`, which
