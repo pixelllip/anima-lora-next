@@ -1,9 +1,8 @@
 # MOSS i2i: a tone term on the unedited tokens
 
 Status: implemented (`tone_weight`, off by default), two arms trained; neither passes the
-gates. Per-checkpoint tone noise (~1 L) is as large as the gates, and most of the
-brightening rides on the adapter's DC bias, which also carries part of "copy the
-reference". Results in [Results so far](#results-so-far-2026-10-25).
+gates, and checkpoint-to-checkpoint tone noise is as large as the gates. Results in
+[Results](#results-2026-10-25).
 
 The sanitize LoRA `moss_i2i_sanitize_wm` (e6) brightens, cools and slightly desaturates
 the whole page, including far from any text it removes. The training pairs do not teach
@@ -142,84 +141,35 @@ term starts at about 10 % of `L_mse`. Extend the winner to 6 epochs.
 - The edit-region part of the loss (logged `region`) no worse than the control at equal
   steps.
 
-## Results so far (2026-10-25)
+## Results (2026-10-25)
 
-Scripts in `project/moss_lora/src/`: `tone_map.py` (the render metric above, plus per-cell
-and per-input-L breakdowns), `tone_probe.py` (single-step x̂₀ per LoRA, no training; job
-`20261025-185512-1f2f3a`; its JSON stays local, untracked), `tone_dirs.py` (the
-latent response to a Lab shift).
+Renders as in [Measurements](#measurements), mean over the five pages (scripts:
+`project/moss_lora/src/tone_map.py`; the DC-bias analysis and ablation that were here are
+in git history):
 
-- **The drift is a tone curve, not an offset.** e6 lifts shadows and midtones by +2.5 to
-  +3.4 L and leaves paper white (L > 90) near 0. Removing one global Lab offset leaves
-  median ΔE 1.2-1.5; one offset per 128 px cell brings it to 0.65-1.05 (200p's raw level).
-  So `tone_pool 8`, not 0.
-- **The raw 128-channel term does not single out the drift.** Tone (L / a / b) is 1-12 %
-  of the rest tokens' DC error, and the raw term is as large for 200p (no drift) as for
-  e6. The shipped term projects each cell onto Lab with
-  `library/moss/calibration/tone_dirs.safetensors` (per-unit directions, stable across 10
-  pages at cos 0.90-0.98; projected vs decoded ΔL r = 0.67).
-- **Single-step x̂₀ already carries it, small.** Decoded at σ 0.1: e6 ΔL +0.2 to +0.5
-  (5/5 pages and pairs), 200p about 0. Renders amplify it 5-8× for e6 but not for 200p,
-  whose single-step error is as large with the opposite sign.
-- **Arm `tone_weight 0.005`** (cs0 recipe: Muon lr 1e-4, 600 steps;
-  `moss_i2i_sanitize_tone_w0005`, against the existing cs0 render, which trained on older
-  code): the brightening is gone but 4/5 pages overshoot darker and warmer (ΔL -0.7 to
-  -1.4, Δb up to +1.1; hard_to_sanitize3 lands at -0.02 / -0.34). The term is 17 % of the
-  loss at the start and dominated by σ > 0.85 steps (13-30 vs 0.3 at σ < 0.3). 0.02 put
-  it at 25-45 % and was stopped.
-- **Training length:** e3 vs e6 renders, ΔL +0.48 → +1.74 (grows), Δb -0.82 → -0.67
-  (present from e3). The exact ΔW mean of e3 and e6 lands at the midpoint (ΔL +1.00), so
-  there is no per-checkpoint noise for weight EMA to remove; EMA would act like stopping
-  earlier.
+| run | recipe | ΔL | Δb | sat× | max \|ΔL\| |
+|---|---|---|---|---|---|
+| 200p | AdamW + `dc_isolate`, 200 pairs | −0.07 | −0.02 | 0.99 | 0.33 |
+| cs0 | Muon lr 1e-4, 280 pairs, 600 steps | +1.37 | −0.64 | 0.93 | 1.74 |
+| w0005 | cs0 + `tone_weight 0.005` | −0.75 | +0.45 | 1.03 | 1.42 |
+| w0002 raw | cs0 + `tone_weight 0.002` | −0.36 | −0.96 | 1.08 | 1.41 |
+| w0002 EMA | same run, EMA 0.97 | +0.55 | −0.69 | 1.02 | 1.10 |
 
-- **Arm `tone_weight 0.002` + adapter EMA 0.97** (same cs0 recipe, seed 0;
-  `moss_i2i_sanitize_tone_w0002_ema`, the raw weights of the same run in
-  `…/moss_i2i_sanitize_tone_w0002_ema_raw`). Renders as above, mean over the five pages:
-
-  | run | ΔL | Δb | sat× | max \|ΔL\| |
-  |---|---|---|---|---|
-  | 200p | −0.07 | −0.02 | 0.99 | 0.33 |
-  | cs0 | +1.37 | −0.64 | 0.93 | 1.74 |
-  | w0005 | −0.75 | +0.45 | 1.03 | 1.42 |
-  | w0002 raw | −0.36 | −0.96 | 1.08 | 1.41 |
-  | w0002 EMA | +0.55 | −0.69 | 1.02 | 1.10 |
-
-  Only 200p passes. w0002 raw splits in sign across pages (hard_to_sanitize1 −1.41,
-  hard_to_sanitize2 +0.51), is bluer than the control and raises saturation (h1 1.21).
-- **Checkpoint noise is gate-sized.** EMA vs raw of the same run (~33 updates apart in
-  weights, ‖b‖ 14 % apart) differ by +0.6 to +1.3 L, the same sign on all five pages: one
-  weight perturbation moves every page together, so more eval pages do not average it
-  out. Single-checkpoint arm comparisons (cs0 / w0005 / w0002) do not resolve at this
-  size. Not yet split: averaging vs the EMA reading an earlier point (no raw checkpoint
-  ~30 updates before the end).
-- **Edit quality by eye** (input, cs0, w0005, w0002 raw, w0002 EMA): w0005 leaves the
-  「無断転載禁止」 watermark on hard_to_sanitize1, both w0002 files remove it. On
-  hard_to_sanitize2 w0002 raw leaves the most red-box remnant and the EMA fills it
-  cleanest. usual_case2's faint watermark needs a full-size look.
-- **lr 5e-5 alone is not the fix:** e6 trained at 5e-5 and drifted most.
-- **The DC bias** (`project/moss_lora/src/dc_bias.py`): per linear, `b = s·up·(down·x̄)`
-  with x̄ the calibrated signed input mean (`calibration/channel_mean.safetensors`), the
-  shift every token gets. Its size is not the cause: Σ‖b‖ is 1130 for 200p (the
-  `dc_isolate` bias row), 1048 for e6, 746 for cs0, 563-639 for the tone arms. Its
-  direction is shared: every Muon run sits at cos 0.55-0.98 to e6 across lr, init and
-  data, 200p at 0.41. The tone term moves b off that direction (cs0 0.73 → 0.55-0.62).
-  All runs used training seed 0, so a shared noise realisation is not excluded.
-- **Ablation:** e6 with x̄ projected out of `down` (`dc_bias.py --ablate`), same renders.
-  On v / o / ffn the mean ΔL goes +1.52 → +0.42 (h1 +1.88 → +0.26, u2 +2.13 → +0.50); Δb
-  stays (|Δb| 0.55 → 0.69) and saturation rises (0.93 → 1.07). Adding q / k is worse
-  (ΔL +1.01, ΔE 2.38). The ablated LoRAs also edit more: they clear red boxes e6 left on
-  hard_to_sanitize2, and with q / k they erase non-text content (the man's body on
-  hard_to_sanitize2, a held object on usual_case1). So the DC bias carries most of the
-  brightening and part of "leave the rest untouched"; projecting it out during training
-  was dropped for that reason.
-
-Next candidates, not run: `tone_weight` with lr 5e-5 (the shipped sanitize lr; halves
-the per-step noise, not the shared DC direction); a control on another training seed
-with several late checkpoints, to measure the per-checkpoint floor and test the shared
-direction; the stop-grad running bias (`2·b̄·c`), which stops pushing at zero.
-
-The i2i configs now train with the adapter EMA (`ema_window` 0.1, the t2i default;
-`docs/moss/findings/ema_lr1e4.md`).
+- **No run passes every gate.** 200p is the only one inside the tone gates, but it edits
+  worse than the Muon runs (user read, by eye). The drift shows in every Muon run and not
+  in 200p, but optimizer, `dc_isolate`, the `wm_*` pairs and step count all differ
+  between them; no run separates them.
+- **The drift grows with training**: e6's e3 → e6 checkpoints, ΔL +0.48 → +1.74.
+- **`tone_weight 0.005` over-corrects**: darker and warmer on 4 of 5 pages, and it leaves
+  the 「無断転載禁止」 watermark on hard_to_sanitize1 (both w0002 files remove it).
+- **Checkpoint noise is gate-sized**: EMA and raw of one run differ by +0.6 to +1.3 L, the
+  same sign on all five pages. So the arms above, one checkpoint each, do not resolve the
+  term's effect at 0.002.
+- **Muon + EMA on i2i**: the transfer evidence is colorize, not sanitize. Hub v4 (Muon,
+  kaiming, `ema_window 0.1`) beat the AdamW v3 on the 12-page holdout (chroma err 13.3 →
+  11.2), with the TE (fp8 → int8) and steps (8k → 10k) also changed
+  (`project/moss_lora/plan.md` § colorize). On sanitize, one run's EMA filled
+  hard_to_sanitize2's red box cleaner than its raw weights, by eye.
 
 ## Out of scope
 
