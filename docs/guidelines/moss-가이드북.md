@@ -154,7 +154,7 @@ make download-model ARGS=moss-sft
 | 여유 확보 | swap 24, budget 0.2 | 1.78 | 2.26 GiB |
 | 체크포인팅 | `grad_checkpointing` 켬, swap 0 | 2.09 | 1.60 GiB |
 
-현재 기본값(swap 36, budget 0.5, `expandable_segments`, 랭크 32)은 caststation 세트에서 step당 1.9초이며, 가장 큰 샘플(이미지 4.2k + 텍스트 0.4k 토큰)에서 여유 VRAM이 0.85 GB입니다. budget은 약 0.45를 넘으면 더 올려도 도움이 되지 않고(0.3: 2.05 s/step), swap 28–36은 속도가 같으므로 swap을 낮추면 여유 VRAM만 포기하게 됩니다. i2i 샘플에는 참조 이미지도 포함되므로 i2i 작업 설정은 swap 28, budget 0.15를 사용합니다. swap_text의 가장 큰 샘플(이미지 4.1k + 텍스트 0.5k 토큰)에서 여유가 0.53 GB 남고, budget 0.2에서는 메모리가 부족합니다.
+현재 기본값(swap 36, budget 0.5, `expandable_segments`, 랭크 32)은 caststation 세트에서 step당 1.9초이며, 가장 큰 샘플(이미지 4.2k + 텍스트 0.4k 토큰)에서 여유 VRAM이 0.85 GB입니다. budget은 약 0.45를 넘으면 더 올려도 도움이 되지 않고(0.3: 2.05 s/step), swap 28–36은 속도가 같으므로 swap을 낮추면 여유 VRAM만 포기하게 됩니다. i2i 샘플에는 참조 이미지도 포함되므로 i2i 작업 설정은 `swap_h2d_only`를 켠 채 swap 38, budget 0.175를 사용합니다. swap 28에서는 budget 0.2에서 메모리가 부족하고, swap 38이면 더 높은 budget을 쓸 여유가 생깁니다. 약 8.3k 결합 토큰(sanitize)에서 swap 38 / budget 0.175는 step당 3.79초로, swap 28 / budget 0.15의 4.17초보다 빠릅니다. `swap_h2d_only`는 스왑되는 모든 블록의 page-locked 사본을 RAM에 보관해(최대 8.8 GB) 스왑이 카드로 복사만 하고 되돌려 복사하지 않게 합니다. 결과와 VRAM은 켜지 않았을 때와 같고, swap 38까지는 속도도 같으며 swap 40에서는 8% 더 빠릅니다.
 
 표: 합성 1024² 이미지 + 텍스트 300 토큰(합계 약 4.4k 토큰), LoRA 랭크 16, RTX 5070 Ti 기준입니다. 이전 기본값(랭크 32, budget 0.1, swap 12)은 약 4.5k 토큰(이미지 4096 + 텍스트 455)에서 1.85 s/step, 여유 약 1.7 GB, 최대 reserved 약 13.1 GB였고, 랭크 16에 budget 0.1은 1.82 s/step, 여유 약 2.0 GB였습니다. 실제 샘플은 최대 약 4.9k 토큰까지 나왔고, 캡션이 길수록 메모리를 더 쓰는데, `swap 24` 는 같은 속도로 그만큼의 여유를 남깁니다.
 

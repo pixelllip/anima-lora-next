@@ -77,9 +77,14 @@ int8 became the default re-encodes on the next `cache` run unless it passes
   `--activation_memory_budget 0.5`, `--expandable_segments`: 1.9 s/step at 1024² with
   0.85 GB free on the largest caststation sample (4.2k image + 0.4k text tokens). The step
   time stops improving past budget ~0.45 (0.3: 2.05 s/step), and swap 28–36 run at the
-  same speed, so the swap count trades VRAM, not step time. The i2i configs run swap 28 /
-  budget 0.15: reference tokens make their samples larger, and budget 0.2 runs out of
-  memory there. `--grad_checkpointing --blocks_to_swap 0` fits without swap, slower. The best swap
+  same speed, so the swap count trades VRAM, not step time. The i2i configs run swap 38 /
+  budget 0.175 with `--swap_h2d_only`: reference tokens make their samples larger, and at
+  swap 28 budget 0.2 runs out of memory. At ~8.3k joint tokens (sanitize) 38 / 0.175 runs
+  3.79 s/step against 4.17 for 28 / 0.15. `--swap_h2d_only` keeps a page-locked CPU copy
+  of each swapped block (up to 8.8 GB of RAM) and drops the device-to-host half of every
+  swap: same numerics and VRAM, tied with the classic swap up to 38, 8% faster at 40
+  (4.69 vs 5.09 s/step on gen 4 x16). `--grad_checkpointing --blocks_to_swap 0` fits
+  without swap, slower. The best swap
   count depends on the PCIe link and GPU; `tune_swap.py` times each count on the cache's
   largest sample (about 4 min) and prints the flags to train with. Full plan table:
   guidebook §4.2.

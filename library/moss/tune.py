@@ -84,6 +84,7 @@ def flags(arm: dict) -> str:
     return (
         f"--blocks_to_swap {arm['blocks_to_swap']} "
         f"--activation_memory_budget {arm['budget']:g}"
+        + (" --swap_h2d_only" if arm.get("swap_h2d_only") else "")
     )
 
 
@@ -116,6 +117,8 @@ class _Bench:
         self.req = req
         self.transformer = transformer
         self.params = list(network.parameters())
+        # Every arm starts from these, so its first step is comparable across arms.
+        self.init = [p.detach().clone() for p in self.params]
         latent, embeds = sample.load()
         self.latent = latent.unsqueeze(0).to(device, torch.float32)
         self.embeds = embeds.unsqueeze(0).to(device)
@@ -127,8 +130,18 @@ class _Bench:
     def arm(self, swap: int, *, grad_checkpointing: bool = False) -> dict:
         """Place, budget, compile, time; always leaves the DiT back on CPU."""
         req = self.req
-        result = {"blocks_to_swap": swap, "grad_checkpointing": grad_checkpointing}
-        attached = place(self.transformer, self.device, swap, reserve_gb=0.0)
+        result = {
+            "blocks_to_swap": swap,
+            "grad_checkpointing": grad_checkpointing,
+            "swap_h2d_only": req.swap_h2d_only and not grad_checkpointing and swap > 0,
+        }
+        attached = place(
+            self.transformer,
+            self.device,
+            swap,
+            reserve_gb=0.0,
+            h2d_only=req.swap_h2d_only and not grad_checkpointing,
+        )
         try:
             empty_cache()
             free = free_vram_gb()
@@ -168,10 +181,15 @@ class _Bench:
         compile_blocks(blocks)
         if grad_checkpointing:
             checkpoint_blocks(blocks)
+        with torch.no_grad():
+            for p, p0 in zip(self.params, self.init):
+                p.copy_(p0)
         optimizer = torch.optim.AdamW(self.params, lr=1e-6)
         gen = torch.Generator().manual_seed(req.seed)
+        torch.manual_seed(req.seed)
         torch.cuda.reset_peak_memory_stats()
         start = 0.0
+        first = {}
         for i in range(req.warmup + req.steps):
             if i == req.warmup:
                 torch.cuda.synchronize()
@@ -181,7 +199,11 @@ class _Bench:
                 self.transformer, self.latent, self.embeds, sigma, ref=self.ref
             )
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.params, 1.0)
+            norm = torch.nn.utils.clip_grad_norm_(self.params, 1.0)
+            if i == 0:
+                # Same weights, noise and sigma in every arm: a swap mode that
+                # changes the numerics shows up here.
+                first = {"step0_loss": loss.item(), "step0_grad_norm": norm.item()}
             optimizer.step()
             optimizer.zero_grad(set_to_none=True)
         torch.cuda.synchronize()
@@ -192,6 +214,7 @@ class _Bench:
             # The allocator keeps its peak reserved until empty_cache, so this
             # is what the step left on the card.
             "free_gb": round(free_vram_gb(), 3),
+            **first,
         }
 
     def _restore(self, attached) -> None:
@@ -211,7 +234,8 @@ def _row(arm: dict) -> str:
         return f"  {name:8s} {arm.get('skipped', '')}"
     return (
         f"  {name:8s} budget {arm['budget']:<5g} {arm['s_per_step']:.3f} s/step  "
-        f"peak {arm['peak_reserved_gb']:.2f} GB reserved  {arm['free_gb']:.2f} GB free"
+        f"peak {arm['peak_reserved_gb']:.2f} GB reserved  {arm['free_gb']:.2f} GB free  "
+        f"step0 loss {arm['step0_loss']:.6f} |g| {arm['step0_grad_norm']:.6f}"
     )
 
 
@@ -264,6 +288,7 @@ def run_tune(req: TuneSwapRequest) -> dict:
     report = {
         "gpu": torch.cuda.get_device_name(device),
         "pcie": _pcie_link(),
+        "swap_h2d_only": req.swap_h2d_only,
         "image_tokens": sample.n_img,
         "text_tokens": sample.n_text,
         "rank": req.rank,

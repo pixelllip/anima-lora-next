@@ -368,7 +368,13 @@ def set_activation_memory_budget(budget: float) -> None:
     functorch_config.activation_memory_budget = budget
 
 
-def place(transformer, device, blocks_to_swap: int, reserve_gb: float):
+def place(
+    transformer,
+    device,
+    blocks_to_swap: int,
+    reserve_gb: float,
+    h2d_only: bool = False,
+):
     """Everything on ``device``, or the block swapper for ``blocks_to_swap`` > 0
     (``-1`` sizes it from ``mem_get_info`` free). Returns the attachment or None."""
     from library.runtime.blockswap import place as place_blocks
@@ -381,6 +387,7 @@ def place(transformer, device, blocks_to_swap: int, reserve_gb: float):
         supports_backward=True,
         activation_reserve_gb=reserve_gb,
         label="transformer",
+        h2d_only=h2d_only,
     )
 
 
@@ -626,7 +633,9 @@ def train(
     reserve_gb = step_reserve_gb(
         joint, grad_checkpointing=req.grad_checkpointing, budget=budget
     )
-    attached = place(transformer, device, req.blocks_to_swap, reserve_gb)
+    attached = place(
+        transformer, device, req.blocks_to_swap, reserve_gb, req.swap_h2d_only
+    )
     if budgeted and budget < 1.0:
         set_activation_memory_budget(budget)
         print(f"activation memory budget {budget}", flush=True)
