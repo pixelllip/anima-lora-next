@@ -170,6 +170,36 @@ in git history):
   11.2), with the TE (fp8 → int8) and steps (8k → 10k) also changed
   (`project/moss_lora/plan.md` § colorize). On sanitize, one run's EMA filled
   hard_to_sanitize2's red box cleaner than its raw weights, by eye.
+- **CNS and CFG are not the cause (2026-10-26, settled — do not re-raise).**
+  `moss_i2i_sanitize_w0002_ema_e6` (Muon lr 5e-5, 6 ep, `tone_weight 0.002`,
+  `tone_pool 8`, `ema_window 0.1`), same five pages, mean over pages:
+
+  | render | ΔL | Δb |
+  |---|---|---|
+  | cfg 3, CNS auto | +0.34 | −0.99 |
+  | cfg 3, CNS off | +0.35 | −1.05 |
+  | cfg 1, CNS auto | −0.15 | −0.69 |
+
+  CNS off changes no page by more than 0.2. At cfg 1 every page is still bluer
+  (Δb −0.4 to −1.5) and hard_to_sanitize2 keeps its contrast compression (input L 0–20
+  +2.0, 90–101 −1.8), so the drift is in the LoRA's conditional prediction, not the
+  sampler. Spectrum stayed on in all three.
+- **Identity pairs do not fix the drift (2026-10-26).** `moss_i2i_sanitize_idt_cs0_600`:
+  the cs0 recipe on a 277-pair tree with the 42 stacked `wm_*` pairs swapped for 39
+  clean → clean pairs (`staging/_identical/`, textless pages the textless miner had
+  dropped). Same renders, one shared mask with cs0, mean over the five pages:
+
+  | run | ΔL | Δb | sat× |
+  |---|---|---|---|
+  | cs0 | +1.19 | −0.64 | 0.96 |
+  | idt raw | +2.09 | −0.47 | 0.94 |
+  | idt EMA (0.1) | +0.63 | −1.08 | 0.96 |
+
+  The raw weights are brighter than cs0 on all five pages (+0.4 to +1.8), most in the
+  dark and mid tones (input L 0–60: +2 to +4). The per-pixel ΔL maps show the same
+  page-wide lift outside the edits, not a local effect. The EMA's lower ΔL is within the
+  raw-vs-EMA spread seen before. Edit quality is unchanged by eye: 「無断転載禁止」,
+  the handle and usual_case2's tiled watermark all go.
 
 ## Out of scope
 
