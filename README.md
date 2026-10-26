@@ -2,6 +2,8 @@
 
 > **New (alpha): [MOSS-Image LoRA](docs/moss/README.md).** Train LoRAs for OpenMOSS's 5B [MOSS-Image](https://huggingface.co/OpenMOSS-Team/MOSS-Image-Base) on a 16 GB card, with Spectrum sampling (2.6×) — `make gui-moss`. A separate line from Anima; flags and defaults may still change.
 
+🛠️ Install: [English](docs/installation/README.md) · [한국어](docs/installation/설치.md) · [日本語](docs/installation/インストール.md) · [中文](docs/installation/安装.md)
+
 📖 Guidebook: [English](docs/guidelines/guidebook.md) · [한국어](docs/guidelines/가이드북.md) · [日本語](docs/guidelines/ガイドブック.md) · [中文](docs/guidelines/指南书.md)
 
 <p align="center">
@@ -123,7 +125,7 @@ make download-list        # installed vs missing; SAM3 and OCR are opt-in
 ```
 
 - ROCm users repeat the same `--group` flags on every later manual `uv sync`. To keep an opt-in torch across updates, run `ANIMA_TORCH=2.13 make update` once.
-- The manual CUDA path does not install the CUDA 13.2 toolkit that `torch.compile` / Triton needs: see [guidebook appendix C](docs/guidelines/guidebook.md#appendix-c-manual-cuda-install).
+- The manual CUDA path does not install the CUDA 13.2 toolkit that `torch.compile` / Triton needs: see [installation guide, Appendix B](docs/installation/README.md#appendix-b-manual-cuda-install).
 - Install with `uv sync` against the committed `uv.lock`, not `pip install`: pip ignores uv's index strategy and the prebuilt flash-attn wheels.
 
 ## License

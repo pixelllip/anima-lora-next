@@ -260,7 +260,7 @@ Training-free inference stacks (Spectrum, SMC-CFG, CNS, mod-guidance, DAVE, …)
   benches: the gitignored `_archive/`. Ask the **`archive-explorer`** agent about either
   instead of grepping. Proposals: `docs/{moss,anima}/proposal/`.
 - Docs: one folder per line (`docs/moss/`, `docs/anima/`); docs shared across lines
-  (guidebooks, ROCm, CNS) sit at `docs/` — index `docs/README.md`.
+  (installation, guidebooks, CNS) sit at `docs/` — index `docs/README.md`.
 - `CONTRIBUTING.md`: numerics/efficiency changes (Tier 1.5) and new methods (Tier 2) need
   a bench script + invariant test. Benches share `bench/_common.py` and write a
   `result.json` envelope to `bench/<name>/results/<YYYYMMDD-HHMM>[-label]/`.

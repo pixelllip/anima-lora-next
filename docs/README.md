@@ -29,9 +29,10 @@ Qwen-Image-2.1 has no docs folder; its reference is `library/qwen21/CLAUDE.md`.
 
 | Doc | Description |
 |-----|-------------|
+| [installation/README.md](installation/README.md) | Installation — requirements, the one-line installer, Hugging Face sign-in, updating, manual install and CUDA; also [설치](installation/설치.md), [インストール](installation/インストール.md), [安装](installation/安装.md) |
+| [installation/rocm.md](installation/rocm.md) | Windows ROCm — the AMD Radeon install path |
 | [guidelines/guidebook.md](guidelines/guidebook.md) | Anima comprehensive guide (English); also [가이드북](guidelines/가이드북.md), [ガイドブック](guidelines/ガイドブック.md), [指南书](guidelines/指南书.md) |
 | [guidelines/moss-guidebook.md](guidelines/moss-guidebook.md) | MOSS-Image GUI guidebook (English); also [가이드북](guidelines/moss-가이드북.md), [ガイドブック](guidelines/moss-ガイドブック.md), [指南书](guidelines/moss-指南书.md) |
-| [guidelines/rocm.md](guidelines/rocm.md) | Windows ROCm — the AMD Radeon install path |
 | [cns.md](cns.md) | CNS — colored-noise ER-SDE plug-in; Anima `--cns` and the MOSS γ files |
 
 Curation docs — Anima Tagger, position captions, multiview audit, grouping,

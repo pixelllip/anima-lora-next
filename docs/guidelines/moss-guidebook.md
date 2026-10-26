@@ -39,6 +39,8 @@ The MOSS line is **alpha**: one style set so far (30 images of one artist), with
 
 ## 2. Setup
 
+> Install the repo first with the shared [installation guide](../installation/README.md).
+
 | Pack | Contents | Size |
 |---|---|---|
 | `moss-base` | DiT, text encoder, VAE, tokenizer | ~27 GB |

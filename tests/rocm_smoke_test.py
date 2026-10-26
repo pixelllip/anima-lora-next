@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Small post-install check for the supported Windows ROCm path.
 
-Two entry points on purpose: ``install.ps1`` / ``docs/guidelines/rocm.md`` run
+Two entry points on purpose: ``install.ps1`` / ``docs/installation/rocm.md`` run
 this as a script (``python tests/rocm_smoke_test.py``) right after installing
 the ROCm wheels, and pytest picks up ``test_rocm_smoke`` so ``make test-unit``
 exercises the same body on real AMD hardware. Everywhere else (CUDA, CPU) the

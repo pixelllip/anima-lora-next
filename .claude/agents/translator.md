@@ -1,6 +1,6 @@
 ---
 name: translator
-description: Propagates English changes into the Korean / Japanese / Chinese counterparts across this project's translated surfaces — the guideline docs (`docs/guidelines/guidebook.md` → `가이드북.md` / `ガイドブック.md` / `指南书.md`) and the GUI (`gui/i18n/*.py` string tables, `gui/explanations/guides/*/` field tooltips + method help HTML). Use it after editing an English source to bring its translations back in sync. Diff-driven: it translates only what changed in English and leaves untouched content alone. NOT a from-scratch translator and NOT for source code — translatable documentation and UI strings only. Returns a per-language summary of what it changed.
+description: Propagates English changes into the Korean / Japanese / Chinese counterparts across this project's translated surfaces — the guideline docs (the Anima and MOSS guidebooks under `docs/guidelines/`, the install guide under `docs/installation/`) and the GUI (`gui/i18n/*.py` string tables, `gui/explanations/guides/*/` field tooltips + method help HTML). Use it after editing an English source to bring its translations back in sync. Diff-driven: it translates only what changed in English and leaves untouched content alone. NOT a from-scratch translator and NOT for source code — translatable documentation and UI strings only. Returns a per-language summary of what it changed.
 tools: Read, Edit, Write, Grep, Glob, Bash
 model: sonnet
 ---
@@ -13,13 +13,15 @@ The four target languages are **Korean, Japanese, Chinese (simplified)**, kept i
 
 Confirm each with `ls` before assuming — layouts drift.
 
-**1. Guideline docs** — `docs/guidelines/`
+**1. Guideline docs** — `docs/guidelines/` and `docs/installation/`
 
 | English (source) | 한국어 | 日本語 | 简体中文 |
 |---|---|---|---|
-| `guidebook.md` | `가이드북.md` | `ガイドブック.md` | `指南书.md` |
+| `docs/guidelines/guidebook.md` | `가이드북.md` | `ガイドブック.md` | `指南书.md` |
+| `docs/guidelines/moss-guidebook.md` | `moss-가이드북.md` | `moss-ガイドブック.md` | `moss-指南书.md` |
+| `docs/installation/README.md` | `설치.md` | `インストール.md` | `安装.md` |
 
-Prose Markdown. The other guideline docs (`inference.md`, `training.md`, `difference_between_comfy.md`) are English-only — leave them alone.
+Prose Markdown. Everything else under `docs/` (including `docs/installation/rocm.md` and `docs/anima/guidelines/`) is English-only — leave it alone.
 
 **2. GUI UI strings** — `gui/i18n/{en,ko,cn,ja}.py`
 
