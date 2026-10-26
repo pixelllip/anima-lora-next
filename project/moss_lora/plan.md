@@ -8,7 +8,7 @@ Code map `library/moss/CLAUDE.md`; user doc `docs/moss/README.md`.
 
 | Sub-line | State | Log / code |
 |---|---|---|
-| i2i / colorize (VAE reference on RoPE `r`) | v2 = `moss_colorize_3k_ocr` (shipped). **v3 planned** (§ below): text-only TE + full-size isolated ref | `done/i2i.md`, `colorize_ocr.md`, `src/colorize_*.py` |
+| i2i / colorize (VAE reference on RoPE `r`) | v3 recipe shipped on the Hub as `moss_colorize_3k_v4` (§ below); the in-repo configs still carry v2's | `done/i2i.md`, `colorize_ocr.md`, `src/colorize_*.py` |
 | Correction training (arXiv 2610.14136), dual LoRA | joint D + C holds to K 8; CFG 1.5 + K 2 ≈ CFG 3 at 2× forwards (one seed) | `correction.md`, `src/correction*.py` |
 | TE quantization | INT8 W8A8 (SmoothQuant + act-aware GPTQ) is the default TE | `src/te_*.py`; comparison runs + drivers in `_archive/bench/moss_te_fp8/` |
 | Technical-report digest | reference | `report_notes.md` |
@@ -66,6 +66,33 @@ seed 1, ER-SDE + Spectrum, 30 steps, CFG 3, against v2's eval (10000 steps):
   stays behind at 10000 steps, run the vision-on arm (full-size isolated ref + vision
   tower, 1-hour budget) before shipping, to see whether the vision tower carries the hue.
 
+### Result: `moss_colorize_3k_textref1_iso_muon_ema` (2026-10-26), shipped as v4
+
+Two long runs on v2's pairs and holdout, same seed (σ and sample order match step for step):
+
+| | `moss_colorize_3k_textref1_iso` (Hub v3) | `…_muon_ema` (Hub v4) |
+|---|---|---|
+| optimizer / init | AdamW, `weight_svd`, channel scaling 0.5, `dc_isolate` | Muon, kaiming, `ema_window 0.1` (decay 0.999) |
+| TE cache | fp8 | int8 (`…_iso_int8`, latents / refs hard-linked) |
+| steps / where | 8000, pod, 1.0 s/step | 10000, local swap 32 / budget 0.15, 4.03 s/step, 11.2 h |
+
+Training loss matches within ±0.001 per 500 steps from step 2k on (Muon + kaiming starts
+higher and catches up by ~1.5k). Eval (`colorize_eval.py`, ER-SDE + Spectrum + RefCache, 30
+steps, seed 1), `lora_ocr`:
+
+| | luma r | chroma err | illus. 8 / manga 4 |
+|---|---|---|---|
+| v2 `lora_cap` | 0.977 | 12.4 | 12.8 / 11.6 |
+| Hub v3 | 0.995 | 13.3 | 12.3 / 15.2 |
+| **Hub v4** | 0.995 | **11.2** | **11.5 / 10.5** |
+
+- Lettering: every OCR'd balloon exact on the 4 manga pages, per glyph; "H-HEY" drawn
+  from the ref where the OCR read "H-HE".
+- Still wrong: lettering and prop hues (403801's magenta lettering turns black / purple,
+  its plaid green → blue; 2550520's globe blue → beige).
+- Real Korean pages (`comfy/input/to_colorize2`, prompt `comic`, no OCR): every balloon
+  kept, colour faint (cream tint, a few local hues) on that minimal line-art style.
+
 ### Deploy
 
 1. Defaults: `configs/moss/i2i/colorize/{cache,train,generate}.toml` and
@@ -79,7 +106,8 @@ seed 1, ER-SDE + Spectrum, 30 steps, CFG 3, against v2's eval (10000 steps):
    the Reference node's `task = colorize` picks the ref size from the recipe; prompt
    through a plain CLIP Text Encode (its template is byte-identical to
    `vision_te.encode(image=None)`). Example workflow `moss-i2i-colorize-v3.json`.
-4. Publish the v3 LoRA with its eval sheet.
+4. **Done** (2026-10-26): `colorize/moss_colorize_3k_v4.safetensors` on
+   `sorryhyun/MOSS-I2I-LORAs`, the workflow pointed at it, new showcase.
 5. Ref KV cache: **in the node** (0.5.0, `ref_cache`): the ref runs through the
    blocks once per page, ~2.1 GB bf16 at 1 MP; with the 1-hour arm an iteration
    costs ~1.25× t2i. Still to do in `generate.py`.

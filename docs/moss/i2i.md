@@ -23,7 +23,7 @@ is `library.moss.requests.I2I_CACHE`.
 
 | Task | Reference | Text encoder input | Status |
 |---|---|---|---|
-| `colorize` | B&W page, half size, joint | the page through the vision tower, then the colour caption's layout JSON plus one text item per OCR line | v2 shipped (`moss_colorize_3k_ocr`). v3 (full size, `ref_isolate`, text-only prompt) planned in `project/moss_lora/plan.md` |
+| `colorize` | B&W page, half size, joint | the page through the vision tower, then the colour caption's layout JSON plus one text item per OCR line | v2 recipe in the configs (`moss_colorize_3k_ocr`). The Hub's `colorize/moss_colorize_3k_v4` is the v3 recipe (full size, `ref_isolate`, caption only): `project/moss_lora/plan.md` |
 | `sanitize` | texted image, full size, isolated | one fixed caption for every pair: `no sfx, no dialogue, no watermark` | trained, private on the Hub |
 | `swap_text` | JA manga page, full size, isolated | layout JSON, one text item per line to letter (translated text + bbox) | probe run on 100 pairs (`moss_i2i_swap_text_muon_lr1e4`): English near-clean, Korean not yet |
 
@@ -85,8 +85,8 @@ Load Image → Reference.image
 ```
 
 The Caption Helper needs no image. It registers only when `anime-tools` is installed in
-ComfyUI's environment. LoRA + workflow: `sorryhyun/MOSS-I2I-LORAs` on the Hub, `sanitize/`
-(private for now; `colorize/` will go there too).
+ComfyUI's environment. LoRA + workflow per task: `sorryhyun/MOSS-I2I-LORAs` on the Hub
+(`colorize/`, `sanitize/`, `decensor/`).
 
 ## swap_text
 
