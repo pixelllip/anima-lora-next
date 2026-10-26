@@ -3,7 +3,7 @@
 
 The case the mined sanitize pairs miss: a URL watermark (``https://www.patreon.com/…``,
 ``….fanbox.cc/``) tiled over the whole page at a few percent opacity, barely visible
-on flat colour (``output/moss_results/usual_case2.png``). Each pair here reuses a
+on flat colour (``output/moss_i2i_eval/sanitize/inputs/usual_case2.png``). Each pair here reuses a
 staged pair: its clean ``_no_tags`` target stays the target, and the condition is
 that target — or, ``--stack`` of the time, the pair's texted ``_tags`` side — under a
 synthetic overlay. Both sides are decoded once and written as lossless WebP, so on

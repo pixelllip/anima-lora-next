@@ -136,7 +136,9 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--cache", default="post_image_dataset/moss/i2i_sanitize")
     p.add_argument(
-        "--pages", default="output/moss_results", help="'' skips the held-out pages"
+        "--pages",
+        default="output/moss_i2i_eval/sanitize/inputs",
+        help="'' skips the held-out pages",
     )
     p.add_argument("--pairs", type=int, default=24)
     p.add_argument("--sigmas", default="0.1,0.3,0.6")

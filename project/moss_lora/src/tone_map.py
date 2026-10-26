@@ -85,7 +85,7 @@ def per_bin_curve(mask: np.ndarray, d: np.ndarray, L_in: np.ndarray) -> np.ndarr
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--src", default="output/moss_results")
+    p.add_argument("--src", default="output/moss_i2i_eval/sanitize/inputs")
     p.add_argument("--runs", nargs="+", required=True, help="name=dir")
     p.add_argument("--out", default=None, help="write the numbers as JSON")
     args = p.parse_args()

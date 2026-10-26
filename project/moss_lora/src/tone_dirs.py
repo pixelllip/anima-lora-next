@@ -52,7 +52,9 @@ def shifted(img: Image.Image, tone: str, delta: float) -> Image.Image:
 def images(n_pairs: int) -> list[tuple[str, Image.Image]]:
     out = []
     for page in PAGES:
-        im = moss_cache.load_rgb(resolve_under_home(f"output/moss_results/{page}.png"))
+        im = moss_cache.load_rgb(
+            resolve_under_home(f"output/moss_i2i_eval/sanitize/inputs/{page}.png")
+        )
         out.append((page, moss_cache.fit(im, *moss_cache.target_size(*im.size, 1024))))
     root = resolve_under_home("post_image_dataset/i2i/sanitize/staging")
     rows = [json.loads(line) for line in open(root / "pairs.jsonl")]

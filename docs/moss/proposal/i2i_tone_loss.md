@@ -12,7 +12,7 @@ term that compares the coarse tone of the unedited tokens' x̂₀ with the targe
 
 ## Measurements
 
-Five held-out pages (`output/moss_results/{hard_to_sanitize1-3,usual_case1-2}.png`), all
+Five held-out pages (`output/moss_i2i_eval/sanitize/inputs/{hard_to_sanitize1-3,usual_case1-2}.png`), all
 rendered with the same CLI settings: `scripts/moss/generate.py`, the sanitize
 `generate.toml`, `--sampler er_sde --cns auto --spectrum`, seed 42. Each output is
 compared with its input in Lab after a σ=3 px blur, on one shared mask per image: the
