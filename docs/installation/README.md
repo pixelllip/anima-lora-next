@@ -21,10 +21,15 @@ MOSS-Image is measured on a 16 GB card; its memory plan is in [MOSS guidebook §
 
 ## 2. Installation
 
-Paste this one line into PowerShell. It installs `uv`, the CUDA 13.2 toolkit, Python 3.13, and all dependencies automatically, then opens the GUI for you when it's done.
+Paste the line for your OS into PowerShell (Windows) or a terminal (Linux / macOS). It installs `uv`, the CUDA 13.2 toolkit, Python 3.13, and all dependencies automatically, then opens the GUI for you when it's done.
 
 ```powershell
-irm https://raw.githubusercontent.com/sorryhyun/anima_lora/main/install.ps1 | iex
+# Windows (PowerShell)
+irm https://github.com/sorryhyun/anima_lora/releases/latest/download/install.ps1 | iex
+```
+```bash
+# Linux / macOS
+curl -LsSf https://github.com/sorryhyun/anima_lora/releases/latest/download/install.sh | sh
 ```
 
 - Installs into `.\anima_lora\` (change with `$env:ANIMA_DIR`, pin a version with `$env:ANIMA_VERSION='v2.0.0'`).
