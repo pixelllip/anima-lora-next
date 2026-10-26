@@ -662,12 +662,12 @@ class TrainRequest(Request):
         advanced=True,
     )
     swap_h2d_only: bool = _f(
-        False,
+        True,
         "block swap copies host-to-device only: the CPU keeps a page-locked copy "
         "of every swapped block (~0.21 GB each, up to the whole DiT, 8.8 GB) and "
         "an evicted block is repointed at it instead of copied back. Same numerics "
         "and VRAM as the classic swap; on gen 4 x16 it ties up to swap 38 and is "
-        "8% faster at 40",
+        "8% faster at 40. --no-swap_h2d_only for the classic swap",
         advanced=True,
     )
     fit_report: bool = _f(
@@ -738,7 +738,7 @@ class TuneSwapRequest(Request):
         True, "also time the checkpointed plan (--grad_checkpointing, swap 0)"
     )
     swap_h2d_only: bool = _f(
-        False, "time the host-to-device-only swap (TrainRequest.swap_h2d_only)"
+        True, "time the host-to-device-only swap (TrainRequest.swap_h2d_only)"
     )
     budget_step: float = _f(0.05, "budget grid", advanced=True)
     warmup: int = _f(2, "untimed steps per arm (compile lands here)", advanced=True)

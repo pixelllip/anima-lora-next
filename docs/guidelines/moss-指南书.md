@@ -154,7 +154,7 @@ make download-model ARGS=moss-sft
 | 留更多余量 | swap 24，budget 0.2 | 1.78 | 2.26 GiB |
 | 检查点 | 梯度检查点开启，swap 0 | 2.09 | 1.60 GiB |
 
-当前默认值（swap 36，budget 0.5，`expandable_segments`，秩 32）在 caststation 数据集上为 1.9 s/step，最大样本（图像 4.2k + 文本 0.4k token）剩余 0.85 GB。budget 超过约 0.45 后再提高也没有帮助（0.3：2.05 s/step），swap 28–36 速度相同，所以调低 swap 只会损失剩余显存。i2i 样本还带有参考图，因此 i2i 任务配置使用 swap 38、budget 0.175，并开启 `swap_h2d_only`：swap 28 时 budget 0.2 会显存不足，而 swap 38 能为更高的 budget 腾出空间；在约 8.3k 联合 token（sanitize）下为 3.79 s/step，swap 28 / budget 0.15 则为 4.17 s/step。`swap_h2d_only` 会在 RAM 中为每个被换出的块保留一份锁页副本（最多 8.8 GB），这样换出只需复制到显卡，无需再复制回来。结果和显存与不开启时相同；swap 38 以内速度相同，swap 40 时快 8%。
+当前默认值（swap 36，budget 0.5，`swap_h2d_only`，`expandable_segments`，秩 32）在 caststation 数据集上为 1.9 s/step，最大样本（图像 4.2k + 文本 0.4k token）剩余 0.85 GB。budget 超过约 0.45 后再提高也没有帮助（0.3：2.05 s/step），swap 28–36 速度相同，所以调低 swap 只会损失剩余显存。i2i 样本还带有参考图，因此 i2i 任务配置使用 swap 38、budget 0.175：swap 28 时 budget 0.2 会显存不足，而 swap 38 能为更高的 budget 腾出空间；在约 8.3k 联合 token（sanitize）下为 3.79 s/step，swap 28 / budget 0.15 则为 4.17 s/step。`swap_h2d_only` 会在 RAM 中为每个被换出的块保留一份锁页副本（最多 8.8 GB），这样换出只需复制到显卡，无需再复制回来。结果和显存与不开启时相同；swap 38 以内速度相同，swap 40 时快 8%。默认开启，可用 `--no-swap_h2d_only` 关闭。
 
 表格测试条件：合成 1024² 图像 + 300 个文本 token（共约 4.4k token），LoRA 秩 16，RTX 5070 Ti。此前的默认值（秩 32，budget 0.1，swap 12）在约 4.5k token（图像 4096 + 文本 455）下实测 1.85 s/step，剩余约 1.7 GB，峰值 reserved 约 13.1 GB；秩 16、budget 0.1 为 1.82 s/step，剩余约 2.0 GB。真实样本最多约 4.9k token，标注越长显存占用越多，`swap 24` 在相同速度下留出了这部分余量。
 

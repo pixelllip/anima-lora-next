@@ -32,6 +32,7 @@ lora_dtype = "bf16"            # bf16 | fp16 | fp32
 
 # Memory / speed (16 GB card). scripts/moss/tune_swap.py measures this machine's pair.
 blocks_to_swap = 36
+swap_h2d_only = true           # page-locked CPU copy per block, no device-to-host copy back
 activation_memory_budget = 0.5
 compile = true
 expandable_segments = true
