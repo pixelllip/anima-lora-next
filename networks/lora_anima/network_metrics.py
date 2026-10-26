@@ -131,7 +131,7 @@ class _NetworkMetricsMixin:
         Vectorized: gates with matching E are stacked into one ``(M, B, E)``
         tensor reduced in a single pass per metric (~10 launches regardless of
         module count vs ~500 for the per-module loop — see
-        ``docs/optimizations/hydra_analysis.md``). Memoized on
+        ``docs/anima/optimizations/hydra_analysis.md``). Memoized on
         ``_router_stats_cache``, invalidated by ``clear_step_caches``.
         """
         if self._router_stats_cache is not None:

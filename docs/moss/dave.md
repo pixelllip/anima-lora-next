@@ -1,6 +1,6 @@
 # DAVE on MOSS-Image
 
-DAVE (`docs/inference/dave.md`) adds same-prompt variety across seeds: during the first
+DAVE (`docs/anima/inference/dave.md`) adds same-prompt variety across seeds: during the first
 steps it removes part of the image tokens' per-channel mean on a pool of blocks. Framing,
 pose and panel layout vary more; hands and small objects get a little looser. Off by
 default. Code: `library/moss/dave.py`.

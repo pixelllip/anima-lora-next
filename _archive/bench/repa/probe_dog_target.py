@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """REPA-DoG Phase 0 — data-only σ-axis probe on the PE-Spatial target.
 
-THE QUESTION (``docs/proposal/repa_dog_target.md``). The shipped relational
+THE QUESTION (``docs/anima/proposal/repa_dog_target.md``). The shipped relational
 REPA arm matches a *Gram affinity* between block-8 DiT tokens and PE-Spatial
 patch tokens, with ``repa_spatial_norm`` standardizing the target tokens
 ``(pe − mean_tok)/(std_tok + ε)`` first — i.e. **DC removal**. Two threads
@@ -41,7 +41,7 @@ READOUT = **target discriminability**, reusing the global-anchor probe's metric
 ``P(in-group cosine > out-group cosine)`` over character / copyright / artist
 pairs from ``caption_index.json``. AUC≈0.5 ⇒ dead target.
 
-GATE (pre-registered, ``docs/proposal/repa_dog_target.md`` §"Phase 0"):
+GATE (pre-registered, ``docs/anima/proposal/repa_dog_target.md`` §"Phase 0"):
 
 * AUC rises monotonically −1 → 0 → +1a ⇒ low-side DoG is worth training; leave
   σ₂ off (train ``repa_target_dog`` with the winning ``σ_lp``).

@@ -10,7 +10,7 @@
 
 ## 0. 아이디어 — EasyControl 어댑터란 무엇인가
 
-EasyControl은 **레퍼런스 이미지**를 사용해 생성을 안내합니다. 레퍼런스는 VAE를 거쳐 *cond 토큰*으로 변환되고, 생성 중인 이미지와 나란히 흘러갑니다. 각 스텝마다 모델은 두 가지를 모두 봅니다. (전체 아키텍처: `docs/experimental/easycontrol.md`.)
+EasyControl은 **레퍼런스 이미지**를 사용해 생성을 안내합니다. 레퍼런스는 VAE를 거쳐 *cond 토큰*으로 변환되고, 생성 중인 이미지와 나란히 흘러갑니다. 각 스텝마다 모델은 두 가지를 모두 봅니다. (전체 아키텍처: `docs/anima/experimental/easycontrol.md`.)
 
 기본 EasyControl은 **동일한 이미지**를 레퍼런스이자 타깃으로 사용합니다 — 그래서 그냥 복사하는 것을 학습합니다. 컨트롤 태스크는 그것을 바꿉니다: 각 타깃을 **다른** 레퍼런스와 짝지어, 모델이 복사 대신 `reference → target`을 학습하도록 합니다.
 
@@ -96,7 +96,7 @@ colorize가 처리하는, 그 구조를 복사하면 공짜로 물려받는 두 
 
 ## 3. 지켜야 할 규칙 — 레퍼런스와 타깃의 토큰 카운트가 일치해야 한다
 
-DiT는 Anima의 **원본 형태 버킷팅**으로 동작합니다(두 개의 토큰 카운트 패밀리, 4032와 4200; CLAUDE.md 및 `docs/experimental/easycontrol.md` "Cond token count" 참조). **패딩 노브가 없습니다** — 레퍼런스는 레이턴트의 실제 토큰 카운트로 실행됩니다.
+DiT는 Anima의 **원본 형태 버킷팅**으로 동작합니다(두 개의 토큰 카운트 패밀리, 4032와 4200; CLAUDE.md 및 `docs/anima/experimental/easycontrol.md` "Cond token count" 참조). **패딩 노브가 없습니다** — 레퍼런스는 레이턴트의 실제 토큰 카운트로 실행됩니다.
 
 그래서 §2a에서 레퍼런스가 입력과 **같은 크기**여야 한다고 하고, §2c에서 **원본 크기**로 인코딩한다고 하는 것입니다: 두 가지를 모두 지키면 레퍼런스 레이턴트가 자동으로 타깃과 같은 버킷에 들어가고, 모든 것이 그냥 작동합니다. 더 작은 레퍼런스를 원한다면(완전히 괜찮습니다 — 더 작으면 메모리와 속도 모두 이득), **이미지** 수준에서, 인코딩 전에 줄이세요. 그러면 레이턴트가 여전히 실제 버킷에 들어갑니다. 네트워크 안에서 토큰 카운트를 제한하려 하지 마세요.
 
@@ -151,7 +151,7 @@ colorize 블루프린트의 서브셋:
 고민할 `[training]` 노브들:
 
 - **`network_args`** — `b_cond_init`은 step 0에서 레퍼런스가 얼마나 기여하는지 정합니다
-  (`-10` ≈ step 0에서 기본 DiT와 동일; `docs/experimental/easycontrol.md`의
+  (`-10` ≈ step 0에서 기본 DiT와 동일; `docs/anima/experimental/easycontrol.md`의
   "Step-0 baseline equivalence" 참조; colorize는 레퍼런스가 더 빨리 작동하도록 완화합니다;
   어느 쪽이든 학습 가능), `cond_scale`, `apply_ffn_lora` (`0`이면 FFN LoRA를 제거,
   학습 파라미터의 약 절반), `cond_res_scale`.
@@ -249,7 +249,7 @@ REF_IMAGE=path/to/condition.png make test-easycontrol EASYADAPTER=<task>
 
 - **`i2i_tasks/colorization/README.md`** — colorize 레퍼런스 구현:
   캡션 정책, 스크린톤 밴드, 태그 슬라이스, 인퍼런스 설정.
-- **`docs/experimental/easycontrol.md`** — 네트워크 자체: 2-스트림 포워드,
+- **`docs/anima/experimental/easycontrol.md`** — 네트워크 자체: 2-스트림 포워드,
   `b_cond` step-0 벤치, `cond_res_scale`, 인퍼런스 캐시, 메모리, 한계.
 - **`networks/methods/easycontrol.py`** — `EasyControlNetwork`와 패치된
   `Block.forward`.

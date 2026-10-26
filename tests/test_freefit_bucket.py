@@ -1,7 +1,7 @@
 """Free-aspect token-band resize ("free-fit") solver invariants.
 
 Locks the Phase 0 contract from
-docs/proposal/free_aspect_token_band_resize.md:
+docs/anima/proposal/free_aspect_token_band_resize.md:
   * every fitted grid lands inside the tier's token band,
   * the result respects the max_ratio clamp and the RoPE per-axis cap,
   * crop residual is sub-patch (< 16px) for in-range aspects on the 1024 tier,

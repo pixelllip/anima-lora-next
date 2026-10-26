@@ -41,7 +41,7 @@ def route(args):
 def yarnsig_params(args):
     """Parsed ``--sigma_lowres_yarnsig`` as ``(alpha, beta, center, gamma)``,
     or None when off. Validates once; cached on the args namespace.
-    **Default-on with ``--sigma_lowres``** (docs/optimizations/sigma_lowres.md):
+    **Default-on with ``--sigma_lowres``** (docs/anima/optimizations/sigma_lowres.md):
     an unset flag resolves to the operating point, not off. Opt out with
     ``--sigma_lowres_yarnsig off``. Written back onto ``args`` so the
     snapshot records what actually ran.

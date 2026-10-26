@@ -11,8 +11,8 @@ first, then the subset latent-cache dir — repairs every `text_cache_dir` +
 REPA combination, not just colorize). The first real A/B confirmed the
 relational arm lands the structural-consistency signal as intended; REPA is
 now the shipped EasyControl default for cond ≠ target tasks (sanitize /
-near-twins, colorize). Live reference: `docs/experimental/easycontrol.md`
-§"REPA auxiliary loss" and `docs/experimental/repa.md`. The plan below is the
+near-twins, colorize). Live reference: `docs/anima/experimental/easycontrol.md`
+§"REPA auxiliary loss" and `docs/anima/experimental/repa.md`. The plan below is the
 historical operating-point roadmap, kept for the rationale.
 
 ## Why this is not just LoRA-REPA with a different config
@@ -145,9 +145,9 @@ In priority order, one lever per run (the LoRA Phase-1 discipline):
 
 ## References
 
-- `docs/experimental/easycontrol.md` §"REPA auxiliary loss" — mechanism +
+- `docs/anima/experimental/easycontrol.md` §"REPA auxiliary loss" — mechanism +
   the original wiring notes.
-- `docs/experimental/repa.md` (§"Annealing plan" for live lever status + the
+- `docs/anima/experimental/repa.md` (§"Annealing plan" for live lever status + the
   metrics/report tooling); historical plan archived at
   `_archive/proposals/repa_phase1_operating_point.md`.
 - `networks/methods/easycontrol.py:311–342` — factory stamping;

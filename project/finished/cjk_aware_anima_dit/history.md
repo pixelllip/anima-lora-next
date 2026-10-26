@@ -102,7 +102,7 @@ saturation 0.208 vs C9's 0.255, 9 vs 6 low-saturation images of 24) matches
 another C9 variant and is not separable at n = 24. Not a blind set; the gate
 only asked for "inside the floor".
 
-Shipped (contract: `docs/experimental/cjk_ext_vocab_coverage.md` § "Quote
+Shipped (contract: `docs/anima/experimental/cjk_ext_vocab_coverage.md` § "Quote
 partition"; tests `tests/test_ext_vocab_iso.py`, 58 passing):
 
 - `library/anima/ext_vocab.py` — `iso_block` / `IsoSpec` / `materialize_iso`

@@ -3,7 +3,7 @@
 
 Feeds this bench's open gate. The Phase-0/1 verdict left the *localized
 feature-commit-band* boost demand-gated on "a regime that demonstrably DROPS
-small features" (`report.md`, and `docs/findings/crossattn_self_attn_dominance.md`
+small features" (`report.md`, and `docs/anima/findings/crossattn_self_attn_dominance.md`
 Result 4 — rendered glyphs are the canonical such regime). This probe asks the
 prior question: **when a caption carries a glyph to render, does the model put
 any extra text drive into the feature-commit band at all?**

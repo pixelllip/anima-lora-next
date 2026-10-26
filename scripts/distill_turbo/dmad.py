@@ -1,6 +1,6 @@
 """DMAD Phase 0 — a discriminator carries the student's distribution-matching signal.
 
-docs/proposal/turbo_dmad.md § Phase 0. DMAD's Prop. 1: the balanced-BCE optimum
+docs/anima/proposal/turbo_dmad.md § Phase 0. DMAD's Prop. 1: the balanced-BCE optimum
 is ``h* = log p_target − log p_student``, so ``∂(−h)/∂x`` is the score
 difference DMD estimates with a teacher + fake critic. Under ``[dmad]`` the DM
 term and the critic are replaced by :class:`DmadDisc`:

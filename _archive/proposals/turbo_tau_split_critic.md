@@ -2,7 +2,7 @@
 
 Status: **CLOSED 2026-07-20 — Phase 0 verdict: G1_FAIL at peak LR; Phase 1
 never gated.** Findings write-up (the durable record):
-`docs/findings/turbo_tau_critic_interference_lr_artifact.md`.
+`docs/anima/findings/turbo_tau_critic_interference_lr_artifact.md`.
 
 **The P0b gate fired, then failed its own robustness check.** Same bundle,
 same seed, only the LR differs:

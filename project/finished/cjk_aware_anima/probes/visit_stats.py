@@ -2,7 +2,7 @@
 """Ext-row visit statistics over the *training pool* of a CJK distill run.
 
 Answers "which ext rows never get looked up, and why" for a given cache set
-(the numbers in ``docs/experimental/cjk_ext_vocab_coverage.md``). Reads only
+(the numbers in ``docs/anima/experimental/cjk_ext_vocab_coverage.md``). Reads only
 the ``.sids`` tensors out of the staged shards (``safe_open`` — no hidden
 states are loaded), applies the same ``--train_registers`` filter
 ``scripts/distill_cjk/distill.py::make_pool`` applies, and buckets every row

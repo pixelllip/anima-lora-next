@@ -39,7 +39,7 @@ def _load_channel_scales(
     """Load per-channel input pre-scaling stats, gated on ``channel_scaling_alpha``.
 
     SmoothQuant-style; sole knob is 0.0 (off) .. 1.0 (fully flattened),
-    base.toml ships 0.5. See docs/optimizations/channel_scaling.md.
+    base.toml ships 0.5. See docs/anima/optimizations/channel_scaling.md.
     """
     raw_alpha = kwargs.get("channel_scaling_alpha", 0.0)
     channel_scaling_alpha = float(raw_alpha) if raw_alpha is not None else 0.0
@@ -515,7 +515,7 @@ def create_network_from_weights(
                     f"expected rank {expected_rank} with optional σ features "
                     f"appended (≤ {_SIGMA_FEATURE_CAP}). The excess width "
                     f"{extra} is most likely an old-format router trained "
-                    "on raw layer input (see docs/methods/hydra-lora.md "
+                    "on raw layer input (see docs/anima/methods/hydra-lora.md "
                     "§Router gate). There is no salvage path — retrain the LoRA."
                 )
             if sigma_feature_dim_detected is None:

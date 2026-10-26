@@ -1,6 +1,6 @@
 """Tag-level headroom & commitment-σ probe — Phase-0 (detector-free).
 
-Implements the Phase-0 gate of ``docs/proposal/tag_headroom_commitment_sigma.md``.
+Implements the Phase-0 gate of ``docs/anima/proposal/tag_headroom_commitment_sigma.md``.
 We do **not** detect whether a tag rendered (no local tagger — too noisy on this
 anime+NSFW domain). We *intervene* on each tag and read the model's own causal
 response, three detector-free signals from generations we already know how to run:

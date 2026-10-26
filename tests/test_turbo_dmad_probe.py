@@ -1,4 +1,4 @@
-"""Invariants for the DMAD Phase −1 probe (docs/proposal/turbo_dmad.md § Phase −1).
+"""Invariants for the DMAD Phase −1 probe (docs/anima/proposal/turbo_dmad.md § Phase −1).
 
 * ``alignment_stats`` — cosine / agree-energy endpoints, the permutation null, and
   that it draws only from the generator it is handed (the probe must leave the

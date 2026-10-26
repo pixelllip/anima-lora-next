@@ -507,7 +507,7 @@ sincos captions carry it often; unresolved. C2–C6 all used v1 records +
 ## 11. Coverage audit + symbol block (2026-09-03)
 
 Which rows are never looked up, and why — full numbers in
-[`docs/experimental/cjk_ext_vocab_coverage.md`](../../../docs/experimental/cjk_ext_vocab_coverage.md)
+[`docs/anima/experimental/cjk_ext_vocab_coverage.md`](../../../docs/anima/experimental/cjk_ext_vocab_coverage.md)
 (`probes/visit_stats.py`). The `synthjakozh1` pool visits 9,831 / 58,968
 rows; 1,455 of those fewer than five times. Structurally unreachable rows:
 2 (fullwidth `１０` `２０`). The `char` block is 97.6 % unvisited by

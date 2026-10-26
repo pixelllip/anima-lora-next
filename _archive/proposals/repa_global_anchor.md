@@ -12,7 +12,7 @@ This is not a dead end so much as a **signpost**: read on the frequency axis,
 this arm is the −1 endpoint (add DC back → worse), the shipped `spatial_norm` is
 the 0 point (strip DC), and the live successor pushes to the +1 endpoint (strip
 a *broader* low band). That successor is **REPA-DoG**
-(`docs/proposal/repa_dog_target.md`), which inherits this result as its
+(`docs/anima/proposal/repa_dog_target.md`), which inherits this result as its
 strongest local datapoint. The wired knobs (`repa_global_weight`,
 `REPAGlobalHead`, `global_anchor_loss`, the patch-mean calib) remain in tree,
 default-off and inert; leave them for now or strip in a later cleanup.
@@ -35,7 +35,7 @@ handler in `library/training/losses.py`, and the kwarg allowlist in
 Probe: `bench/repa/discriminability.py` (run
 `bench/repa/results/20260613-1249-discriminability/`, N=3058, no model
 forward). Depends on REPA v2
-Phase 0 (closed 2026-06-12, relational/Gram arm won — `docs/experimental/repa.md`).
+Phase 0 (closed 2026-06-12, relational/Gram arm won — `docs/anima/experimental/repa.md`).
 
 ## Why now
 

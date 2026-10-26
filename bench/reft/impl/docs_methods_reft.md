@@ -2,7 +2,7 @@
 
 Block-level residual-stream intervention on the DiT, following LoReFT (Wu et al., NeurIPS 2024). A small learned low-rank edit is added to the output hidden state of selected DiT blocks, instead of modifying any weights inside them. Composes additively with LoRA/T-LoRA/HydraLoRA in the same training run and the same `.safetensors` file.
 
-> **For the structural walkthrough** (math, forward pass, paper-form derivation, why activation-space, composition with the LoRA family, timestep masking on the ReFT bottleneck, why ReFT can't be merged into DiT weights), see **`docs/structure/reft.md`**. This doc is the usage / ops / tuning reference.
+> **For the structural walkthrough** (math, forward pass, paper-form derivation, why activation-space, composition with the LoRA family, timestep masking on the ReFT bottleneck, why ReFT can't be merged into DiT weights), see **`docs/anima/structure/reft.md`**. This doc is the usage / ops / tuning reference.
 
 ## Block selection: `reft_layers`
 

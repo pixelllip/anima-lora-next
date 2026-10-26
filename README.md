@@ -27,46 +27,46 @@ Sign in to Hugging Face and download models from the GUI. Requirements, checksum
 
 ## Features
 
-Diagrams for every method: [`docs/structure_images/`](docs/structure_images/), prose walkthroughs in [`docs/structure/`](docs/structure/).
+Diagrams for every method: [`docs/anima/structure_images/`](docs/anima/structure_images/), prose walkthroughs in [`docs/anima/structure/`](docs/anima/structure/).
 
 ### Fast training
 
-**13.4 GB peak VRAM · 1.1 s/step** on an RTX 5060 Ti (rank 32, 1 MP). Per-block `torch.compile` with a dynamic sequence axis (one graph per token-count tier), fused QKV/KV, an activation memory budget instead of gradient checkpointing, and a compile-clean hot path. Details: [for_compile.md](docs/optimizations/for_compile.md).
+**13.4 GB peak VRAM · 1.1 s/step** on an RTX 5060 Ti (rank 32, 1 MP). Per-block `torch.compile` with a dynamic sequence axis (one graph per token-count tier), fused QKV/KV, an activation memory budget instead of gradient checkpointing, and a compile-clean hot path. Details: [for_compile.md](docs/anima/optimizations/for_compile.md).
 
 ### On by default
 
 | Feature | Doc |
 |---|---|
-| LoRA with SVD-Down init (`down_init = "weight_svd"`) | [svd-down-lora.md](docs/methods/svd-down-lora.md) |
-| T-LoRA timestep rank masking | [timestep_mask.md](docs/methods/timestep_mask.md) |
-| Channel scaling (`channel_scaling_alpha = 0.5`, Adam-specific) | [channel_scaling.md](docs/optimizations/channel_scaling.md) |
-| Free-fit native-aspect bucketing (the only resize mode) | [for_compile.md](docs/optimizations/for_compile.md) |
-| AdaLN low-rank delta (`train_adaln`, provisional) | [adaln.md](docs/methods/adaln.md) |
-| CJK vocab pack (Japanese text in captions and images) | [cjk_vocab_pack.md](docs/methods/cjk_vocab_pack.md) |
+| LoRA with SVD-Down init (`down_init = "weight_svd"`) | [svd-down-lora.md](docs/anima/methods/svd-down-lora.md) |
+| T-LoRA timestep rank masking | [timestep_mask.md](docs/anima/methods/timestep_mask.md) |
+| Channel scaling (`channel_scaling_alpha = 0.5`, Adam-specific) | [channel_scaling.md](docs/anima/optimizations/channel_scaling.md) |
+| Free-fit native-aspect bucketing (the only resize mode) | [for_compile.md](docs/anima/optimizations/for_compile.md) |
+| AdaLN low-rank delta (`train_adaln`, provisional) | [adaln.md](docs/anima/methods/adaln.md) |
+| CJK vocab pack (Japanese text in captions and images) | [cjk_vocab_pack.md](docs/anima/methods/cjk_vocab_pack.md) |
 
 LoRA and T-LoRA bake losslessly into a standalone DiT: `make merge [ADAPTER_DIR=… MULTIPLIER=0.8]`.
 
 ### Inference stacks
 
-Training-free; each composes with any checkpoint. Overview: [docs/inference/](docs/inference/README.md).
+Training-free; each composes with any checkpoint. Overview: [docs/anima/inference/](docs/anima/inference/README.md).
 
 | Method | Doc |
 |---|---|
-| Spectrum — feature forecasting, ≈1.75× ([ComfyUI node](https://github.com/sorryhyun/ComfyUI-Spectrum-KSampler)) | [spectrum.md](docs/inference/spectrum.md) |
-| SMC-CFG — sliding-mode CFG correction | [smc_cfg.md](docs/inference/smc_cfg.md) |
-| Modulation guidance | [mod-guidance.md](docs/inference/mod-guidance.md) |
-| SPD — progressive multi-resolution sampling | [spd.md](docs/inference/spd.md) |
-| Embedding inversion | [invert.md](docs/inference/invert.md) |
+| Spectrum — feature forecasting, ≈1.75× ([ComfyUI node](https://github.com/sorryhyun/ComfyUI-Spectrum-KSampler)) | [spectrum.md](docs/anima/inference/spectrum.md) |
+| SMC-CFG — sliding-mode CFG correction | [smc_cfg.md](docs/anima/inference/smc_cfg.md) |
+| Modulation guidance | [mod-guidance.md](docs/anima/inference/mod-guidance.md) |
+| SPD — progressive multi-resolution sampling | [spd.md](docs/anima/inference/spd.md) |
+| Embedding inversion | [invert.md](docs/anima/inference/invert.md) |
 
 ### Training stacks
 
 | Method | Doc |
 |---|---|
-| HydraLoRA — multi-head LoRA with per-sample routing ([ComfyUI node](https://github.com/sorryhyun/ComfyUI-Anima_lora-Adapter)) | [hydra-lora.md](docs/methods/hydra-lora.md) |
-| Turbo — DP-DMD few-step distillation, output is a normal LoRA ([4-step student](https://huggingface.co/sorryhyun/anima-turbo-4step)) | [turbo.md](docs/methods/turbo.md) |
-| Soft Tokens (experimental) | [soft_tokens.md](docs/experimental/soft_tokens.md) |
-| DirectEdit + Anima Tagger (experimental) | [directedit_editing_v3.md](docs/experimental/directedit_editing_v3.md) |
-| EasyControl (experimental) | [easycontrol.md](docs/experimental/easycontrol.md) |
+| HydraLoRA — multi-head LoRA with per-sample routing ([ComfyUI node](https://github.com/sorryhyun/ComfyUI-Anima_lora-Adapter)) | [hydra-lora.md](docs/anima/methods/hydra-lora.md) |
+| Turbo — DP-DMD few-step distillation, output is a normal LoRA ([4-step student](https://huggingface.co/sorryhyun/anima-turbo-4step)) | [turbo.md](docs/anima/methods/turbo.md) |
+| Soft Tokens (experimental) | [soft_tokens.md](docs/anima/experimental/soft_tokens.md) |
+| DirectEdit + Anima Tagger (experimental) | [directedit_editing_v3.md](docs/anima/experimental/directedit_editing_v3.md) |
+| EasyControl (experimental) | [easycontrol.md](docs/anima/experimental/easycontrol.md) |
 
 > **Want to contribute?** EasyControl adapters (canny / depth / pose / …, one PR per control type) — see [CONTRIBUTING.md → Priority areas](CONTRIBUTING.md#priority-areas).
 
@@ -79,7 +79,7 @@ make lora                 # or PRESET=low_vram make lora
 make test                 # sample with the latest LoRA
 ```
 
-Config chain: `configs/base.toml → configs/presets.toml[<preset>] → configs/methods/<method>.toml → CLI args`. Flags: [training.md](docs/guidelines/training.md), [inference.md](docs/guidelines/inference.md). All docs: [docs/](docs/README.md).
+Config chain: `configs/base.toml → configs/presets.toml[<preset>] → configs/methods/<method>.toml → CLI args`. Flags: [training.md](docs/anima/guidelines/training.md), [inference.md](docs/anima/guidelines/inference.md). All docs: [docs/](docs/README.md).
 
 ## Advanced installation
 

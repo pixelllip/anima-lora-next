@@ -1,7 +1,7 @@
 """Single-step tone bias of sanitize LoRAs on the unedited tokens (no training).
 
 Does the x̂₀ the training loss sees already carry the page-wide brightening /
-cooling that e6 renders show (docs/proposal/moss_i2i_tone_loss.md)? Per LoRA,
+cooling that e6 renders show (docs/moss/proposal/i2i_tone_loss.md)? Per LoRA,
 per σ, with the same noise for every LoRA:
 
 - training pairs: ``x̂₀ = x_t − σ·v̂`` against the cached target on the rest tokens

@@ -5,7 +5,7 @@
 > so SCFM reduces to per-step FM distillation onto the teacher's instantaneous
 > field (blurry at 4 steps). All SCFM code (loss loop, config knobs, EMA plumbing,
 > `make scfm`, tests, `scfm.toml`) was removed from the live tree. The verdict +
-> evidence live in `docs/findings/scfm_velocity_fidelity_closed.md`. This file is
+> evidence live in `docs/anima/findings/scfm_velocity_fidelity_closed.md`. This file is
 > kept only for the §9 progress log. Do not re-propose a pure velocity-fidelity
 > distiller for Anima.
 
@@ -17,7 +17,7 @@
 > self-distillation: no critic, no GAN, no diversity anchor. Output is a plain
 > velocity-field LoRA — merges and infers exactly like the shipped turbo student.
 >
-> For the incumbent see `docs/methods/turbo.md` (ops), `docs/structure/turbo.md`
+> For the incumbent see `docs/anima/methods/turbo.md` (ops), `docs/anima/structure/turbo.md`
 > (math), and the migration record `_archive/proposals/dpdmd.md`. Prior review of
 > this paper: [[project_scfm_paper_verdict]].
 
@@ -381,7 +381,7 @@ measure it against DP-DMD before mixing).
   PDF `2431_Shortcutting_Pre_trained_.pdf` (repo root). Prior review:
 - `_archive/proposals/dpdmd.md` — the incumbent's migration proposal (this doc
   mirrors its structure + dual-path discipline).
-- `docs/structure/turbo.md` / `docs/methods/turbo.md` — incumbent math + ops.
+- `docs/anima/structure/turbo.md` / `docs/anima/methods/turbo.md` — incumbent math + ops.
 - Plateau / teacher-gap evidence: [[project_turbo_R_plateau]],
 - Shelved-aux context (why the inert-EMA objection is weaker here):
 - Phase-0 probes (live): `bench/turbo/probe_consistency_residual.py`,

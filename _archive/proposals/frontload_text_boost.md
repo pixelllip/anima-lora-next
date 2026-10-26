@@ -1,13 +1,13 @@
 # Front-loaded text-drive boost — amplify the text pathway in the first 2–3 steps only
 
 > **ARCHIVED 2026-07-14 — landed.** Arm (b) shipped as `--xattn_boost` /
-> `XATTN_BOOST=`; the live doc is `docs/inference/xattn_boost.md` and the
+> `XATTN_BOOST=`; the live doc is `docs/anima/inference/xattn_boost.md` and the
 > bench (`bench/frontload_text_boost/`) stays live for the deferred arm (c)
 > span-flag. Kept as the decision log for why each arm lived or died.
 
 Status: **Phase 1 RUN 2026-07-06** — arm (a) CLOSED (Phase 0, style
 collapse); arm (b) G1+G2 PASS and **SHIPPED** as `--xattn_boost` /
-`XATTN_BOOST=` (see `docs/inference/xattn_boost.md`); arm (c) validated at
+`XATTN_BOOST=` (see `docs/anima/inference/xattn_boost.md`); arm (c) validated at
 bench level — beats (b) on bindings + side effects, loses on rare-item
 assembly (complementary, not redundant; production span-flag deferred).
 Full reads: `bench/frontload_text_boost/report.md`.
@@ -18,7 +18,7 @@ one-afternoon falsification either way.
 ## Premise sources
 
 - Cross-attn text drive is **front-loaded**: peaks at σ = 1, falls to a ~0.02
-  floor below σ ≈ 0.85 (`docs/findings/crossattn_self_attn_dominance.md`,
+  floor below σ ≈ 0.85 (`docs/anima/findings/crossattn_self_attn_dominance.md`,
   `_archive/bench/cross_attn_drive/`). The reweight lever only has headroom in the first
   ~2–3 steps of the 28-step schedule.
 - LoRAs learn **labeled tags only** — influence Δ tracks training-label
@@ -94,7 +94,7 @@ mechanism claim gets rewritten before Phase 1.
 - ~~Compose-flag plumbing~~ **DONE 2026-07-06** — `--xattn_boost` /
   `--xattn_boost_band` + `XATTN_BOOST=` env lever; wired into inline/tiled
   loops and the spectrum/SPD/foveated runners; SMC-CFG + Spectrum interaction
-  smoke-passed. `docs/inference/xattn_boost.md`.
+  smoke-passed. `docs/anima/inference/xattn_boost.md`.
 - ~~Turbo check~~ **DONE 2026-07-06** — the band covers 2 of the student's 4
   steps; at CFG 1.0 the single forward is boosted (arm (c) works there too —
   the CFG-only reasoning was wrong). Result: lever survives distillation;

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Turbo FEI band-gap probe (Phase 0 of docs/proposal/turbo_fei_band_on_trajectory.md).
+"""Turbo FEI band-gap probe (Phase 0 of docs/anima/proposal/turbo_fei_band_on_trajectory.md).
 
 THE QUESTION. Does the trained DP-DMD student over-blur *on its own rollout*
 relative to the teacher — i.e. is there a HF deficit at the distribution the
 loss now visits (the student's trajectory + the renoise-of-student DMD point)?
 The 2026-05 item-2 lever falsified because it measured the band gap at renoised
 *real* data, where the only gap is the trivial "one-shot x0 is noisier than the
-teacher's" (docs/findings/turbo_fei_band_deficit_falsified.md). This probe
+teacher's" (docs/anima/findings/turbo_fei_band_deficit_falsified.md). This probe
 re-measures at the right distribution, on an ALREADY-TRAINED checkpoint — the
 fast way to read the gate without burning a training run (a fresh short run is
 useless: the zero-init student ≈ teacher for the first thousands of steps, so

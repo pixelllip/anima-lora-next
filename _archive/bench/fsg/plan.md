@@ -2,12 +2,12 @@
 
 **Status:** **Plan A/B/C DONE → SHIPPED in library (2026-06-23).** Production config:
 cfg++ λ1.5, band **[0.59,0.75]**, K=3, Δσ=0.1, γ=guidance(4), er_sde, 28 steps —
-library defaults updated; `docs/proposal/foresight_guidance.md` revised for the node
+library defaults updated; `docs/anima/proposal/foresight_guidance.md` revised for the node
 port. **Only matched-NFE A/B remains** (cost-efficiency proof, not a ship blocker —
 ship rested on the cfg++-substrate confound read). See memory
 `project_fsg_golden_path_phase0` for the full Plan B/C findings.
 
-Read first: `docs/proposal/foresight_guidance.md`, memory
+Read first: `docs/anima/proposal/foresight_guidance.md`, memory
 `project_fsg_golden_path_phase0`. Tools: `probe_golden_path.py` (gap/ρ mechanism),
 `render_compare.py` (eyeball A/B). Production point: **er_sde, CFG=4, 28 steps,
 flow_shift 3.0, 1024 tier**.

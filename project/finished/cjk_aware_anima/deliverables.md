@@ -27,7 +27,7 @@ The pack-recipe builders moved to `_archive/scripts/distill_cjk/corpus/` on 2026
 outputs now live in `post_image_dataset/cjk_distill/assets/`, and `datasets/assets` here is a
 symlink to it). `commentary.py`, `lovehina.py`, `manga_text.py`, `mint_corpus.py`,
 `audit_glossary.py` and the OCR builders stay in `datasets/` — none of them is on the path
-of a shipped pack. Rebuild recipes: `docs/methods/cjk_vocab_pack.md`.
+of a shipped pack. Rebuild recipes: `docs/anima/methods/cjk_vocab_pack.md`.
 
 | Builder | Output | Notes |
 |---|---|---|

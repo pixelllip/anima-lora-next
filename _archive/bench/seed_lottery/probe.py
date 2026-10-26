@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 0 of the seed-lottery noise floor (docs/proposal/seed_lottery_noise_floor.md).
+"""Phase 0 of the seed-lottery noise floor (docs/anima/proposal/seed_lottery_noise_floor.md).
 
 The gate question: **does CMMD separate training seeds at all?** i.e. is the
 between-seed spread (`sigma_between`) larger than the sampling/eval noise floor

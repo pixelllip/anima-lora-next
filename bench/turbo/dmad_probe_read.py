@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read a DMAD Phase −1 probe run (docs/proposal/turbo_dmad.md § Phase −1).
+"""Read a DMAD Phase −1 probe run (docs/anima/proposal/turbo_dmad.md § Phase −1).
 
 Input is the ``dmad_probe.jsonl`` a ``--dmad_probe`` turbo run writes into its log
 dir (one row per step, ``scripts/distill_turbo/dmad_probe.py``). CPU-only.

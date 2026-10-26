@@ -1,7 +1,7 @@
 """Golden-tensor equivalence harness for the ``lora_modules/`` forwards (Part B0).
 
 This is the safety net for the ``lora_modules/`` dedup refactor (proposal
-``docs/proposal/programmatic_stacking_and_lora_module_dedup.md`` Part B). It
+``docs/anima/proposal/programmatic_stacking_and_lora_module_dedup.md`` Part B). It
 captures the *pre-refactor* forward (train + eval mode) and backward (grad wrt
 input) of every variant module as golden tensors, checked in under
 ``tests/golden/``. Any later refactor that claims to be numerically inert

@@ -92,10 +92,10 @@ int8 became the default re-encodes on the next `cache` run unless it passes
   weight's top-r right singular vectors. Under AdamW `weight_svd` kept the artist's style
   better by eye; under Muon it was dropped because its basis feeds 4–6× more input DC into
   the adapter (output DC shift 1.24 vs 0.43 with kaiming, images about a seed change
-  apart). A DC-free variant is proposed in `docs/proposal/moss_lora_dcfree_svd_init.md`.
+  apart). A DC-free variant is proposed in `docs/moss/proposal/lora_dcfree_svd_init.md`.
   `--svd_slice k` (needs `--down_init weight_svd`) seeds from singular vectors
   `[k·r, (k+1)·r)` and `--svd_slice_count N` interleaves `{k, k+N, …}`, as in Anima's
-  `svd_slice` (`docs/methods/svd-down-lora.md`), so LoRAs on different slices start in
+  `svd_slice` (`docs/anima/methods/svd-down-lora.md`), so LoRAs on different slices start in
   orthogonal input subspaces. MOSS's targets are all ≥ 3072 wide, so rank 32 fits 96
   slices.
 - **LyCORIS** (`--algo lokr` / `--algo loha`, from `lycoris-lora`): LoKr is the
@@ -156,7 +156,7 @@ needs `anime_tools`) does the same conversion.
   compile per job. Fine detail drifts from the eager image; composition does not.
 - **DAVE** (`--dave auto`, off): more same-prompt variety across seeds; `docs/moss/dave.md`.
 - **CNS** has no `generate.py` flag. The six MOSS γ files
-  (`networks/calibration/moss_cns_gamma*.npz`, `docs/inference/cns.md`) are used by the
+  (`networks/calibration/moss_cns_gamma*.npz`, `docs/cns.md`) are used by the
   bench and by the ComfyUI Spectrum node's `er_sde_cns`, which picks one by variant and cfg.
 
 ## ComfyUI
@@ -191,4 +191,4 @@ REPA, parked, `_archive/moss_lora/repa.md`); `--ref_timestep` / `--ref_isolate` 
   finished logs (sampler, channel scaling, DAVE, seed soup) in `project/moss_lora/done/`;
   parked lines (caption dropout, REPA) in `_archive/moss_lora/`.
 - Architecture walkthrough (TE pass, latent boundary, blocks, loss, sampler):
-  `docs/structure/moss.md`. Code map: `library/moss/CLAUDE.md`.
+  `docs/moss/structure.md`. Code map: `library/moss/CLAUDE.md`.

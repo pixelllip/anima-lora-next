@@ -476,7 +476,7 @@ def _apply_partitioner_tuning(
     recompute at all: ``recompute_views`` stops saving view ops,
     ``aggressive_recomputation`` drops the ban list on recomputing whole op
     classes when the min-cut is cheap. See
-    docs/findings/custom_autograd_removal_partitioner_oom.md.
+    docs/anima/findings/custom_autograd_removal_partitioner_oom.md.
 
     Skipped under gradient checkpointing for the same reason as the budget
     (see :func:`_apply_activation_memory_budget`).

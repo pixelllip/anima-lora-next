@@ -2,7 +2,7 @@
 
 Status: **SHIPPED** (Phase 0 passed; archived 2026-06-28). The `down_init =
 "weight_svd"` option is live on the plain-LoRA path — see the ops doc
-`docs/methods/svd-down-lora.md`. This file is kept as the original theory /
+`docs/anima/methods/svd-down-lora.md`. This file is kept as the original theory /
 motivation write-up. Turbo is the observation that motivated the proposal, not
 the only intended use case.
 
@@ -48,7 +48,7 @@ parameterization critiqued below, and its Table 5 initialization ablation shows
 the SVD seed washes out (SVD-major ≈ SVD-minor ≈ random) once the subspace is
 trainable — which is what makes “what is the SVD seed still worth on a *free*
 LoRA?” the question this proposal answers. The chimera branch of the same
-reading is `docs/proposal/stella_chimera.md`. The probe below is what made it
+reading is `docs/anima/proposal/stella_chimera.md`. The probe below is what made it
 urgent, not where it came from.
 
 `bench/turbo/probe_ortho_init_step.py` was written around a “hot OrthoInit

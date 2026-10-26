@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Dual-pool gradient routing — Phase 0 A/B driver.
-# docs/proposal/turbo_dual_pool_grad_routing.md
+# docs/anima/proposal/turbo_dual_pool_grad_routing.md
 #
 # Queues both arms on the daemon (serial, survives the terminal) and returns.
 # This does NOT poll — check progress with `make run-status RUN=<output_name>`

@@ -48,7 +48,7 @@ irm https://raw.githubusercontent.com/sorryhyun/anima_lora/main/install.ps1 | ie
 
 > **New feature:** Try caption with Japanese text in the image — e.g. `1girl, solo, speech bubble. Japanese text reads as "何言ってるの?".` ([§4.1](#41-caption-writing-tips))
 >
-> **v2.0.0** — Anima with the [CJK vocab pack](../methods/cjk_vocab_pack.md): it renders Japanese text natively, and you can train LoRAs on it. The pack is on by default and installed with the models in §3; English prompts are unchanged.
+> **v2.0.0** — Anima with the [CJK vocab pack](../anima/methods/cjk_vocab_pack.md): it renders Japanese text natively, and you can train LoRAs on it. The pack is on by default and installed with the models in §3; English prompts are unchanged.
 
 - Installs into `.\anima_lora\` (change with `$env:ANIMA_DIR`, pin a version with `$env:ANIMA_VERSION='v2.0.0'`).
 - If it asks for a reboot (common after the CUDA step), reboot and re-run the same one-liner — it picks up where it left off.
@@ -115,7 +115,7 @@ absurdres, safe, 1girl, chitanda eru, hyouka, @channel (caststation), full body,
 
 - Omit quality tags such as `absurdres`, `highres`, and `masterpiece`, or keep them to a minimum. (Once the officially released mod guidance is available, you can skip them entirely.)
 - Don't want to caption by hand? Open the anime_tools panel (the **anime_tools** tab) and run Autotag — the built-in Anima Tagger fills captions in the correct order ([§6.3](#63-curation-the-anime_tools-panel)). Treat the result as a starting point: review the tags, especially character/series/artist names, before training.
-- Want Japanese text drawn in the image? Keep the tags in English and put the text in double quotes inside an English clause: `1girl, solo, speech bubble. Japanese text reads as "はい".` LoRA captions use the same form, so a LoRA can learn to render that text. Write Japanese as text to draw, not as tags (`猫耳` → `cat ears`). Details: [CJK vocab pack](../methods/cjk_vocab_pack.md#intended-use).
+- Want Japanese text drawn in the image? Keep the tags in English and put the text in double quotes inside an English clause: `1girl, solo, speech bubble. Japanese text reads as "はい".` LoRA captions use the same form, so a LoRA can learn to render that text. Write Japanese as text to draw, not as tags (`猫耳` → `cat ears`). Details: [CJK vocab pack](../anima/methods/cjk_vocab_pack.md#intended-use).
 
 ---
 
@@ -232,7 +232,7 @@ For manga/comic-style data, excluding speech bubbles and text regions from the l
 1. Download SAM3 ([§3.2](#32-download-models)) and generate masks with `make mask` ([Appendix A](#appendix-a-cli-reference)). The PNGs are black-and-white: white (255) = trained on, black (0) = excluded.
 2. Turn on `masked_loss` in the training config (`--masked_loss` from the CLI). Without it, masks on disk are ignored.
 
-Images without a mask are trained on in full. Mask lookup details are in [`training.md`](training.md#masked-loss-sam3).
+Images without a mask are trained on in full. Mask lookup details are in [`training.md`](../anima/guidelines/training.md#masked-loss-sam3).
 
 ---
 
@@ -252,7 +252,7 @@ For 8–12 GB VRAM, don't switch variants — pick Low VRAM in the Hardware drop
 > - Adapter variants such as HydraLoRA require `cache_llm_adapter_outputs = true` (on by default).
 > - `tlora` can be baked into the base DiT with `make merge` to produce a standalone ComfyUI checkpoint.
 
-For per-variant options see [`docs/guidelines/training.md`](training.md) and the individual documents under `docs/methods/`.
+For per-variant options see [`docs/anima/guidelines/training.md`](../anima/guidelines/training.md) and the individual documents under `docs/anima/methods/`.
 
 ---
 
@@ -274,7 +274,7 @@ Commonly used options:
 | `--spectrum` | Enable Spectrum acceleration |
 | `--pgraft` | P-GRAFT (LoRA cutoff late in denoising) — the base model handles late detail |
 
-The full option list is in [`docs/guidelines/inference.md`](inference.md).
+The full option list is in [`docs/anima/guidelines/inference.md`](../anima/guidelines/inference.md).
 
 ---
 
@@ -469,14 +469,14 @@ A kohya-ss style option in `configs/base.toml`'s `[[datasets.subsets]]`: how man
 
 ## Further Reading
 
-- [`docs/guidelines/base-config.md`](base-config.md) — per-key reference for `base.toml` (model paths, noise schedule, caching, compile, memory knobs, dataset blueprint)
-- [`docs/guidelines/training.md`](training.md) — adapter variants, caption shuffling, masked loss, dataset config details
-- [`docs/guidelines/inference.md`](inference.md) — inference workflow, flags, Spectrum, prompt file format
-- [`docs/guidelines/difference_between_comfy.md`](difference_between_comfy.md) — anima_lora ↔ ComfyUI core implementation differences
-- [`docs/methods/timestep_mask.md`](../methods/timestep_mask.md) — T-LoRA timestep mask
-- [`docs/methods/svd-down-lora.md`](../methods/svd-down-lora.md) — SVD-Down LoRA (weight-seeded down-projection init)
-- [`docs/inference/spectrum.md`](../inference/spectrum.md) — how Spectrum acceleration works and its options
-- [`docs/inference/mod-guidance.md`](../inference/mod-guidance.md) — modulation guidance
-- [`docs/methods/hydra-lora.md`](../methods/hydra-lora.md) — HydraLoRA multi-head routing
+- [`docs/anima/guidelines/base-config.md`](../anima/guidelines/base-config.md) — per-key reference for `base.toml` (model paths, noise schedule, caching, compile, memory knobs, dataset blueprint)
+- [`docs/anima/guidelines/training.md`](../anima/guidelines/training.md) — adapter variants, caption shuffling, masked loss, dataset config details
+- [`docs/anima/guidelines/inference.md`](../anima/guidelines/inference.md) — inference workflow, flags, Spectrum, prompt file format
+- [`docs/anima/guidelines/difference_between_comfy.md`](../anima/guidelines/difference_between_comfy.md) — anima_lora ↔ ComfyUI core implementation differences
+- [`docs/anima/methods/timestep_mask.md`](../anima/methods/timestep_mask.md) — T-LoRA timestep mask
+- [`docs/anima/methods/svd-down-lora.md`](../anima/methods/svd-down-lora.md) — SVD-Down LoRA (weight-seeded down-projection init)
+- [`docs/anima/inference/spectrum.md`](../anima/inference/spectrum.md) — how Spectrum acceleration works and its options
+- [`docs/anima/inference/mod-guidance.md`](../anima/inference/mod-guidance.md) — modulation guidance
+- [`docs/anima/methods/hydra-lora.md`](../anima/methods/hydra-lora.md) — HydraLoRA multi-head routing
 
 Questions and bug reports are welcome on GitHub Issues. Happy training!

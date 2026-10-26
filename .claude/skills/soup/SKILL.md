@@ -6,7 +6,7 @@ description: Run or modify the uncond-init soup pipeline (make soup, scripts/sou
 # Uncond-init soup pipeline
 
 `make soup` runs the uncond-init soup pipeline (`scripts/soup/`; GUI: Experimental tab →
-soup). Recipe from `bench/memorization/report.md`; deep-dive: `docs/experimental/soup.md`.
+soup). Recipe from `bench/memorization/report.md`; deep-dive: `docs/anima/experimental/soup.md`.
 
 ## What it does
 

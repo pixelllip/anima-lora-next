@@ -4,7 +4,7 @@
 > the design record: why clauses, the Phase-0 probe evidence, and the reasoning
 > behind each rule. It is **not** the operational contract and will not be kept
 > current — read
-> [`docs/experimental/position_captions.md`](../../docs/experimental/position_captions.md)
+> [`docs/anima/experimental/position_captions.md`](../../docs/anima/experimental/position_captions.md)
 > for how to run it, what the knobs do, and the two gates still owed (the
 > dry-run spot-check and the training A/B, both carried over there).
 >
@@ -26,7 +26,7 @@ remaining gate (spot-check the dry-run report, then `--apply`). The pass is also
 wired as an opt-in preprocess stage (`caption_position_clauses`, GUI
 Preprocessing tab → 캡션 편집 box, off by default) which applies inline; ops
 contract in
-[`docs/experimental/position_captions.md`](../../docs/experimental/position_captions.md).
+[`docs/anima/experimental/position_captions.md`](../../docs/anima/experimental/position_captions.md).
 
 ## TL;DR
 
@@ -248,7 +248,7 @@ too, which is a real loss on those 14 captions.
   males, `6+girls` read as exactly six) — 373 proposals now, up from 317, net
   +59/−3. Full mechanism table, plus the two refuted mask-quality gates and the
   measured-harmful containment rule, in
-  [`docs/experimental/position_captions.md`](../../docs/experimental/position_captions.md#triaging-the-skips-2026-08-17).
+  [`docs/anima/experimental/position_captions.md`](../../docs/anima/experimental/position_captions.md#triaging-the-skips-2026-08-17).
 
   Three fixes landed 2026-08-17 on top of that sweep, all found by reading the
   report against the exported crops (`ama_mitsuki`, whose sheets are a full body

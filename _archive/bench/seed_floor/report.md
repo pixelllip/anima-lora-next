@@ -7,7 +7,7 @@ ranking from paired-holdout CMMD at 24 prompts / 96 refs is untrustworthy.**
 
 ## What we set out to do
 
-Deliver the `docs/proposal/seed_lottery_noise_floor.md` idea cheaply: instead of
+Deliver the `docs/anima/proposal/seed_lottery_noise_floor.md` idea cheaply: instead of
 building a harness, *extract* the between-seed CoV floor from checkpoints we
 already have. The uncond-soup bench trained a seed trio from one shared uncond
 init on identical data (`bench_sincos_half_uncondpoolft{,_s1002,_s1003}`), which
@@ -38,7 +38,7 @@ matched the banked `project_uncond_soup_bench` narrative.
 ### 2. cfg-4 flipped the ranking — s1002 went from worst to best
 
 The reft finding's own GOTCHA is that **cfg-1 CMMD misranks** (documented
-cross-family; `docs/findings`/`bench/reft/report.md`). Re-ran the trio at the
+cross-family; `docs/anima/findings`/`bench/reft/report.md`). Re-ran the trio at the
 trusted protocol — **28 steps / CFG 4.0** (`bench/reft/results/20260706-1210-seed_floor_cfg4`):
 
 | model | cfg-4 holdout ↓ | (cfg-1 was) |

@@ -33,8 +33,8 @@ not a LoRA.
 
 | Piece | Where |
 |---|---|
-| Pack recipe (ext table → corpus → cache → distill) | `_archive/bench/cjk_adapter/build_ext.py`, `_archive/scripts/distill_cjk/{corpus,cache,distill}` — `docs/methods/cjk_vocab_pack.md` § Rebuilding a pack |
-| Shipped surface (loader, hooks, cache stamps) | `library/anima/{vocab_pack,ext_vocab}.py`, `docs/methods/cjk_vocab_pack.md` |
+| Pack recipe (ext table → corpus → cache → distill) | `_archive/bench/cjk_adapter/build_ext.py`, `_archive/scripts/distill_cjk/{corpus,cache,distill}` — `docs/anima/methods/cjk_vocab_pack.md` § Rebuilding a pack |
+| Shipped surface (loader, hooks, cache stamps) | `library/anima/{vocab_pack,ext_vocab}.py`, `docs/anima/methods/cjk_vocab_pack.md` |
 | Code ledger, packs, ship contract | [`deliverables.md`](deliverables.md) |
 | Freeze note and why | [`plan.md`](plan.md) |
 | Exploration-side data tooling (D2 commentary, Love Hina set, manga text pilot, glossary audit, OCR record builders) | `datasets/` ([README](datasets/README.md)); `datasets/assets` is a symlink to `post_image_dataset/cjk_distill/assets/` |

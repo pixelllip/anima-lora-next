@@ -22,7 +22,7 @@ $$
 A_0 = V_r^\top / \sqrt{3}, \qquad B_0 = 0
 $$
 
-The $1/\sqrt{3}$ scale-matches Kaiming's expected row-norm, so the comparison against the default init isn't confounded by a larger effective step — it's purely "better direction." After init this is ordinary LoRA: ΔW = 0 at step 0 (via $B=0$), full $A$ and $B$ trainable from step 1, standard save format, no constraint, no extra buffers. It applies to plain `LoRAModule` only (the config raises if combined with the ortho or MoE variants, which have their own SVD machinery). Details and benching: `docs/methods/svd-down-lora.md`.
+The $1/\sqrt{3}$ scale-matches Kaiming's expected row-norm, so the comparison against the default init isn't confounded by a larger effective step — it's purely "better direction." After init this is ordinary LoRA: ΔW = 0 at step 0 (via $B=0$), full $A$ and $B$ trainable from step 1, standard save format, no constraint, no extra buffers. It applies to plain `LoRAModule` only (the config raises if combined with the ortho or MoE variants, which have their own SVD machinery). Details and benching: `docs/anima/methods/svd-down-lora.md`.
 
 If you remember one thing from this doc: **the SVD's value here is as a prior, not a cage.** The rest of this page covers the two variants that hold the subspace more tightly, and where they still earn their keep.
 

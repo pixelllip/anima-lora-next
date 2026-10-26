@@ -18,7 +18,7 @@ prefix) — so a file is tied to its line's module names. ``from_file`` also
 reads the earlier ``adapters.<module_name>.{down,up}.weight`` layout.
 
 ``down_init="weight_svd"`` seeds ``down`` with ``V_rᵀ/√3`` from the base weight's
-SVD, as Anima's SVD-Down (``docs/methods/svd-down-lora.md``). The Kaiming draw
+SVD, as Anima's SVD-Down (``docs/anima/methods/svd-down-lora.md``). The Kaiming draw
 still runs first, so the global RNG stream (and the training noise drawn after
 it) is the same under either init. ``svd_slice=k`` moves the window to singular
 vectors ``[k·r, (k+1)·r)`` (``svd_slice_count=N``: the interleaved comb
@@ -27,7 +27,7 @@ so LoRAs trained on different slices own disjoint input subspaces.
 ``"weight_svd_nodc"`` takes the basis of ``W(I − uuᵀ)`` instead, with
 ``u = x̄ / ‖x̄‖`` the calibrated input DC direction (``channel_mean``), so every row
 starts orthogonal to the token mean and ``down · x̄ = 0`` at init; nothing holds it
-there during training (``docs/proposal/moss_lora_dcfree_svd_init.md``).
+there during training (``docs/moss/proposal/lora_dcfree_svd_init.md``).
 ``svd_drop_loud=k`` also projects out the ``k`` input channels with the largest
 calibrated ``mean|x|`` (``channel_stats``; on MOSS ch 42 into ``ffn_up_gate``), so
 their ``down`` columns start at zero.

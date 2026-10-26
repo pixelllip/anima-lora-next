@@ -22,8 +22,8 @@ re-integration doesn't require commit archaeology.
 | `impl/reft.py` | `networks/lora_modules/reft.py` | The module — `forward` is the whole story. Copy back verbatim. |
 | `impl/reft.toml` | `configs/gui-methods/reft.toml` | ReFT-only GUI variant (kept LoRA at rank 16). |
 | `impl/tlora_ortho_reft.toml` | `configs/gui-methods/tlora_ortho_reft.toml` | The old "default recommended stack". On removal it was re-saved **without** ReFT as `configs/gui-methods/tlora_ortho.toml`; this is the pre-removal copy with ReFT still in it. |
-| `impl/docs_methods_reft.md` | `docs/methods/reft.md` | Method deep-dive. |
-| `impl/docs_structure_reft.md` | `docs/structure/reft.md` | Structure deep-dive. |
+| `impl/docs_methods_reft.md` | `docs/anima/methods/reft.md` | Method deep-dive. |
+| `impl/docs_structure_reft.md` | `docs/anima/structure/reft.md` | Structure deep-dive. |
 | `impl/guides/{en,ja,ko,cn}_reft.html` | `gui/explanations/guides/<lang>/reft.html` | GUI help HTML, 4 languages. |
 
 ## Live-code hook points removed (re-apply in this order)
@@ -84,7 +84,7 @@ not a rewrite. Restoring is mechanical.
 - `configs/methods/lora.toml` — re-add the commented `# reft` toggle block + the header mention.
 
 ### 12. Docs
-- Restore `docs/methods/reft.md` + `docs/structure/reft.md` from `impl/`.
+- Restore `docs/anima/methods/reft.md` + `docs/anima/structure/reft.md` from `impl/`.
 - Re-thread the README / CLAUDE / networks/CLAUDE / docs index / guidebook (4-lang) mentions.
 
 ## Key facts the bench must honor (from removal-time state)

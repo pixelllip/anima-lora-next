@@ -8,13 +8,13 @@ recorded in [[project_soft_tokens_agsm_pl_correction]]. Open items below are
 faithfulness refinements, not blockers: **3b renoise = DEFER** (probe MATTERS by
 the literal gate but is weak in practice), **3c time-shaping = PARKED**, and the
 **dual-bank ship-vs-revert A/B** (3a) remains the one outstanding decision. The
-method now lives in the code + method doc (`docs/experimental/soft_tokens.md`); the
+method now lives in the code + method doc (`docs/anima/experimental/soft_tokens.md`); the
 original proposal text is preserved below for the phasing/gating rationale.
 
 # Original proposal
 
-Status: **proposal** (2026-05-22). Builds on `docs/experimental/soft_tokens.md`
-and supersedes the InfoNCE direction in `docs/proposal/soft_tokens_contrastive.md`
+Status: **proposal** (2026-05-22). Builds on `docs/anima/experimental/soft_tokens.md`
+and supersedes the InfoNCE direction in `docs/anima/proposal/soft_tokens_contrastive.md`
 *conditionally* — see "Relationship to the contrastive proposal". Reuses the
 cached-TE negative plumbing already shipped for that proposal
 (`library/datasets/base.py::setup_contrastive_negatives`, `IdentityPairSampler`).
@@ -358,8 +358,8 @@ checked before any training:
 - Renoise probe (Phase 3b gate): `bench/soft_tokens_contrastive/renoise_probe.py`
   (the no-training `x_t` vs `x_{t+Δ}` Δ-direction / `w_matched` comparison that
   decides whether to integrate 3b)
-- Sibling proposal (gates this one): `docs/proposal/soft_tokens_contrastive.md`
-- Method doc: `docs/experimental/soft_tokens.md`
+- Sibling proposal (gates this one): `docs/anima/proposal/soft_tokens_contrastive.md`
+- Method doc: `docs/anima/experimental/soft_tokens.md`
 - Quality-signal context: [[project_fm_val_loss_uninformative]],
 - Papers: AGSM (ICML 2026, https://jaayeon.github.io/AGSM/); SoftREPA
   (arXiv:2503.08250, NeurIPS 2025)

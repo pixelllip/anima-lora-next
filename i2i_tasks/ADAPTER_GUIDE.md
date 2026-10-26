@@ -15,7 +15,7 @@ condition image is built** and the wiring around it; it does not touch
 
 EasyControl runs a **reference image** through the VAE into *cond tokens* that
 flow alongside the image being generated (architecture:
-`docs/experimental/easycontrol.md`).
+`docs/anima/experimental/easycontrol.md`).
 
 Plain EasyControl uses the same image as reference and target, so it learns to
 copy. A control task pairs each target with a **different** reference, so the
@@ -139,7 +139,7 @@ Two correctness traps:
 ## 3. Cond token count
 
 The cond stream runs at the cond latent's native token count; there is no
-padding knob (`docs/experimental/easycontrol.md`, "Cond token count"; bucket
+padding knob (`docs/anima/experimental/easycontrol.md`, "Cond token count"; bucket
 bands: the `bucketing` skill). Encoding a same-size reference at native size
 (§2a, §2c) puts the cond latent on the same bucket as its target. Cond and
 target shapes may also differ — the loader falls back to the cond filed at its
@@ -201,7 +201,7 @@ colorize's blueprint subset:
 
 - **`network_args`** — `b_cond_init` sets how much the reference contributes at
   step 0 (`-10` ≈ plain DiT at step 0; see "Step-0 baseline equivalence" in
-  `docs/experimental/easycontrol.md`; colorize loosens it so the reference kicks
+  `docs/anima/experimental/easycontrol.md`; colorize loosens it so the reference kicks
   in sooner; learnable either way), `cond_scale`, `apply_ffn_lora` (`0` drops
   the FFN LoRA, about half the trainable params), `cond_res_scale`.
 - **`easycontrol_cond_noise_max`** — noise added to the reference in training
@@ -302,7 +302,7 @@ REF_IMAGE=path/to/condition.png make test-easycontrol EASYADAPTER=<task>
 - **`i2i_tasks/colorization/README.md`** — the colorize reference
   implementation: caption policy, screentone bands, tag slices, inference
   settings.
-- **`docs/experimental/easycontrol.md`** — the network: two-stream forward,
+- **`docs/anima/experimental/easycontrol.md`** — the network: two-stream forward,
   `b_cond` step-0 bench, `cond_res_scale`, inference cache, memory, limits.
 - **`networks/methods/easycontrol.py`** — `EasyControlNetwork` and the patched
   `Block.forward`.

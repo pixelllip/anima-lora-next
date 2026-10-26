@@ -1,4 +1,4 @@
-"""Tone drift of sanitize renders on the unedited pixels (docs/proposal/moss_i2i_tone_loss.md).
+"""Tone drift of sanitize renders on the unedited pixels (docs/moss/proposal/i2i_tone_loss.md).
 
 Lab after a σ=3 px blur; the mask is the pixels no compared run changed by ΔE > 8,
 dilated 20 px. Per image and run:

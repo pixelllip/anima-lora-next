@@ -233,7 +233,7 @@ def dmad_signal(
     crossattn_emb: torch.Tensor,
     B: int,
 ) -> DmdResult:
-    """DMAD's student signal in the DM slot (docs/proposal/turbo_dmad.md § Phase 0).
+    """DMAD's student signal in the DM slot (docs/anima/proposal/turbo_dmad.md § Phase 0).
 
     Draws (τ, ε) as the DM query does (uniform τ; the critic's bank routing
     does not exist here), then ``ctx.dmad.student_signal`` returns

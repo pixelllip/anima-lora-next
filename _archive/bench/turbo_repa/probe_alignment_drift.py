@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turbo × REPA alignment-drift probe (Phase 0 of docs/proposal/turbo_repa.md).
+"""Turbo × REPA alignment-drift probe (Phase 0 of docs/anima/proposal/turbo_repa.md).
 
 THE QUESTION. Does DP-DMD distillation pull the student's mid-block *visual*
 representation off the base manifold, the way the caption-ranking probe showed
@@ -328,7 +328,7 @@ def main() -> None:
         "- **NO-DRIFT** ⇒ the representation damage is not PE-visible — write "
         "the negative finding and close; the caption degradation is "
         "text-conditioning, owned by soft-rank "
-        "(`docs/proposal/turbo_caption_ranking.md`).\n"
+        "(`docs/anima/proposal/turbo_caption_ranking.md`).\n"
         "- Base-arm values double as the σ profile of REPA's own signal on this "
         "backbone (how much PE structure survives at each noise level).\n"
     )

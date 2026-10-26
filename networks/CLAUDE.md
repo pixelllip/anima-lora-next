@@ -16,15 +16,15 @@ by both training and inference.
 | `lora_save.py`, `lora_utils.py` | Save pipeline + shared helpers. `save_network_weights` calls each module class's `distill_save_state_dict` in a load-bearing order (see the `lora_save.py` docstring), then its `build_moe_state_dict`. |
 | `methods/base.py` | `AdapterNetworkBase` — shared trainer-facing lifecycle for the non-LoRA networks (EasyControl, SoftTokens). |
 | `protocol.py` | `typing.Protocol` description of the duck-typed adapter surface: `AdapterNetwork` (core lifecycle) + `RouterConditionableNetwork` (per-step routing setters, LoRA family only). Not an enforced base — consumers `hasattr`-probe; guarded by `tests/test_adapter_protocol.py` (which also guards the inference↛training import boundary). |
-| `methods/easycontrol.py` | EasyControl: per-block cond LoRA on self-attn (q/k/v/o) + FFN + scalar `b_cond` logit-bias gate; two-stream block forward at training, KV-cache prefill at inference. Opt-in target-stream adaln LoRA (`train_adaln`) — EasyControl TOMLs must pin it false, since base.toml turns it on for the LoRA family (`docs/methods/adaln.md` §EasyControl). |
-| `methods/turbo_dmd.py` | Turbo Anima DP-DMD distillation harness — owns student + fake `LoRANetwork` instances on one frozen DiT; output is a normal LoRA. See `docs/methods/turbo.md`. |
+| `methods/easycontrol.py` | EasyControl: per-block cond LoRA on self-attn (q/k/v/o) + FFN + scalar `b_cond` logit-bias gate; two-stream block forward at training, KV-cache prefill at inference. Opt-in target-stream adaln LoRA (`train_adaln`) — EasyControl TOMLs must pin it false, since base.toml turns it on for the LoRA family (`docs/anima/methods/adaln.md` §EasyControl). |
+| `methods/turbo_dmd.py` | Turbo Anima DP-DMD distillation harness — owns student + fake `LoRANetwork` instances on one frozen DiT; output is a normal LoRA. See `docs/anima/methods/turbo.md`. |
 | `methods/soft_tokens.py`, `methods/ip_adapter_pe_lora.py` | Soft tokens (SoftREPA parameterization) + the PE-LoRA delta path (`inject_pe_lora`), vendored into the Anima-Tagger ComfyUI node. |
-| `grad_basis.py` | Gradient-SVD `lora_down` init (`down_init="grad_svd"` / `"basis_file"`). The basis is **depth-baked** (`load_basis` refuses a block-count mismatch); `grad_svd` sketches in `library/anima/trainer/network.py::sketch_grad_basis` before the network is built and is refused under block swap. `docs/methods/svd-down-lora.md` §Gradient-seeded siblings. |
+| `grad_basis.py` | Gradient-SVD `lora_down` init (`down_init="grad_svd"` / `"basis_file"`). The basis is **depth-baked** (`load_basis` refuses a block-count mismatch); `grad_svd` sketches in `library/anima/trainer/network.py::sketch_grad_basis` before the network is built and is refused under block swap. `docs/anima/methods/svd-down-lora.md` §Gradient-seeded siblings. |
 | `attention_dispatch.py` | Unified `dispatch_attention()` — backend router (SDPA / FA2 / FA3 / sageattn / flex). |
-| `spectrum.py` | Spectrum inference acceleration (Chebyshev feature forecasting). See `docs/inference/spectrum.md`. |
-| `spd.py` | Spectral Progressive Diffusion — training-free inference acceleration (grow spatial resolution along the trajectory, spectral noise-expansion handoff). Sampler-level runner registered like Spectrum. See `docs/inference/spd.md`. |
-| `foveated.py` | Deferred-foveated merge — training-free inference acceleration (full grid above σ_c, then fovea tokens 1:1 + periphery 2×2-token groups merged via the `token_merger` forward kwarg; endogenous `combo` mask). Sampler-level runner registered like Spectrum/SPD. See `docs/inference/foveated.md`. |
-| `calibration/` | Shipped artifacts: `channel_stats.safetensors` + `cond_channel_stats.safetensors` (per-channel scaling, main + EasyControl cond stream; `docs/optimizations/channel_scaling.md`), `cns_gamma.npz` (CNS γ), `dave_alpha.npz` (DAVE). |
+| `spectrum.py` | Spectrum inference acceleration (Chebyshev feature forecasting). See `docs/anima/inference/spectrum.md`. |
+| `spd.py` | Spectral Progressive Diffusion — training-free inference acceleration (grow spatial resolution along the trajectory, spectral noise-expansion handoff). Sampler-level runner registered like Spectrum. See `docs/anima/inference/spd.md`. |
+| `foveated.py` | Deferred-foveated merge — training-free inference acceleration (full grid above σ_c, then fovea tokens 1:1 + periphery 2×2-token groups merged via the `token_merger` forward kwarg; endogenous `combo` mask). Sampler-level runner registered like Spectrum/SPD. See `docs/anima/inference/foveated.md`. |
+| `calibration/` | Shipped artifacts: `channel_stats.safetensors` + `cond_channel_stats.safetensors` (per-channel scaling, main + EasyControl cond stream; `docs/anima/optimizations/channel_scaling.md`), `cns_gamma.npz` (CNS γ), `dave_alpha.npz` (DAVE). |
 
 ## Three-axis routing surface
 
@@ -56,7 +56,7 @@ for SDPA/sageattn, BLHD for flash-attn. `dispatch_attention` takes `[B, L, H, D]
 transposes per backend; check the backend branches before adding a call site.
 
 FA4 (flash-attention-sm120) is disabled — `attn_mode="flash4"` raises in the dispatcher.
-Re-enable notes: `docs/optimizations/fa4.md`.
+Re-enable notes: `docs/anima/optimizations/fa4.md`.
 
 ## compile_blocks() and forward hooks
 

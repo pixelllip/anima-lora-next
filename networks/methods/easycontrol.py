@@ -9,7 +9,7 @@ are baseline; cond skips cross-attn entirely. cond_x flows block-to-block via
 a per-block side channel (``block._easycontrol_cond_x_in``), threaded as an
 explicit checkpoint arg/return so autograd stays intact under grad-checkpoint.
 Step-0 equivalence: ``b_cond`` inits to -10 (exp(-10)~4.5e-5 softmax mass) so
-target_out ~ baseline DiT regardless of cond. See docs/experimental/easycontrol.md.
+target_out ~ baseline DiT regardless of cond. See docs/anima/experimental/easycontrol.md.
 
 Train-time contract: caller calls ``network.set_cond(clean_vae_latent)`` once
 per batch before the DiT forward (``None``/``clear_cond`` for CFG-dropout —
@@ -191,7 +191,7 @@ def create_network(
     apply_ffn_lora = bool(int(kwargs.get("apply_ffn_lora", 1)))
     cond_res_scale = float(kwargs.get("cond_res_scale", DEFAULT_COND_RES_SCALE))
 
-    # Target-stream adaln LoRA (opt-in; docs/methods/adaln.md §EasyControl).
+    # Target-stream adaln LoRA (opt-in; docs/anima/methods/adaln.md §EasyControl).
     # base.toml sets train_adaln=true for the LoRA family, so
     # configs/easycontrol/*.toml MUST pin train_adaln=false to keep this opt-in.
     from networks.lora_anima.config import _as_bool
@@ -583,12 +583,12 @@ class EasyControlNetwork(AdapterNetworkBase):
         # target paths — the no-cond fallback runs original Block.forward, so
         # the delta is cond-gated by construction ("no reference = exact
         # baseline DiT" survives). Zero-init up keeps step-0 equivalence.
-        # Rationale + sizing: docs/methods/adaln.md.
+        # Rationale + sizing: docs/anima/methods/adaln.md.
         self.train_adaln = bool(train_adaln)
         self.adaln_rank = int(adaln_rank)
         self.adaln_in_dim = int(adaln_in_dim)
         if adaln_alpha <= 0.0:
-            # √r law (docs/methods/adaln.md): keep α/√r consistent with the
+            # √r law (docs/anima/methods/adaln.md): keep α/√r consistent with the
             # cond LoRA rather than linearly scaling α/r.
             adaln_alpha = cond_lora_alpha * math.sqrt(
                 self.adaln_rank / max(cond_lora_dim, 1)
@@ -935,7 +935,7 @@ class EasyControlNetwork(AdapterNetworkBase):
 
         # With train_adaln the target shift/scale/gate carry grad, triggering a
         # mix-order-reduction fusion hazard that contradicts strict dynamic-seq
-        # marks — same as the DiT path (docs/optimizations/for_compile.md §2.6).
+        # marks — same as the DiT path (docs/anima/optimizations/for_compile.md §2.6).
         # compile_blocks usually pins this already; repeat here for standalone use.
         if dynamic_seq and self.train_adaln:
             import torch._inductor.config as _inductor_config

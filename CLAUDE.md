@@ -186,7 +186,7 @@ routing axes: `lora-routing` skill).
 - `make turbo` — DP-DMD distiller: bespoke loop under `scripts/distill_turbo/`, so
   `train.py` infra (compile cache, `--deterministic`, `print-config`) does not reach it.
   Output is a normal LoRA — infer with `--infer_steps 4 --cfg 1.0` (`make test-turbo`).
-  `docs/methods/turbo.md`.
+  `docs/anima/methods/turbo.md`.
 - `make soup TARGET=<artist>` — uncond-init soup, plain LoRA only; **load the `soup`
   skill** first.
 - Inference: `make test` (interactive) / `make gen` (daemon batch: grids, seed sweeps).
@@ -221,7 +221,7 @@ routing axes: `lora-routing` skill).
   28-block base drops its tail behind a `not all LoRA keys are used` warning
   (`ss_num_blocks` is stamped). `channel_stats.safetensors` and `dave_alpha.npz` in
   `networks/calibration/` are depth-baked; CNS γ is not. Depth-relative knobs use
-  `num_blocks`. `docs/methods/anima-2.9b.md`.
+  `num_blocks`. `docs/anima/methods/anima-2.9b.md`.
 
 ### Preprocessing and caches
 
@@ -239,17 +239,17 @@ alone caches empty prompts. TE caches invalidate on caption mtime only.
 
 ### Methods
 
-Read the deep-dive before working on one (`docs/methods/`, `docs/experimental/`).
+Read the deep-dive before working on one (`docs/anima/methods/`, `docs/anima/experimental/`).
 Training-free inference stacks (Spectrum, SMC-CFG, CNS, mod-guidance, DAVE, …):
-`docs/inference/`. Channel scaling (on by default): `docs/optimizations/channel_scaling.md`.
+`docs/anima/inference/`. Channel scaling (on by default): `docs/anima/optimizations/channel_scaling.md`.
 
 | Method | Gotcha / pointer |
 |---|---|
-| **CJK vocab pack** — T5-side rows for JA / KO / ZH spans; `vocab_pack` in `configs/base.toml` (on by default) drives training, TE caching and inference | Changing the pack is invisible to the mtime check — `make preprocess-te ARGS=--overwrite`; TE caches carry the pack digest. `docs/methods/cjk_vocab_pack.md`. Active pack work: `project/cjk_anima_reseed/`, `project/cjk_ko/` (live on branches `cjk-reseed` / `cjk-ko`) |
-| **Turbo** — DP-DMD, 4-step student (`huggingface.co/sorryhyun/anima-turbo-4step`) | see Commands; `docs/structure/turbo.md` |
-| **EasyControl** — extended self-attn image conditioning, per-block cond LoRA + `b_cond` gate | source `easycontrol-dataset/` or the i2i staging tree. `docs/experimental/easycontrol.md` |
+| **CJK vocab pack** — T5-side rows for JA / KO / ZH spans; `vocab_pack` in `configs/base.toml` (on by default) drives training, TE caching and inference | Changing the pack is invisible to the mtime check — `make preprocess-te ARGS=--overwrite`; TE caches carry the pack digest. `docs/anima/methods/cjk_vocab_pack.md`. Active pack work: `project/cjk_anima_reseed/`, `project/cjk_ko/` (live on branches `cjk-reseed` / `cjk-ko`) |
+| **Turbo** — DP-DMD, 4-step student (`huggingface.co/sorryhyun/anima-turbo-4step`) | see Commands; `docs/anima/structure/turbo.md` |
+| **EasyControl** — extended self-attn image conditioning, per-block cond LoRA + `b_cond` gate | source `easycontrol-dataset/` or the i2i staging tree. `docs/anima/experimental/easycontrol.md` |
 | **Soft Tokens** — per-layer × per-t soft text tokens | shipped config uses `softrank` (code default `infonce`). `configs/methods/soft_tokens.toml` |
-| **DirectEdit** — inversion + edit-conditioning swap | collapses if ψ_src is off-manifold; check with `exp-test-directedit-dry`. `docs/experimental/directedit_editing_v3.md` |
+| **DirectEdit** — inversion + edit-conditioning swap | collapses if ψ_src is off-manifold; check with `exp-test-directedit-dry`. `docs/anima/experimental/directedit_editing_v3.md` |
 
 ## Projects, docs, history
 
@@ -258,7 +258,9 @@ Training-free inference stacks (Spectrum, SMC-CFG, CNS, mod-guidance, DAVE, …)
   `project/<line>/`.
 - Finished lines: `project/finished/` (code search skips most of it); retired lines and
   benches: the gitignored `_archive/`. Ask the **`archive-explorer`** agent about either
-  instead of grepping. Proposals: `docs/proposal/`.
+  instead of grepping. Proposals: `docs/{moss,anima}/proposal/`.
+- Docs: one folder per line (`docs/moss/`, `docs/anima/`); docs shared across lines
+  (guidebooks, ROCm, CNS) sit at `docs/` — index `docs/README.md`.
 - `CONTRIBUTING.md`: numerics/efficiency changes (Tier 1.5) and new methods (Tier 2) need
   a bench script + invariant test. Benches share `bench/_common.py` and write a
   `result.json` envelope to `bench/<name>/results/<YYYYMMDD-HHMM>[-label]/`.

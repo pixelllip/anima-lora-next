@@ -148,7 +148,7 @@ def test_train_adaln_defaults_on_and_reaches_the_network():
     """``train_adaln`` is a base.toml default (2026-07-16) that must survive the
     merge AND be forwarded to the network. It rides the top-level allowlist, not
     ``network_args``, so a regression in either half silently un-trains adaln.
-    See docs/methods/adaln.md.
+    See docs/anima/methods/adaln.md.
     """
     from networks import all_network_kwargs
 

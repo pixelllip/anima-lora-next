@@ -61,7 +61,7 @@ BANKED_AUC_FALLBACK = 0.822
 # active T-LoRA mask, which killed the overfit and invalidated the first
 # Phase-0 run), so every knob the banked snapshot disagrees with today's TOML
 # on is pinned here explicitly. sample_ratio is pinned on CLI because it is not
-# in tracked config (docs/experimental/soup.md).
+# in tracked config (docs/anima/experimental/soup.md).
 RECIPE = [
     "--method",
     "lora",

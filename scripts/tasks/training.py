@@ -59,7 +59,7 @@ def cmd_lora(extra):
 
 
 def cmd_turbo(extra):
-    """Turbo Anima — DP-DMD distillation (docs: docs/methods/turbo.md).
+    """Turbo Anima — DP-DMD distillation (docs: docs/anima/methods/turbo.md).
 
     Bypasses train.py / accelerate (single-GPU bespoke loop).
     Reads ``configs/methods/turbo.toml``; trailing args are forwarded so user
@@ -94,7 +94,7 @@ def cmd_turbo(extra):
 
 
 def cmd_soup(extra):
-    """Uncond-init soup training (docs: docs/experimental/soup.md).
+    """Uncond-init soup training (docs: docs/anima/experimental/soup.md).
 
     One pipeline (``scripts/soup/pipeline.py``): a short uncond inter-train on a
     diluted pool (reused if the checkpoint already exists) → 3 seeded captioned

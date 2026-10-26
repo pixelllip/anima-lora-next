@@ -4,7 +4,7 @@ _archive/proposals/frontload_text_boost.md).
 
 Inference-only arms against a matched-seed/NFE baseline, all gated to the
 high-σ window where cross-attn text drive actually exists (peaks at σ=1, ~0.02
-floor below σ≈0.85 — docs/findings/crossattn_self_attn_dominance.md):
+floor below σ≈0.85 — docs/anima/findings/crossattn_self_attn_dominance.md):
 
   * **baseline**   — plain CFG at --guidance.
   * **cfg_hi g**   — arm (a): guidance scale g for σ ≥ --band, --guidance below.

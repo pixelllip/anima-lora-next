@@ -361,7 +361,7 @@ class GenerateRequest(Request):
     cns: str = _f(
         "",
         "er_sde only: CNS recolors the sampler's injected noise "
-        "(docs/inference/cns.md). 'auto' = the shipped γ for the variant at the "
+        "(docs/cns.md). 'auto' = the shipped γ for the variant at the "
         "calibrated cfg nearest the job's (3 / 4 / 5), else an npz path; '' = off. "
         "ComfyUI's er_sde_cns on MOSS is 'auto' at strength 1",
     )
@@ -419,7 +419,7 @@ class TrainRequest(Request):
         "muon the output DC shift is 0.43 with kaiming vs 1.24 "
         "(docs/moss/findings/muon_channel_init.md). weight_svd_nodc: the SVD basis "
         "of W with the calibrated input DC direction (channel_mean) projected out, "
-        "so down · x̄ = 0 at init (docs/proposal/moss_lora_dcfree_svd_init.md)",
+        "so down · x̄ = 0 at init (docs/moss/proposal/lora_dcfree_svd_init.md)",
         choices=("kaiming", "weight_svd", "weight_svd_nodc"),
     )
     svd_slice: int = _f(
@@ -427,7 +427,7 @@ class TrainRequest(Request):
         "lora + down_init weight_svd[_nodc] only: seed down from the base weight's right singular "
         "vectors [k·r, (k+1)·r) instead of the top-r. Slices of one basis are "
         "mutually orthogonal, so LoRAs trained on different slices own disjoint "
-        "input subspaces (Anima's svd_slice, docs/methods/svd-down-lora.md). "
+        "input subspaces (Anima's svd_slice, docs/anima/methods/svd-down-lora.md). "
         "Stamped as ss_svd_slice. 0 = the top-r",
         advanced=True,
     )
@@ -445,7 +445,7 @@ class TrainRequest(Request):
         "with the largest calibrated mean|x| (channel_stats) out of the SVD basis, "
         "so their down columns start at zero. On MOSS k=1 is ch 42 into "
         "ffn_up_gate, a quarter of the nodc init's channel leverage there "
-        "(docs/proposal/moss_lora_dcfree_svd_init.md). Stamped as svd_drop_loud",
+        "(docs/moss/proposal/lora_dcfree_svd_init.md). Stamped as svd_drop_loud",
         advanced=True,
     )
     channel_stats: str = _f(
@@ -552,7 +552,7 @@ class TrainRequest(Request):
         "i2i: weight of the tone term on the unedited tokens (outside the edit "
         "region grown by tone_dilate): the x̂₀ error's masked mean per tone_pool "
         "cell, projected on tone_dirs, squared. Needs a full-size reference. "
-        "0 = off. docs/proposal/moss_i2i_tone_loss.md",
+        "0 = off. docs/moss/proposal/i2i_tone_loss.md",
         advanced=True,
     )
     tone_log: bool = _f(
@@ -580,7 +580,7 @@ class TrainRequest(Request):
     )
     repa_weight: float = _f(
         0.0,
-        "relational REPA (Anima's DoG-Gram term, docs/methods/repa.md): weight of "
+        "relational REPA (Anima's DoG-Gram term, docs/anima/methods/repa.md): weight of "
         "the Gram MSE between block repa_layer's image tokens and the image's "
         "PE-Spatial patch tokens. 0 = off",
         advanced=True,

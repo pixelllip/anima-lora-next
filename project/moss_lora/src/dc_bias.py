@@ -1,4 +1,4 @@
-"""The DC bias a MOSS LoRA learns, and an ablation that removes it (docs/proposal/moss_i2i_tone_loss.md).
+"""The DC bias a MOSS LoRA learns, and an ablation that removes it (docs/moss/proposal/i2i_tone_loss.md).
 
 Per adapted linear, b = s·up·(down·x̄), with x̄ the calibrated signed token mean of
 its input (``library/moss/calibration/channel_mean.safetensors``): the shift every

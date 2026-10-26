@@ -27,7 +27,7 @@ same guard on its SDPA path (GH #107, `library/anima/models.py::_make_dynamic_se
 
 | Step | When | What | Where |
 |---|---|---|---|
-| Per-block compile of `_forward` | — | not `forward`: `unsloth_checkpoint` is `@torch._disable_dynamo`, compiling it graph-breaks and guard-storms | `models.py::compile_blocks`, `docs/structure/anima-optimizations.md` §4.0 |
+| Per-block compile of `_forward` | — | not `forward`: `unsloth_checkpoint` is `@torch._disable_dynamo`, compiling it graph-breaks and guard-storms | `models.py::compile_blocks`, `docs/anima/structure/anima-optimizations.md` §4.0 |
 | `dynamic=False` | — | dynamic tracing "only buys recompile risk"; every dim static except what is marked | same, §4 |
 | Static pad removed | 2026-05-24 | padding to one shape leaked pad tokens into real ones under flash (AdaLN shift / QKV bias, up to 6.5 % rel-L2) | §3 Removed modes |
 | Native flatten | — | `(B,T,H,W,D)` → fake-5D `(B,1,seq,1,D)`: the graph keys on token count, not on H and W | §3, `_native_flatten` |

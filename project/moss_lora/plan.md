@@ -12,7 +12,7 @@ Code map `library/moss/CLAUDE.md`; user doc `docs/moss/README.md`.
 | Correction training (arXiv 2610.14136), dual LoRA | joint D + C holds to K 8; CFG 1.5 + K 2 ≈ CFG 3 at 2× forwards (one seed) | `correction.md`, `src/correction*.py` |
 | TE quantization | INT8 W8A8 (SmoothQuant + act-aware GPTQ) is the default TE | `src/te_*.py`; comparison runs + drivers in `_archive/bench/moss_te_fp8/` |
 | Technical-report digest | reference | `report_notes.md` |
-| i2i tone drift (sanitize e6 brightens + cools the untouched page) | proposal: pooled x̂₀ tone term on the unedited tokens | `docs/proposal/moss_i2i_tone_loss.md` |
+| i2i tone drift (sanitize e6 brightens + cools the untouched page) | proposal: pooled x̂₀ tone term on the unedited tokens | `docs/moss/proposal/i2i_tone_loss.md` |
 | Compile: FA2 + range-marked token axis (Anima's `dynamic=False` design) | P1 + P3 landed (FA2, strict range on `dynamic=True`, Anima pins): one graph, no stall; next P4 (generate), P5 (bench + tests) | `compile.md` |
 
 ## colorize v3 — the default i2i recipe from here on

@@ -2,7 +2,7 @@
 """SCFM Phase 0 — base-field consistency-residual scan (Eq. 11 headroom).
 
 The SCFM proposal (`_archive/proposals/turbo_scfm.md` §2 — line CLOSED, verdict in
-`docs/findings/scfm_velocity_fidelity_closed.md`) gated Phase 1 on two reads.
+`docs/anima/findings/scfm_velocity_fidelity_closed.md`) gated Phase 1 on two reads.
 The image arms (28-step teacher / naive 4-step teacher / DP-DMD student) answer
 "is the few-step teacher-fidelity ceiling high enough to beat the student". This
 probe answers the *complementary* question: **is there headroom for SCFM's

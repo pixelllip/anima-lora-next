@@ -26,7 +26,7 @@ DISTINCT-vs-SHAREDWSVD (the shipping question) and DISTINCT-vs-SHAREDKAI (the
 mechanism), each set at its own seed since DISTINCT recurs.
 
 Caveat carried: one training seed per arm — the seed lottery
-(``docs/experimental/soup.md`` Act 5) can swing a single pair; a lean here
+(``docs/anima/experimental/soup.md`` Act 5) can swing a single pair; a lean here
 earns a second-training-seed replicate, not a verdict.
 
 ``--variant n4`` (added after the N=2 flat) merges all four E0 held-out artists

@@ -5,7 +5,7 @@ THE QUESTION. Does DP-DMD distillation preserve the teacher's caption
 discriminability? Nothing currently measures turbo prompt-following (CMMD is
 distribution match, not text alignment), and prompt-following degradation is a
 classic few-step-distill failure mode. The validated reward premise
-(``docs/findings/agsm_reward_premise_holds.md``) says relative FM-ranking at a
+(``docs/anima/findings/agsm_reward_premise_holds.md``) says relative FM-ranking at a
 shared ``(x_t, ε, t)`` is a trustworthy compass for σ ≥ 0.45 — and the 4-step
 student operates only at σ ∈ {1.0, 0.9, 0.75, 0.5}, entirely inside that band.
 
@@ -533,7 +533,7 @@ def main() -> None:
     L.append(
         "- Ranking is trustworthy here by construction: the whole grid sits at "
         "σ ≥ 0.45 where the reward premise is validated "
-        "(`docs/findings/agsm_reward_premise_holds.md`), and the student's "
+        "(`docs/anima/findings/agsm_reward_premise_holds.md`), and the student's "
         "operating σ's are exactly the gated band.\n"
         "- **NO-DEGRADATION** ⇒ write the negative finding and stop — Phase 1 "
         "(soft-rank auxiliary) never happens.\n"

@@ -1,6 +1,6 @@
 # configs/ — the merge chain
 
-Key-by-key semantics of `base.toml` for users: `docs/guidelines/base-config.md`.
+Key-by-key semantics of `base.toml` for users: `docs/anima/guidelines/base-config.md`.
 
 `base.toml → presets.toml[<preset>] → methods/<method>.toml → CLI args`, **method
 settings win over preset settings on overlap**.

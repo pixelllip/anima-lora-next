@@ -1,7 +1,7 @@
 # How to observe `tag_influence.py` (tag-headroom Phase-0)
 
 Practical guide for reading a `tag_influence.py` run — **what to look at** and
-**how to read the images**. Proposal: `docs/proposal/tag_headroom_commitment_sigma.md`.
+**how to read the images**. Proposal: `docs/anima/proposal/tag_headroom_commitment_sigma.md`.
 Method memory: `[[project_tag_headroom_phase0_impl]]`.
 
 ## The question this bench answers

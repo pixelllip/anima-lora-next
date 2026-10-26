@@ -11,7 +11,7 @@ the shipped `pooled_text_proj_0413.safetensors` is a release asset, so the
 everyday surface is inference-side (`make test MOD=1`, the ComfyUI node), not
 training-side. The loop still runs, as module invocations from the repo root.
 
-Feature docs stay where they were — [`docs/inference/mod-guidance.md`](../../../docs/inference/mod-guidance.md)
+Feature docs stay where they were — [`docs/anima/inference/mod-guidance.md`](../../../docs/anima/inference/mod-guidance.md)
 is canonical for the architecture, the inference profiles, and the full flag
 tables for both commands below.
 

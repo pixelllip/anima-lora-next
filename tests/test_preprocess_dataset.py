@@ -1,6 +1,6 @@
 """Tests for ``library.preprocess._dataset`` — the shared walk/group/skip loop
 extracted from the ``preprocess/cache_*.py`` scripts (Phase 1 of
-``docs/proposal/tooling_architecture.md``).
+``docs/anima/proposal/tooling_architecture.md``).
 
 These exercise the orchestration helpers without any model/encoder, so they
 run in the unit suite. End-to-end content parity for the PE cache is gated

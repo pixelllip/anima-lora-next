@@ -224,6 +224,6 @@ default model change → invariant test only.
   `library/anima/models.py` (DiT blocks), `networks/spectrum.py` (block-hook precedent).
 - Papers: DMD2 (Yin et al. 2024, arXiv:2405.14867), f-distill (Xu et al. 2025,
   arXiv:2502.15681), DP-DMD (Wu et al., arXiv:2602.03139 — our current Turbo).
-- Docs: `docs/experimental/dpdmd.md` (ops), `docs/structure/dpdmd.md` (structure).
+- Docs: `docs/anima/experimental/dpdmd.md` (ops), `docs/anima/structure/dpdmd.md` (structure).
 </content>
 </invoke>

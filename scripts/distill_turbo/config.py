@@ -246,7 +246,7 @@ def build_argparser() -> argparse.ArgumentParser:
         "≈ τ·mean|v_real|, the τ CANCELS across the bulk → ≈ no-τ, magnitude-"
         "normalized. This REPLACES the default τ-damping (policy 'a'); it does NOT "
         "stack with it (that would be policy 'c'). A/B lever — see "
-        "docs/proposal/dmd2_decoupled_improvements.md §2B.",
+        "docs/anima/proposal/dmd2_decoupled_improvements.md §2B.",
     )
     parser.add_argument(
         "--norm_floor",
@@ -332,7 +332,7 @@ def build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--sample_ratio", type=float, default=1.0)
 
     # DP-DMD (arXiv 2602.03139): step 1 supervised toward a teacher K-step anchor
-    # (diversity), detached, then DMD on x_θ over steps 2..N. See docs/methods/turbo.md.
+    # (diversity), detached, then DMD on x_θ over steps 2..N. See docs/anima/methods/turbo.md.
     parser.add_argument(
         "--k_anchor",
         type=int,
@@ -522,7 +522,7 @@ def build_argparser() -> argparse.ArgumentParser:
         help="Train a side discriminator (own LoRA stack + head T, balanced BCE on "
         "teacher vs student samples) and log how its generator gradient aligns "
         "with the DM signal. Never applied to the student; training numerics are "
-        "unchanged. docs/proposal/turbo_dmad.md Phase −1. Default: TOML "
+        "unchanged. docs/anima/proposal/turbo_dmad.md Phase −1. Default: TOML "
         "(dmad_probe.enabled, default false).",
     )
     parser.add_argument(
@@ -589,7 +589,7 @@ def build_argparser() -> argparse.ArgumentParser:
     )
 
     # DMAD Phase 0: a discriminator replaces the DM term and the critic (off by
-    # default; docs/proposal/turbo_dmad.md § Phase 0).
+    # default; docs/anima/proposal/turbo_dmad.md § Phase 0).
     parser.add_argument(
         "--dmad",
         action="store_const",

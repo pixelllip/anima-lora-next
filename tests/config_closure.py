@@ -1,6 +1,6 @@
 """Shared helpers for *config-key closure* tests.
 
-H1 and H2 in ``docs/findings/entanglement_audit_high_severity.md`` are the same
+H1 and H2 in ``docs/anima/findings/entanglement_audit_high_severity.md`` are the same
 smell: a config key is threaded by *string* from a declaration site (a kwarg
 allowlist, an argparse flag) to a read site (``kwargs.get("k")`` /
 ``getattr(args, "k")``) with no link between the two — so renaming or dropping

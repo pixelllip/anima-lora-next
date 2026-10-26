@@ -10,7 +10,7 @@
 
 ## 0. 思路——EasyControl 适配器是什么
 
-EasyControl 使用一张**参考图像**来引导生成。参考图像经过 VAE 编码成 *cond token*，与正在生成的图像并行流动。每一步，模型同时看到两者。（完整架构见 `docs/experimental/easycontrol.md`。）
+EasyControl 使用一张**参考图像**来引导生成。参考图像经过 VAE 编码成 *cond token*，与正在生成的图像并行流动。每一步，模型同时看到两者。（完整架构见 `docs/anima/experimental/easycontrol.md`。）
 
 默认的 EasyControl 将**同一张图像**同时用作参考和目标——因此它学到的只是复制。控制任务打破了这一点：将每个目标与**不同的**参考配对，让模型学习 `reference → target`，而不是复制。
 
@@ -96,7 +96,7 @@ colorize 处理了两个正确性陷阱，照搬它的结构即可免费获得�
 
 ## 3. 不能违反的规则——参考和目标的 token 数必须匹配
 
-DiT 运行在 Anima 的**原生形状分桶**上（两个 token 数家族，4032 和 4200；见 CLAUDE.md 和 `docs/experimental/easycontrol.md` 中的"Cond token count"）。**没有填充旋钮**——参考以其 latent 实际的 token 数运行。
+DiT 运行在 Anima 的**原生形状分桶**上（两个 token 数家族，4032 和 4200；见 CLAUDE.md 和 `docs/anima/experimental/easycontrol.md` 中的"Cond token count"）。**没有填充旋钮**——参考以其 latent 实际的 token 数运行。
 
 这正是 §2a 要求参考与输入**尺寸相同**、§2c 要求按**原生尺寸**编码的原因：两者都做到，参考 latent 就会自动落入与目标相同的桶，一切正常工作。如果你想要较小的参考（完全可以——越小越省内存、越快），请在**图像**层面、编码之前缩小，这样 latent 仍然落在真实的桶上。不要试图在网络内部限制 token 数。
 
@@ -147,7 +147,7 @@ colorize 蓝图的子集：
 `[training]` 中需要考虑的参数：
 
 - **`network_args`**——`b_cond_init` 决定第 0 步时参考的贡献程度
-  （`-10` ≈ 第 0 步时等同于基础 DiT；参见 `docs/experimental/easycontrol.md` 中的
+  （`-10` ≈ 第 0 步时等同于基础 DiT；参见 `docs/anima/experimental/easycontrol.md` 中的
   "Step-0 baseline equivalence"；colorize 放宽了该值，让参考更早起作用；
   两种方式都可学习）、`cond_scale`、`apply_ffn_lora`（`0` 会去掉 FFN LoRA，
   约减少一半可训练参数）、`cond_res_scale`。
@@ -245,7 +245,7 @@ REF_IMAGE=path/to/condition.png make test-easycontrol EASYADAPTER=<task>
 
 - **`i2i_tasks/colorization/README.md`**——colorize 参考实现：
   caption 策略、网点（screentone）分档、标签切片、推理设置。
-- **`docs/experimental/easycontrol.md`**——网络本身：双流前向、
+- **`docs/anima/experimental/easycontrol.md`**——网络本身：双流前向、
   `b_cond` 第 0 步基准、`cond_res_scale`、推理缓存、内存、限制。
 - **`networks/methods/easycontrol.py`**——`EasyControlNetwork` 与被 patch 的
   `Block.forward`。

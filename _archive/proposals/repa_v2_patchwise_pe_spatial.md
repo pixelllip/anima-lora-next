@@ -3,8 +3,8 @@
 Status: **IMPLEMENTED + Phase 0 CLOSED 2026-06-12 — archived.** Both arms
 shipped (`library/training/repa.py`); the three-arm A/B landed on the GO
 outcome: REPA decisively better than baseline, relational preferred ~6:4–7:3
-over absolute on eyeballed grids. Live doc: `docs/experimental/repa.md`.
-Phase-1 successor: `docs/proposal/repa_phase1_operating_point.md`.
+over absolute on eyeballed grids. Live doc: `docs/anima/experimental/repa.md`.
+Phase-1 successor: `docs/anima/proposal/repa_phase1_operating_point.md`.
 
 Original text below, unedited.
 
@@ -13,7 +13,7 @@ pre-registered gates, designed so that two of the three outcomes **close this
 line permanently** — that outcome is as valuable as the lever.
 
 Premise sources: `_archive/repa/repa.py` (the v1 implementation this revives),
-`docs/experimental/soft_tokens.md:246` (the autopsy line), commits `8581e3e`
+`docs/anima/experimental/soft_tokens.md:246` (the autopsy line), commits `8581e3e`
 (2026-04-30, integration) → `23a0125` (2026-05-19, removal).
 
 ## Autopsy of v1 — what actually failed, and what was never tried
@@ -33,7 +33,7 @@ bundled into one run and never separated:
    of our PE variants at localized structure (the tagger hard-routes localized
    tags to PE-Spatial for exactly this reason).
 
-Documented outcome (`docs/experimental/soft_tokens.md:246`):
+Documented outcome (`docs/anima/experimental/soft_tokens.md:246`):
 
 > REPA helped anatomy on Anima but broke anime style (vision-encoder
 > photo-prior leak).
@@ -133,7 +133,7 @@ fraction-of-Δ readouts (they reward no-ops).
 - **Arm B breaks style too** → **CLOSE the line permanently.** If the
   domain-offset-cancelled form still leaks photo prior, an external visual
   prior cannot be made domain-safe at any granularity. Write the
-  `docs/findings/` entry, stop re-proposing encoder-alignment aux losses;
+  `docs/anima/findings/` entry, stop re-proposing encoder-alignment aux losses;
   Soft Tokens remain the no-prior alternative.
 - **Style holds in both, anatomy gain in neither** → **CLOSE.** v1's anatomy
   gain was inseparable from the global pull (it *was* the gestalt pressure) —
@@ -183,7 +183,7 @@ Numerics-changing training feature → **Tier 1.5**: bench script
 
 - `_archive/repa/repa.py` — v1 implementation; per-token upgrade pre-planned
   at lines 13-18; head + hook + adapter skeleton to resurrect.
-- `docs/experimental/soft_tokens.md:246` — the autopsy line (anatomy ↑, anime
+- `docs/anima/experimental/soft_tokens.md:246` — the autopsy line (anatomy ↑, anime
   style ✗, photo-prior leak).
 - Commits `8581e3e` (integration 2026-04-30) / `23a0125` (removal 2026-05-19).
 - `scripts/preprocess/cache_pe_encoder.py:91` (`--encoder` already exists),

@@ -17,7 +17,7 @@ You only see the prompt the caller sent you. If it's ambiguous, state your inter
    - Start with `MEMORY.md` (the index — every entry is one line with a short hook).
    - Read the topic files that look relevant to the proposal (e.g. `project_dcw_*.md`, `project_apex_*.md`, `project_hydra_*.md`).
    - This is where past failures, settled positions, and hard-won gotchas live — exactly the things confirmation bias misses.
-2. **Project docs** — `docs/methods/`, `docs/experimental/`, `CLAUDE.md`, `networks/CLAUDE.md`.
+2. **Project docs** — `docs/anima/methods/`, `docs/anima/experimental/`, `CLAUDE.md`, `networks/CLAUDE.md`.
 3. **Code** — only when the proposal makes a specific claim about code behavior, a flag's existence, or a function's signature.
 4. **Bench results** — `bench/<method>/results/*/result.json` when the proposal cites data.
 

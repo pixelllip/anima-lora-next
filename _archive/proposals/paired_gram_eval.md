@@ -27,7 +27,7 @@ gist — the fix was **pooling** gist, not Gram. So the live options are **CSD**
   (CFG-1 CMMD misranks across adapter families), probe run 2026-07-06 on the
   saved CFG-4 renders (memory `project_paired_eval_probe`), and the standing
   metric-trap priors: FM-val-loss uninformative, eyeball-before-trusting
-  (`docs/findings/spectral_fraction_metric_inverts.md`), real captions
+  (`docs/anima/findings/spectral_fraction_metric_inverts.md`), real captions
   mandatory.
 
 ## Objective

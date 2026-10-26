@@ -3,7 +3,7 @@
 Measured 2026-10-21 on MOSS-Image Base and SFT. Probe, run and full tables:
 `_archive/bench/moss_sigma_staircase/` (`probe_x0.py`, `README.md`, run
 `results/20261021-2204-base-sft`). Re-measures the Anima finding
-`docs/findings/sigma_signal_where_anima_resolves.md` on MOSS
+`docs/anima/findings/sigma_signal_where_anima_resolves.md` on MOSS
 (`_archive/proposals/moss_anima_negatives_revisit.md` Tier 3 §3).
 
 ## Setting

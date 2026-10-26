@@ -82,7 +82,7 @@ the last actual-step residual Spectrum carries, lagging).
 
 **Verdict: graft SeaCache's SEA-filtered input distance as Spectrum's scheduler
 metric.** Keep Chebyshev forecasting for reuse. Full write-up:
-`docs/findings/seacache_sea_decision_metric.md`. Open: end-to-end A/B (wire the
+`docs/anima/findings/seacache_sea_decision_metric.md`. Open: end-to-end A/B (wire the
 SEA-distance trigger into `spectrum_denoise`, render samples, score by CMMD).
 
 Artifacts: `results/20260622-1431-phase0-detrend/` (Phase 0) +

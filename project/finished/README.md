@@ -56,7 +56,7 @@ Finished lines:
   question continued in [`cjk_aware_anima_dit/`](cjk_aware_anima_dit/) →
   [`cjk_renderable_anima/`](cjk_renderable_anima/).
   The pack recipe was archived to `_archive/scripts/distill_cjk/` and
-  `_archive/bench/cjk_adapter/` on 2026-10-22 (`docs/methods/cjk_vocab_pack.md` § Rebuilding a pack).
+  `_archive/bench/cjk_adapter/` on 2026-10-22 (`docs/anima/methods/cjk_vocab_pack.md` § Rebuilding a pack).
   Verdicts: [`cjk_aware_anima/findings.md`](cjk_aware_anima/findings.md);
   digest: [`cjk_aware_anima/README.md`](cjk_aware_anima/README.md).
 - [`cjk_aware_anima_dit/`](cjk_aware_anima_dit/) — the DiT-side CJK line: ext

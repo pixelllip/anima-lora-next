@@ -2,7 +2,7 @@
 
 The implementation was promoted to the library home ``networks/spectrum_sea.py``
 so the Spectrum runner and the ComfyUI node share one copy (see
-``docs/proposal/spectrum_sea_schedule.md`` P1). This module stays as a thin
+``docs/anima/proposal/spectrum_sea_schedule.md`` P1). This module stays as a thin
 re-export so the frozen bench (`run_bench.py`, `phase1_counterfactual.py`)
 keeps importing ``bench.spectrum_sea.sea`` unchanged.
 """

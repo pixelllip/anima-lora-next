@@ -141,11 +141,11 @@ def _tracked(*pathspec: str) -> list[Path]:
 
 
 def doc_files(include_scratch: bool = False) -> list[Path]:
-    # _archive/ always skipped; bench/ + docs/proposal/ are forward-looking
+    # _archive/ always skipped; bench/ + docs/<line>/proposal/ are forward-looking
     # scratchpads (reference to-be-built paths) — opt in with --include-scratch.
     exclude = [":!:_archive/*"]
     if not include_scratch:
-        exclude += [":!:bench/*", ":!:docs/proposal/*"]
+        exclude += [":!:bench/*", ":!:docs/*/proposal/*"]
     return _tracked("*.md", *exclude)
 
 

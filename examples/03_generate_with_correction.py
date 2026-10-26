@@ -14,7 +14,7 @@ Two training-free corrections are wired up:
   * **smc_cfg**  — Sliding-Mode Control CFG (arXiv:2603.03281). `--smc_cfg`
                    turns it on; `--smc_cfg_alpha` is the adaptive gain. Modifies
                    the cond/uncond combine; no extra forwards. See
-                   docs/inference/smc_cfg.md.
+                   docs/anima/inference/smc_cfg.md.
   * **spectrum** — Chebyshev feature-forecasting acceleration. `--spectrum`
                    turns it on; cached steps skip the transformer blocks.
                    `--spectrum_warmup` is the full-forward warmup count.

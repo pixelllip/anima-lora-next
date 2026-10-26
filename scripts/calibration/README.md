@@ -28,7 +28,7 @@ Spectrum node bundles copies (`moss_cns_gamma*.npz` in its repo root); copy rege
 ones over them before publishing the node.
 
 Consumer + math: `library/inference/corrections/cns.py`. User doc:
-`docs/inference/cns.md`.
+`docs/cns.md`.
 
 ## channel_stats — per-channel LoRA gradient rebalance (SmoothQuant-style)
 
@@ -51,13 +51,13 @@ python scripts/calibration/cond_stream_profile.py --per_artist \
 
 The DC-bias-vs-attention-sink decomposition: `_archive/bench/channel_stats/channel_dominance_analysis.md`
 (its claim that pre-scaling targets GraLoRA's mechanism is wrong — that mechanism is the
-`up` gradient, which the scale does not reach; `docs/optimizations/channel_scaling.md`
+`up` gradient, which the scale does not reach; `docs/anima/optimizations/channel_scaling.md`
 § "What it does not touch").
 
 Consumer: `networks/lora_anima/factory.py` (`_CHANNEL_STATS_PATH`) and
 `networks/methods/easycontrol.py`. Regime analysis: memory
 `project_per_channel_scaling_audit`. User doc:
-`docs/optimizations/channel_scaling.md`.
+`docs/anima/optimizations/channel_scaling.md`.
 
 ## MOSS-Image (`library/moss/calibration/`, `networks/calibration/moss_cns_gamma*.npz`)
 

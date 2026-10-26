@@ -2,7 +2,7 @@ pretrained_model_name_or_path = "models/diffusion_models/anima-base-v1.0.safeten
 qwen3 = "models/text_encoders/qwen_3_06b_base.safetensors"
 vae = "models/vae/qwen_image_vae.safetensors"
 # CJK vocab pack (JA / KO / ZH tag rows on the T5 side of the LLM adapter; see
-# docs/methods/cjk_vocab_pack.md). On by default since v2: `make download-models`
+# docs/anima/methods/cjk_vocab_pack.md). On by default since v2: `make download-models`
 # installs it, and the loader fetches this default itself if it is missing.
 # Path prefix of the .safetensors/.json pair; "" = off (stock tokenizer,
 # bit-exact). EN-only captions and prompts are unaffected either way. Changing

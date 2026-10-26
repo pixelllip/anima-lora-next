@@ -291,7 +291,7 @@ def score_model(
     """Per-item {sigma: confidence} under one model (adapter=None → base).
     ``null_captions`` swaps every item's caption embedding for the T5("")
     uncond sidecar — the caption-independent uncond-Δ statistic
-    (docs/proposal/memorization_uncond_gap.md)."""
+    (docs/anima/proposal/memorization_uncond_gap.md)."""
     bundle = build_anima(targs, adapter=adapter, train_mode=False)
     dit = bundle.anima
     device = bundle.device
@@ -415,7 +415,7 @@ def main() -> None:
         action="store_true",
         help="Score every item with the T5('') uncond sidecar instead of its "
         "own caption (uncond-Δ: caption-independent memorization statistic — "
-        "docs/proposal/memorization_uncond_gap.md). Same paired forwards, "
+        "docs/anima/proposal/memorization_uncond_gap.md). Same paired forwards, "
         "same probe noise; only the crossattn embedding changes.",
     )
     ap.add_argument("--num_members", type=int, default=48)

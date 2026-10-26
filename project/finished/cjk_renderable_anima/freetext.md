@@ -3,7 +3,7 @@
 > Light note, 2026-09-16. FreeText (*Training-Free Text Rendering in
 > Diffusion Transformers via Attention Localization and Spectral Glyph
 > Injection*, arXiv:2601.00535) was evaluated on Anima on 2026-06-01 and
-> shelved; the record is [`docs/findings/freetext_text_rendering.md`](../../../docs/findings/freetext_text_rendering.md),
+> shelved; the record is [`docs/anima/findings/freetext_text_rendering.md`](../../../docs/anima/findings/freetext_text_rendering.md),
 > the driver + paper PDF `_archive/bench/freetext/`. It is the same problem
 > as this line — OOD-script text on Anima — approached from the opposite
 > side (training-free latent injection vs a learned address), and one of

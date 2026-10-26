@@ -20,7 +20,7 @@ Two consumers, one code path:
   backward pass.
 
 A basis is **depth-baked**: module names carry the block index, so a 28-block
-basis must not seed a 40-block DiT (see ``docs/methods/anima-2.9b.md``).
+basis must not seed a 40-block DiT (see ``docs/anima/methods/anima-2.9b.md``).
 ``load_basis`` refuses the mismatch on the block count read back from the keys.
 
 Measurement and gates: ``bench/grad_init/README.md``,
@@ -418,7 +418,7 @@ def load_basis(
         raise ValueError(
             f"grad_basis {path.name} is depth-baked for {file_blocks} blocks but "
             f"this DiT has {num_blocks}. A basis is per checkpoint arch — "
-            f"rebuild it against this checkpoint (docs/methods/anima-2.9b.md)."
+            f"rebuild it against this checkpoint (docs/anima/methods/anima-2.9b.md)."
         )
     if meta.get("layout", BASIS_LAYOUT) != BASIS_LAYOUT:
         raise ValueError(

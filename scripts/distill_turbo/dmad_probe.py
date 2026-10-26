@@ -1,6 +1,6 @@
 """DMAD Phase −1 — does a teacher-vs-student discriminator's gradient point along DM?
 
-Measure-only (docs/proposal/turbo_dmad.md § Phase −1). DMAD's Prop. 1 says the
+Measure-only (docs/anima/proposal/turbo_dmad.md § Phase −1). DMAD's Prop. 1 says the
 balanced-BCE optimum is ``h* = log p_teacher − log p_student``, so the generator
 loss ``−h`` has gradient ``s_student − s_teacher`` — the same direction as the DMD
 surrogate's ``grad_signal``. This module trains such a discriminator alongside an

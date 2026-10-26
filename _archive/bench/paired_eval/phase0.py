@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Phase 0 — offline validation gates for paired Gram similarity (PGS).
 
-Proposal: ``docs/proposal/paired_gram_eval.md`` (retire pooled CMMD as a
+Proposal: ``docs/anima/proposal/paired_gram_eval.md`` (retire pooled CMMD as a
 decision metric; replace it with a paired, per-item PE-Core token-Gram score).
 
 This is the ~zero-GPU gate: it does NOT render. It reuses the CFG-4 renders

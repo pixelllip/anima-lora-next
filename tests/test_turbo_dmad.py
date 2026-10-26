@@ -1,4 +1,4 @@
-"""Invariants for turbo DMAD Phase 0 (docs/proposal/turbo_dmad.md § Phase 0).
+"""Invariants for turbo DMAD Phase 0 (docs/anima/proposal/turbo_dmad.md § Phase 0).
 
 * config — ``[dmad]`` default-off, TOML/CLI precedence, every guard.
 * ``normalize_signal_rms`` — per-sample RMS == ``signal_rms``, direction kept,

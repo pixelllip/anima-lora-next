@@ -1,4 +1,4 @@
-"""Invariant tests for the L_CDM off-trajectory loss (docs/proposal/cdm.md Phase 1).
+"""Invariant tests for the L_CDM off-trajectory loss (docs/anima/proposal/cdm.md Phase 1).
 
 Two surfaces:
 

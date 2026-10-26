@@ -1,7 +1,7 @@
 # Spectrum scheduler: SEA-distance trigger (SeaCache metric, Spectrum reuse)
 
 Status: **P1 WIRED + prompt-generalization MEASURED (2026-06-22). Predictive
-validation DONE (`docs/findings/seacache_sea_decision_metric.md`: SEA-filtered
+validation DONE (`docs/anima/findings/seacache_sea_decision_metric.md`: SEA-filtered
 input distance ranks the true counterfactual skip-cost at ρ +0.51 vs raw −0.36
 and lagging-residual +0.16). End-to-end CMMD A/B NOT yet run — the ship gate
 below.**
@@ -137,6 +137,6 @@ mode (leave them for the legacy path).
   and the finding is "predictive-but-not-end-to-end" — still worth keeping the
   validated metric documented.
 
-Refs: `docs/findings/seacache_sea_decision_metric.md` (validation + the composition
+Refs: `docs/anima/findings/seacache_sea_decision_metric.md` (validation + the composition
 argument), `bench/spectrum_sea/` (`sea.py`, `run_bench.py`, `phase1_counterfactual.py`),
 SeaCache arXiv:2602.18993v2 §4 (Eq. 3/4/8).

@@ -4,9 +4,9 @@
 > (Wu, Li, Zhang, Ma — *Diversity-Preserved Distribution Matching Distillation*,
 > arXiv 2602.03139). Reference implementation cloned at `dpdmd/`
 > (`train_sd35_dpdmd.py`, SD3.5-M, flow-matching — an architectural sibling of
-> Anima). For the incumbent see `docs/experimental/dmd2-decoupled.md` (ops),
-> `docs/structure/dmd2-decoupled.md` (math), and the live decision log
-> `docs/proposal/dmd2_decoupled_improvements.md`.
+> Anima). For the incumbent see `docs/anima/experimental/dmd2-decoupled.md` (ops),
+> `docs/anima/structure/dmd2-decoupled.md` (math), and the live decision log
+> `docs/anima/proposal/dmd2_decoupled_improvements.md`.
 
 Status: **Phase 1 WIRED — awaiting the bench gate.** Phase 0 was GO on the
 pose/composition diversity axis (first-step anchoring visibly de-collapses the
@@ -333,7 +333,7 @@ Phase-1 kill condition: once trained, if the first-step student cannot hold the
 pose diversity that `anchor@1` previewed (measured with the structure-sensitive
 metric, not pooled cosine), escalate to §5 depth-m before shelving; only shelve
 if depth-m also fails to beat `g_agg_250` on the joint quality+diversity signal —
-then write the finding to `docs/findings/`.
+then write the finding to `docs/anima/findings/`.
 
 ## 8. Decommissioning the incumbent CA-decoupled DMD2 path
 
@@ -351,7 +351,7 @@ proves out — it is **not** to be executed until the trigger below is met.
    runs under `dpdmd`, so it does **not** block this).
 
 If the trigger is NOT met (DP-DMD shelved), do the inverse: delete the `dpdmd`
-branch + knobs and write the finding to `docs/findings/`. Removal is one
+branch + knobs and write the finding to `docs/anima/findings/`. Removal is one
 direction or the other — the dual-path state is temporary by design.
 
 **Removal checklist (once triggered):**
@@ -379,10 +379,10 @@ direction or the other — the dual-path state is temporary by design.
   (`tau_ca_*`), `alpha_warmup_steps` in `[optim]`; promote the `[dpdmd]` knobs to
   the canonical schedule. The header comment stops referencing the CA-decoupled
   doc.
-- Docs — move `docs/experimental/dmd2-decoupled.md`, `docs/structure/dmd2-decoupled.md`,
-  and `docs/proposal/dmd2_decoupled_improvements.md` under `_archive/` (retired-
+- Docs — move `docs/anima/experimental/dmd2-decoupled.md`, `docs/anima/structure/dmd2-decoupled.md`,
+  and `docs/anima/proposal/dmd2_decoupled_improvements.md` under `_archive/` (retired-
   material convention); replace this proposal with a shipped method deep-dive at
-  `docs/experimental/dpdmd.md` and update the `CLAUDE.md` Methods table (the
+  `docs/anima/experimental/dpdmd.md` and update the `CLAUDE.md` Methods table (the
   **Turbo** row) to describe DP-DMD. Refresh the `ss_turbo_*` metadata note if the
   CA-era keys are dropped.
 - Memory — the `project_turbo_*` notes (sign-fix, x0-norm, FEI-gap, α4-overbake,

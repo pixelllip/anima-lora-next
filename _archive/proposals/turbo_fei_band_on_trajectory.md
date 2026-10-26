@@ -1,7 +1,7 @@
 # FEI band-deficit, revived on-trajectory — log-only Phase 0 inside the DP-DMD loop
 
 Status: **CLOSED 2026-06-20** — Phase 0 run, gate hit CLOSE. See
-`docs/findings/turbo_fei_band_revival_closed.md`. Measured on-trajectory
+`docs/anima/findings/turbo_fei_band_revival_closed.md`. Measured on-trajectory
 (`bench/turbo/probe_fei_band.py`, anima_turbo_P_5k, n=60 paired, Site A σ-matched
 exactly): the student does **not** over-blur on its rollout (Site A gap_low
 −0.0014, frac_over 0.03) and the over-blur arm `dh` is dead in the lever's
@@ -15,9 +15,9 @@ Phase 0 was pure logging (zero behavior change, zero extra forwards) and was
 designed to be able to **close this line permanently** — that outcome is as
 valuable as the lever.
 
-Premise sources: `docs/findings/turbo_fei_band_deficit_falsified.md` (the
-falsification this revives *on its own stated terms*), `docs/methods/turbo.md`
-+ `docs/structure/turbo.md` (the loop that changed the premises).
+Premise sources: `docs/anima/findings/turbo_fei_band_deficit_falsified.md` (the
+falsification this revives *on its own stated terms*), `docs/anima/methods/turbo.md`
++ `docs/anima/structure/turbo.md` (the loop that changed the premises).
 
 ## Why this is worth reopening — the falsification's precondition flipped
 
@@ -129,7 +129,7 @@ needed). Then:
   mid/low-τ buckets, or Site A shows a persistent `student_over_low` gap at
   σ=0.75 → **Phase 1** (wire the `w_high` lever).
 - **`dl_pos` dominates again, or both ≈ 0** → **CLOSE the line permanently.**
-  Write the closing entry in `docs/findings/` (the anchor fixed over-blur, or the
+  Write the closing entry in `docs/anima/findings/` (the anchor fixed over-blur, or the
   gap never lived at the new sites either) and stop re-proposing FEI levers on
   turbo. The 2026-05 falsification plus this null = the line is dead twice.
 - Cross-check the verdict against **sample grids** at `--infer_steps 2 --cfg 1.0`:
@@ -179,7 +179,7 @@ HF win, not a scalar nudge.
 
 ```
 Phase 0 logging (off-by-default flag, ride any ≥500-step run)
-   ├─ dh_pos ≈ 0 / dl_pos again ──► CLOSE: docs/findings/ entry, line retired for good
+   ├─ dh_pos ≈ 0 / dl_pos again ──► CLOSE: docs/anima/findings/ entry, line retired for good
    └─ dh_pos fires on-trajectory ──► Phase 1 band-split grad_dm (β=0 default)
                                         └─ Gate: grids + CMMD + diversity ──► ship / kill
 ```
@@ -193,7 +193,7 @@ bit-identity invariant test.
 
 ## References
 
-- `docs/findings/turbo_fei_band_deficit_falsified.md` — the falsification, root
+- `docs/anima/findings/turbo_fei_band_deficit_falsified.md` — the falsification, root
   cause (distribution + quantity mismatch), and the revival condition this
   proposal satisfies; original GO numbers (turbo_C rollout, d=16, `student_over_low`
   at every stage) to compare Site A against.

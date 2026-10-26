@@ -10,7 +10,7 @@
 
 ## 0. アイデア — EasyControl アダプターとは何か
 
-EasyControl は **参照画像** を使って生成を導きます。参照は VAE を通じて *cond トークン* に変換され、生成中の画像と並んで流れていきます。各ステップでモデルは両方を見ます。(完全なアーキテクチャは `docs/experimental/easycontrol.md`。)
+EasyControl は **参照画像** を使って生成を導きます。参照は VAE を通じて *cond トークン* に変換され、生成中の画像と並んで流れていきます。各ステップでモデルは両方を見ます。(完全なアーキテクチャは `docs/anima/experimental/easycontrol.md`。)
 
 デフォルトの EasyControl は**同じ画像**を参照とターゲットの両方に使います — つまりただコピーすることを学習します。コントロールタスクはこれを変えます: 各ターゲットを**別の**参照とペアにすることで、モデルがコピーではなく `reference → target` を学習するようになります。
 
@@ -96,7 +96,7 @@ colorize が対処している、その構造をコピーすれば無償で受�
 
 ## 3. 破ってはいけない唯一のルール — 参照とターゲットのトークン数が一致していなければならない
 
-DiT は Anima の **ネイティブ形状バケッティング** (二つのトークン数ファミリー、4032 と 4200; CLAUDE.md と `docs/experimental/easycontrol.md` の "Cond token count" を参照) で動作します。**パディングのノブはありません** — 参照は latent の実際のトークン数で実行されます。
+DiT は Anima の **ネイティブ形状バケッティング** (二つのトークン数ファミリー、4032 と 4200; CLAUDE.md と `docs/anima/experimental/easycontrol.md` の "Cond token count" を参照) で動作します。**パディングのノブはありません** — 参照は latent の実際のトークン数で実行されます。
 
 これこそが §2a で参照を入力と **同じサイズ** にするよう言い、§2c で **ネイティブサイズ** でエンコードすると言う理由です: 両方を守れば参照 latent が自動的にターゲットと同じバケットに入り、すべてが機能します。より小さい参照が欲しければ (まったく問題ありません — 小さいほどメモリと速度が節約できます)、**画像** レベルでエンコードの前に縮小してください。そうすれば latent は依然として実際のバケットに入ります。ネットワーク内でトークン数を制限しようとしないでください。
 
@@ -151,7 +151,7 @@ colorize の設計図のサブセット:
 検討すべき `[training]` のノブ:
 
 - **`network_args`** — `b_cond_init` は step 0 で参照がどれだけ寄与するかを決めます
-  (`-10` ≈ step 0 でベース DiT とほぼ同じ; `docs/experimental/easycontrol.md` の
+  (`-10` ≈ step 0 でベース DiT とほぼ同じ; `docs/anima/experimental/easycontrol.md` の
   "Step-0 baseline equivalence" を参照; colorize は参照が早く効くよう緩めています;
   どちらでも学習可能)、`cond_scale`、`apply_ffn_lora` (`0` で FFN LoRA を外し、
   学習パラメータが約半分に)、`cond_res_scale`。
@@ -250,7 +250,7 @@ REF_IMAGE=path/to/condition.png make test-easycontrol EASYADAPTER=<task>
 
 - **`i2i_tasks/colorization/README.md`** — colorize のリファレンス実装:
   キャプション方針、スクリーントーンのバンド、タグスライス、推論設定。
-- **`docs/experimental/easycontrol.md`** — ネットワーク自体: 2 ストリームのフォワード、
+- **`docs/anima/experimental/easycontrol.md`** — ネットワーク自体: 2 ストリームのフォワード、
   `b_cond` step-0 ベンチ、`cond_res_scale`、推論キャッシュ、メモリ、制限。
 - **`networks/methods/easycontrol.py`** — `EasyControlNetwork` とパッチされた
   `Block.forward`。

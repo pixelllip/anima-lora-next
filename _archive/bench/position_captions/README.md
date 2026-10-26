@@ -9,7 +9,7 @@
 > path any more.
 >
 > Live doc: `anime_tools/docs/position_captions.md` (pointer stub at
-> [`docs/experimental/position_captions.md`](../../../docs/experimental/position_captions.md));
+> [`docs/anima/experimental/position_captions.md`](../../../docs/anima/experimental/position_captions.md));
 > grammar `anime_tools.captions.position_clauses`, stage
 > `anime_tools.stages.position_captions`. The retired design proposal is
 > `_archive/proposals/position_captions.md`; verdict index

@@ -3,7 +3,7 @@
 How the `[dmad]` path in this package (`dmad.py`, `steps.py::dmad_signal`,
 `distill.py`) differs from the official DMAD training code
 (<https://github.com/Yzmblog/DMAD>, read at `9a9f664`, 2026-10-09). The setup
-history and results are in `docs/proposal/turbo_dmad.md`.
+history and results are in `docs/anima/proposal/turbo_dmad.md`.
 
 The reference is the **MiniMax-H3 recipe** (`train/h3/configs/dmad_minimax_h3.yaml`,
 `train/h3/lightx2v_train/trainers/dmd/minimax_h3_dmad_trainer.py`,

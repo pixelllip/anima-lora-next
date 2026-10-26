@@ -45,7 +45,7 @@ with the three-axis split. The Gram/pooling math is factored into reusable
 helpers (`library/training/repa.py::relational_align_loss`) shared
 bit-identically with the training adapter.
 Depends on REPA v2 Phase 0 (closed
-2026-06-12, relational/Gram arm won — `docs/experimental/repa.md`) and the
+2026-06-12, relational/Gram arm won — `docs/anima/experimental/repa.md`) and the
 turbo feature-tap API (landed — `forward_mini_train_dit(...,
 return_block_features=, return_features_early=)`, bit-exact no-op when off).
 Sibling proposals on the same loop: `turbo_caption_ranking.md` (Phase 1
@@ -246,12 +246,12 @@ primary. Don't run both arms blind — pick by Phase-0's σ profile.
 
 ## References
 
-- `docs/experimental/repa.md` — validated mechanism + operating numbers;
+- `docs/anima/experimental/repa.md` — validated mechanism + operating numbers;
   §"Annealing plan" carries the live lever status (anneal open, candidate
   0.25; spatial_norm on; lever 3 closed by heatmap). Historical plan archived
   at `_archive/proposals/repa_phase1_operating_point.md`.
-- `docs/proposal/turbo_caption_ranking.md` — degradation evidence + the
+- `docs/anima/proposal/turbo_caption_ranking.md` — degradation evidence + the
   shared Phase-1 gate contract.
-- `docs/proposal/turbo_gan.md` — feature-tap API + the adversarial sibling.
-- `docs/experimental/dpdmd.md`, `docs/structure/dpdmd.md` — loop structure.
+- `docs/anima/proposal/turbo_gan.md` — feature-tap API + the adversarial sibling.
+- `docs/anima/experimental/dpdmd.md`, `docs/anima/structure/dpdmd.md` — loop structure.
 - `library/training/repa.py` — Gram/pooling reference implementation.

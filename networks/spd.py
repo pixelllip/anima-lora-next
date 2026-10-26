@@ -115,7 +115,7 @@ def spd_denoise(
         log.warning(
             "--spd v0 does not compose with SMC-CFG (it acts on the "
             "re-spaced σ boundary and is unvalidated against the mid-loop "
-            "reshape); ignoring. See docs/inference/spd.md."
+            "reshape); ignoring. See docs/anima/inference/spd.md."
         )
 
     do_cfg = guidance_scale != 1.0

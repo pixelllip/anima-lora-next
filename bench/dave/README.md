@@ -455,7 +455,7 @@ interaction **−0.005 ≈ 0**. Results: `results/20260611-205*-{base-lora,dave,
 3. **Zero interaction = true orthogonality.** DAVE's effect under MOD is bitwise
    the same story as without; MOD's (non-)effect likewise.
 
-Follow-up proposal: `docs/proposal/dave_mod_bestofn.md` — make "why the compose
+Follow-up proposal: `docs/anima/proposal/dave_mod_bestofn.md` — make "why the compose
 gives better images" falsifiable via best-of-N order statistics with correlated
 draws (MOD moves μ, DAVE moves ρ/N_eff; predicted vs observed best-of-n curves).
 

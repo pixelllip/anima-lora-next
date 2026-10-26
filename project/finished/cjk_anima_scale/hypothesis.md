@@ -27,7 +27,7 @@ row then says it at **every** σ of every caption that carries it.
 Every row of an item's caption is trained on the same loss over the same
 text region: nothing ties `a`'s gradient to the place `a` is drawn (the
 loss box is the region, and the glyph tokens' cross-attention is diffuse —
-`docs/findings/crossattn_self_attn_dominance.md` Result 4). So a large part
+`docs/anima/findings/crossattn_self_attn_dominance.md` Result 4). So a large part
 of each row's update is one direction shared by the rows that co-occur —
 "fill the text region" — and that, not a per-glyph change, is what the
 rows bring to a caption: a region filled to the items' extent, with

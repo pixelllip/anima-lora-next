@@ -14,7 +14,7 @@ Used by ``scripts/distill_turbo/distill.py``. Inference loads the saved
 ``anima_turbo.safetensors`` through the standard LoRA path — the student LoRA
 is just a normal LoRA with CFG=4 baked in.
 
-Docs: ``docs/structure/turbo.md`` (structure), ``docs/methods/turbo.md`` (ops).
+Docs: ``docs/anima/structure/turbo.md`` (structure), ``docs/anima/methods/turbo.md`` (ops).
 Paper: Wu, Li, Zhang, Ma, "Diversity-Preserved Distribution Matching
 Distillation" (arXiv:2602.03139).
 """
@@ -341,7 +341,7 @@ class TurboDMDNetwork:
         self.fake_rank = int(fake_rank)
         # Target the t-conditioned AdaLN modulation up-projections
         # (adaln_up_{branch}) in addition to the default attn+MLP set — adaln is
-        # the largest mover in the official turbo delta (docs/methods/adaln.md).
+        # the largest mover in the official turbo delta (docs/anima/methods/adaln.md).
         # Both student and fake carry the extra 84 modules (3 branches × 28
         # blocks); the saved student is renamed to the ComfyUI adaln layout in
         # save_student. ``fake_adaln`` (default: mirror train_adaln) lets a

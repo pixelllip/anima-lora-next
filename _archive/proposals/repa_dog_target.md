@@ -15,7 +15,7 @@ training arm is now implemented: `dog_standardize` in `library/training/repa.py`
 σ₁→0 *is* DC removal, same family). The A/B run + readout (below) is still open;
 hold `repa_dog_norm_std = 0` (empirical std, = shipped `spatial_norm`) so the only
 change vs baseline is the band-pass — the paper's std confound. Builds on the
-shipped relational arm + `repa_spatial_norm` (`docs/experimental/repa.md`, REPA v2
+shipped relational arm + `repa_spatial_norm` (`docs/anima/experimental/repa.md`, REPA v2
 Phase 0 closed 2026-06-12, `[[project_repa_v2_relational_won]]`). Supersedes —
 and removes — the global-anchor line (`repa_global_weight`, **refuted**,
 `_archive/proposals/repa_global_anchor.md`); that arm's code, config, calib, and
