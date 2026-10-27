@@ -182,7 +182,7 @@ make download-model ARGS=moss-sft
 | `dave_strength` | `0.3` | DAVE가 제거하는 정도; `dave_tau` (Advanced, `0.10`) = DAVE가 적용되는 초반 스텝의 비율 |
 
 - **er_sde와 euler**: `euler` 는 레퍼런스 파이프라인의 샘플러입니다. `er_sde` 는 비용이 같고 선이 더 선명하며 디테일이 더 촘촘합니다. LoRA를 걸었을 때 손도 더 깔끔하게 나왔습니다. 대신 프롬프트의 일부 디테일(노을빛, 머리색, "sitting on a bench")에서 벗어나고, 세트의 그림체도 조금 잃었습니다. 같은 시드에서도 두 샘플러는 다른 이미지를 내므로, LoRA와 베이스 비교는 한 샘플러 안에서 하세요.
-- **Spectrum** (체크박스): 대부분의 스텝에서 42개 블록을 모두 돌리는 대신 모델 출력을 예측합니다. 50 스텝, 기본 `spectrum_flex_window 0.5` (Advanced)에서 2.6배 빠르고 VRAM은 0.85 GiB 더 쓰며, 그리드 크기로 보면 50 스텝 전체와 구분하기 어렵습니다. `0.25` 는 2.2배로 더 보수적이고, `1.0` 은 3.1배지만 세부 디테일이 뭉개집니다.
+- **Spectrum** (체크박스, 기본 켬): 대부분의 스텝에서 42개 블록을 모두 돌리는 대신 모델 출력을 예측합니다. 50 스텝, 기본 `spectrum_flex_window 0.5` (Advanced)에서 2.6배 빠르고 VRAM은 0.85 GiB 더 쓰며, 그리드 크기로 보면 50 스텝 전체와 구분하기 어렵습니다. `0.25` 는 2.2배로 더 보수적이고, `1.0` 은 3.1배지만 세부 디테일이 뭉개집니다.
 - **compile** (Advanced, 켬): Spectrum 여부와 관계없이 추가로 약 1.37배 빨라지며, 작업마다 몇 초 컴파일합니다. 구도는 컴파일하지 않은 결과와 같지만 세부(머리카락 가닥, 무늬)는 달라지므로, 컴파일한 이미지는 컴파일한 이미지끼리 비교하세요.
 
 | Base, 1024², 50 스텝 | 이미지당 시간 |
@@ -219,7 +219,7 @@ GUI가 제출하는 작업과 같으며, 데몬으로 직접 실행할 수도 �
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/cache.py --src 'post_image_dataset/resized/<set>' --out 'post_image_dataset/moss/<set>'"
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --cache 'post_image_dataset/moss/<set>' --epochs 20"
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --config configs/moss/lora.toml"
-make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors --spectrum"
+make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors"
 make daemon-run ARGS="scripts/moss/tune_swap.py --cache post_image_dataset/moss/<set>"
 ```
 

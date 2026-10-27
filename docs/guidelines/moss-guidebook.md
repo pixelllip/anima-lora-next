@@ -182,7 +182,7 @@ The sampler defaults come from MOSS's reference pipeline; Anima's sampler habits
 | `dave_strength` | `0.3` | How much DAVE removes; `dave_tau` (Advanced, `0.10`) = the share of early steps it runs on |
 
 - **er_sde vs euler**: `euler` is the reference pipeline's sampler. `er_sde` costs the same and gives sharper line work and denser detail; with the LoRA, hands came out cleaner. It also drifts from some prompt details (sunset light, hair colour, "sitting on a bench") and gave up a little of the set's look. The two give different images at the same seed, so compare LoRA against base within one sampler.
-- **Spectrum** (checkbox): most steps forecast the model's output instead of running all 42 blocks. At 50 steps with the default `spectrum_flex_window 0.5` (Advanced) it is 2.6× faster for +0.85 GiB, and hard to tell apart from the full 50 steps at grid scale. `0.25` is 2.2× and more conservative; `1.0` is 3.1× and loses fine detail.
+- **Spectrum** (checkbox, on by default): most steps forecast the model's output instead of running all 42 blocks. At 50 steps with the default `spectrum_flex_window 0.5` (Advanced) it is 2.6× faster for +0.85 GiB, and hard to tell apart from the full 50 steps at grid scale. `0.25` is 2.2× and more conservative; `1.0` is 3.1× and loses fine detail.
 - **compile** (Advanced, on): about 1.37× on top, with or without Spectrum, for a few seconds of compile per job. Composition is the same as uncompiled; fine detail (hair strands, patterns) differs, so compare compiled images with compiled images.
 
 | Base, 1024², 50 steps | Time per image |
@@ -219,7 +219,7 @@ The GUI submits these jobs; they can also be run through the daemon directly. `-
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/cache.py --src 'post_image_dataset/resized/<set>' --out 'post_image_dataset/moss/<set>'"
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --cache 'post_image_dataset/moss/<set>' --epochs 20"
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --config configs/moss/lora.toml"
-make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors --spectrum"
+make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors"
 make daemon-run ARGS="scripts/moss/tune_swap.py --cache post_image_dataset/moss/<set>"
 ```
 

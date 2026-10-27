@@ -182,7 +182,7 @@ make download-model ARGS=moss-sft
 | `dave_strength` | `0.3` | DAVE が取り除く量。`dave_tau`（Advanced、`0.10`）= DAVE を適用する序盤ステップの割合 |
 
 - **er_sde と euler**: `euler` はリファレンスパイプラインのサンプラーです。`er_sde` は同じコストで線がよりシャープになり、ディテールも密になります。LoRA 適用時は手もきれいに出ました。一方で、プロンプトの一部のディテール（夕焼けの光、髪色、"sitting on a bench"）から外れ、セットの絵柄も少し失われました。同じシードでも 2 つのサンプラーは別の画像を出すので、LoRA とベースの比較は同じサンプラー内で行ってください。
-- **Spectrum**（チェックボックス）: ほとんどのステップで 42 ブロックすべてを実行する代わりにモデル出力を予測します。50 ステップ、デフォルトの `spectrum_flex_window 0.5`（Advanced）で 2.6 倍速く、VRAM は 0.85 GiB 増え、グリッド表示では 50 ステップ全実行と見分けがつきにくい結果です。`0.25` は 2.2 倍でより保守的、`1.0` は 3.1 倍ですが細部が崩れます。
+- **Spectrum**（チェックボックス、デフォルトでオン）: ほとんどのステップで 42 ブロックすべてを実行する代わりにモデル出力を予測します。50 ステップ、デフォルトの `spectrum_flex_window 0.5`（Advanced）で 2.6 倍速く、VRAM は 0.85 GiB 増え、グリッド表示では 50 ステップ全実行と見分けがつきにくい結果です。`0.25` は 2.2 倍でより保守的、`1.0` は 3.1 倍ですが細部が崩れます。
 - **compile**（Advanced、オン）: Spectrum の有無にかかわらずさらに約 1.37 倍速くなり、ジョブごとに数秒コンパイルします。構図はコンパイルなしと同じですが、細部（髪の毛の筋、模様）は変わるので、コンパイルした画像同士で比較してください。
 
 | Base、1024²、50 ステップ | 1 枚あたりの時間 |
@@ -219,7 +219,7 @@ GUI が投入するジョブと同じもので、デーモン経由で直接実�
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/cache.py --src 'post_image_dataset/resized/<set>' --out 'post_image_dataset/moss/<set>'"
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --cache 'post_image_dataset/moss/<set>' --epochs 20"
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --config configs/moss/lora.toml"
-make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors --spectrum"
+make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors"
 make daemon-run ARGS="scripts/moss/tune_swap.py --cache post_image_dataset/moss/<set>"
 ```
 

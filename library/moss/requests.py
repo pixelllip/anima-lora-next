@@ -325,9 +325,10 @@ class GenerateRequest(Request):
         advanced=True,
     )
     spectrum: bool = _f(
-        False,
+        True,
         "Spectrum: forecast the last block's image tokens on most steps instead of "
-        "running the 42 blocks (library/moss/spectrum.py)",
+        "running the 42 blocks (library/moss/spectrum.py); --no-spectrum runs every "
+        "step in full",
     )
     spectrum_window_size: float = _f(
         2.0, "initial window N: a full forward every floor(N) steps", advanced=True

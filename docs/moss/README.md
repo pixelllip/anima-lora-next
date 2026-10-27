@@ -30,7 +30,7 @@ The same jobs from the CLI, through the daemon:
 ```bash
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/cache.py --src 'post_image_dataset/resized/<set>' --out 'post_image_dataset/moss/<set>'"
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --cache 'post_image_dataset/moss/<set>' --epochs 20"
-make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors --spectrum"
+make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors"
 ```
 
 `--help` on each script lists every flag (one definition: `library/moss/requests.py`).
@@ -154,8 +154,8 @@ needs `anime_tools`) does the same conversion.
   on the same σ grid, same speed, composes with Spectrum. Sharper line work and denser
   detail than Euler, but drifts from some prompt details (sunset light, hair colour); a
   different sample at the same seed.
-- **`--spectrum`**: 2.6× at 50 steps with the default `flex_window 0.5`, hard to tell
-  apart from the full 50 steps at grid scale.
+- **`--spectrum`** (on; `--no-spectrum` runs every step in full): 2.6× at 50 steps with
+  the default `flex_window 0.5`, hard to tell apart from the full 50 steps at grid scale.
 - **`--compile`** (on; `--no-compile` for eager): about 1.37× on top, with or without
   Spectrum (Spectrum + compile 20 s vs plain eager 72 s at 1024²), for a few seconds of
   compile per job. Fine detail drifts from the eager image; composition does not.

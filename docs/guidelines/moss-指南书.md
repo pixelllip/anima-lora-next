@@ -182,7 +182,7 @@ make download-model ARGS=moss-sft
 | `dave_strength` | `0.3` | DAVE 去除的程度；`dave_tau`（高级，`0.10`）= 其生效的前期步数占比 |
 
 - **er_sde 与 euler**：`euler` 是参考管线的采样器。`er_sde` 耗时相同，线条更锐利、细节更密；加载 LoRA 时手部也更干净。但它会偏离部分提示词细节（夕阳光、发色、"sitting on a bench"），也会损失一点数据集的画风。两者在同一种子下生成不同的图，所以 LoRA 与基础模型的比较要在同一采样器内进行。
-- **Spectrum**（复选框）：大部分步数预测模型输出，而不是运行全部 42 个块。50 步、默认 `spectrum_flex_window 0.5`（高级）时快 2.6 倍，多用 0.85 GiB 显存，在网格尺寸下与完整 50 步难以区分。`0.25` 为 2.2 倍，更保守；`1.0` 为 3.1 倍，但会丢失细节。
+- **Spectrum**（复选框，默认开启）：大部分步数预测模型输出，而不是运行全部 42 个块。50 步、默认 `spectrum_flex_window 0.5`（高级）时快 2.6 倍，多用 0.85 GiB 显存，在网格尺寸下与完整 50 步难以区分。`0.25` 为 2.2 倍，更保守；`1.0` 为 3.1 倍，但会丢失细节。
 - **compile**（高级，默认开启）：无论是否开启 Spectrum，都再快约 1.37 倍，每个任务编译几秒。构图与未编译时相同，细节（发丝、花纹）会有差异，所以编译过的图只与编译过的图比较。
 
 | Base，1024²，50 步 | 每张耗时 |
@@ -219,7 +219,7 @@ make download-model ARGS=moss-sft
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/cache.py --src 'post_image_dataset/resized/<set>' --out 'post_image_dataset/moss/<set>'"
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --cache 'post_image_dataset/moss/<set>' --epochs 20"
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --config configs/moss/lora.toml"
-make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors --spectrum"
+make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors"
 make daemon-run ARGS="scripts/moss/tune_swap.py --cache post_image_dataset/moss/<set>"
 ```
 
