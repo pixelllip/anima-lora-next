@@ -69,12 +69,22 @@ dependencies = [
     "sqlalchemy>=2.1.0b2",
     "aiohttp>=3.13.5",
     "comfy-cli>=1.10.3",
-    "comfy-aimdo>=0.5.6",
+    # ComfyUI (../comfy) runs on this venv, and `uv sync` prunes anything off the
+    # lock, so its requirements.txt rows live here. Pins and floors track the
+    # checked-out ComfyUI tag (v0.43.0); move them when it moves. `comfy update`
+    # cannot install into this venv (no pip) — check out the tag and re-lock.
+    # The comfyui-* rows are exact: prerelease = "allow" would take dev builds.
+    "comfyui-frontend-package==1.57.4",
+    "comfyui-workflow-templates==0.11.97",
+    "comfyui-embedded-docs==0.5.15",
+    "pyopengl>=3.1.8,<4",
+    "comfy-angle",
+    "comfy-aimdo>=0.6.0",
     "av>=17.0.1",
     "alembic>=1.18.4",
     "pydantic-settings>=2.14.0",
     "kornia>=0.8.2",
-    "comfy-kitchen>=0.2.38",
+    "comfy-kitchen>=0.2.40",
     "simpleeval>=1.0.7",
     "pytest>=9.0.3",
     "blake3>=1.0.8",
