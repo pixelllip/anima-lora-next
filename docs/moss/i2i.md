@@ -23,7 +23,7 @@ is `library.moss.requests.I2I_CACHE`.
 
 | Task | Reference | Text encoder input | Status |
 |---|---|---|---|
-| `colorize` | B&W page, half size, joint | the page through the vision tower, then the colour caption's layout JSON plus one text item per OCR line | v2 recipe in the configs (`moss_colorize_3k_ocr`). The Hub's `colorize/moss_colorize_3k_v4` is the v3 recipe (full size, `ref_isolate`, caption only): `project/moss_lora/plan.md` |
+| `colorize` | B&W page, full size, isolated | the colour caption's layout JSON plus one text item per OCR line (no vision tower) | v4 recipe in the configs (`moss_colorize_3k_textref1_iso_muon_ema`, on the Hub as `colorize/moss_colorize_3k_v4`). v2 (`moss_colorize_3k_ocr`: half size, joint, vision tower) needs `ref_scale = 2`, `vision = true`: `project/moss_lora/plan.md` |
 | `sanitize` | texted image, full size, isolated | one fixed caption for every pair: `no sfx, no dialogue, no watermark` | trained, private on the Hub |
 | `swap_text` | JA manga page, full size, isolated | layout JSON, one text item per line to letter (translated text + bbox) | 1,300-pair run (`moss_i2i_swap_text_1300_ema5e5`): English clean on the held-out pages, Korean down to one-syllable swaps |
 

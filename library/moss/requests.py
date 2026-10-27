@@ -140,8 +140,9 @@ class CacheRequest(Request):
 
 @dataclass
 class ColorizeCacheRequest(Request):
-    """Build the colorize cache: the B&W page enters through the TE's vision tower
-    and as a VAE reference, the colour original is the target."""
+    """Build the colorize cache: the B&W page is the VAE reference (and, with
+    ``vision``, enters the TE through the vision tower); the colour original is the
+    target."""
 
     SCRIPT: ClassVar[str] = "scripts/moss/colorize_cache.py"
 
@@ -161,9 +162,9 @@ class ColorizeCacheRequest(Request):
         "upscaled)",
     )
     ref_scale: int = _f(
-        2,
+        1,
         "the reference latent's sides are the target's divided by this, rounded to "
-        "multiples of 16 (generate with the same value)",
+        "multiples of 16 (generate with the same value); v2 used 2",
     )
     variants: int = _f(
         3,
@@ -176,7 +177,7 @@ class ColorizeCacheRequest(Request):
         0.8, "share of the colour caption's tags an odd-k sparse caption drops"
     )
     vision: bool = _f(
-        True,
+        False,
         "the page enters the TE through the vision tower ahead of every caption; "
         "off = the captions alone, no embeds_plain",
     )

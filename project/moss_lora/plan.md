@@ -95,9 +95,10 @@ steps, seed 1), `lora_ocr`:
 
 ### Deploy
 
-1. Defaults: `configs/moss/i2i/colorize/{cache,train,generate}.toml` and
+1. **Done** (2026-10-27): `configs/moss/i2i/colorize/{cache,train,generate}.toml` and
    `ColorizeCacheRequest` (`vision = false`, `ref_scale = 1`, `ref_isolate = true`,
-   `ref_vision = false`, budget 0.1); `docs/moss/README.md`'s i2i table.
+   `ref_vision = false`, `plain_caption_rate 0`, generate prompt `comic`), `docs/moss/i2i.md`,
+   the GUI task text. Swap stays at the i2i configs' 38 / 0.175 / H2D-only.
 2. Stamp `ref_scale` and whether the TE saw the page into the LoRA metadata. Today only
    `ref_timestep` / `ref_isolate` are stamped, while ComfyUI-MOSS-Toolkit reads
    `ref_scale` from it.

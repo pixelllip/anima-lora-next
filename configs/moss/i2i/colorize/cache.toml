@@ -3,10 +3,11 @@
 #   make i2i-stage TASK=colorize                   # mangafy the colour corpus into staging/
 #   make i2i-preprocess TASK=colorize MODEL=moss   # this file → scripts/moss/colorize_cache.py
 #
-# Each staged B&W page is the condition: through the TE's vision tower ahead of the
-# caption, and VAE-encoded at 1/ref_scale as {stem}.moss_ref; its colour original
-# under post_image_dataset/resized is the target. The OCR'd page lines ride the
-# caption as layout text items (library/moss/colorize.py).
+# The v4 recipe (moss_colorize_3k_textref1_iso_muon_ema, project/moss_lora/plan.md).
+# Each staged B&W page is the condition, VAE-encoded at full size as {stem}.moss_ref;
+# its colour original under post_image_dataset/resized is the target. The TE sees the
+# caption only (vision = false); the OCR'd page lines ride it as layout text items
+# (library/moss/colorize.py).
 
 out = "post_image_dataset/moss/i2i_colorize"
 n = 1667                # illustration pairs
@@ -14,7 +15,8 @@ manga = 1667            # manga_color pages (0 when manga_dir holds none)
 holdout = 8
 manga_holdout = 4
 resolution = 1024
-ref_scale = 2
+ref_scale = 1
+vision = false
 variants = 3            # v1: tag_dropout of the colour tags, v2: all (OCR on both)
 tag_dropout = 0.8
 text_encoder = "int8"
