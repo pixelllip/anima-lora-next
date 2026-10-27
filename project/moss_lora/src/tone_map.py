@@ -93,7 +93,9 @@ def main() -> None:
     report = {}
     for page in PAGES:
         outs = {
-            name: Image.open(resolve_under_home(f"{d}/000_{page}_base_s42.png"))
+            name: Image.open(
+                next(resolve_under_home(d).glob(f"000_{page}_base_s*.png"))
+            )
             for name, d in runs.items()
         }
         size = next(iter(outs.values())).size

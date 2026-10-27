@@ -1,7 +1,8 @@
 # MOSS i2i: a tone term on the unedited tokens
 
-Status: implemented (`tone_weight`, off by default), two arms trained; neither passes the
-gates, and checkpoint-to-checkpoint tone noise is as large as the gates. Results in
+Status: implemented (`tone_weight`, off by default). No arm passes every gate: the best
+(`tone_weight 0.005`, lr 5e-5, 8 epochs) fixes ΔL but stays bluer (Δb −0.6), and Δb grows
+with training in every recipe tried. Identity pairs and tone jitter did not help. Results in
 [Results](#results-2026-10-25).
 
 The sanitize LoRA `moss_i2i_sanitize_wm` (e6) brightens, cools and slightly desaturates
@@ -200,6 +201,52 @@ in git history):
   page-wide lift outside the edits, not a local effect. The EMA's lower ΔL is within the
   raw-vs-EMA spread seen before. Edit quality is unchanged by eye: 「無断転載禁止」,
   the handle and usual_case2's tiled watermark all go.
+- **`tone_weight 0.005` at lr 5e-5 fixes ΔL, not Δb (2026-10-27).**
+  `moss_i2i_sanitize_idt_w0005_lr5e5_e8`: the identity tree, Muon lr 5e-5,
+  `tone_weight 0.005`, 8 epochs (2216 steps), EMA saved every 2 epochs. Mean over the five
+  pages and seeds 42 / 43 / 44, one shared mask per row:
+
+  | checkpoint | ΔL | Δb | max \|ΔL\| |
+  |---|---|---|---|
+  | e2 EMA | −0.03 | −0.19 | 0.94 |
+  | e4 EMA | −0.08 | −0.44 | 1.26 |
+  | e6 EMA | −0.04 | −0.47 | 1.01 |
+  | e8 EMA | +0.02 | −0.63 | 0.57 |
+  | e8 raw | +0.10 | +0.34 | 1.41 |
+
+  e8 EMA passes the ΔL, max-|ΔL| and sat× gates and fails Δb: bluer on all 15
+  page × seed renders. Unlike `tone_weight 0.005` at lr 1e-4 it does not over-correct, and
+  it edits best of all runs so far: it removes hard_to_sanitize2's red caption boxes and
+  repaints under them (cs0 and e2 leave red blank shapes), and removes
+  「無断転載禁止」 and the handle. Seeds move a checkpoint's mean Δb by about ±0.1, so
+  the Δb is real. The raw and EMA files differ by ~1.0 in b with opposite signs, so b
+  wanders with the weights. Δb grows with training (e2 → e8).
+- **Tone jitter did not help (2026-10-27; code reverted).** Each step shifted the target
+  and the reference latent by the same random Lab offset (L / a / b each uniform in ±3,
+  along `tone_dirs`), so that the unedited tone would pass through. Same recipe and seeds
+  as the run above (`moss_i2i_sanitize_idt_w0005_jit3_e8`), ΔL / Δb:
+
+  | checkpoint | control | jitter ±3 |
+  |---|---|---|
+  | e2 EMA | −0.03 / −0.19 | +0.22 / −0.03 |
+  | e4 EMA | −0.08 / −0.44 | +0.02 / −0.30 |
+  | e6 EMA | −0.04 / −0.47 | +0.21 / −0.17 |
+  | e8 EMA | +0.02 / −0.63 | +0.42 / −0.47 |
+  | e8 raw | +0.10 / +0.34 | +1.30 / −0.33 |
+
+  Jitter moves Δb 0.14–0.30 toward zero at every checkpoint. Δb grows from e2 to e8 by
+  the same ~0.45 in both arms, so only the starting point moves. The costs:
+  - e8 EMA is still past the Δb gate.
+  - The brightening returns: ΔL +0.42 for e8 EMA, and +1.30 for raw, with one page at
+    +2.45.
+  - Edits get worse. e8 EMA leaves a faint 「禁止」 on hard_to_sanitize1 and red-box
+    debris on hard_to_sanitize2, while the control's e8 EMA removes both.
+- **The small VAE decoder is not the cause.** MOSS ships the FLUX.2 small decoder: the
+  same encoder and BN, with a 3/4-width decoder. Decoding the same latents with the
+  full-width decoder (FLUX.2-klein-4B's VAE) changes the five pages' Δb by about +0.05
+  on average. In a round trip the small decoder is bluer (Δb −0.26 vs −0.09 over 20
+  pages), mostly on the more saturated staged pages. PSNR is equal (38.0 dB), and small
+  Hangul is indistinguishable between the two decoders.
 
 ## Out of scope
 
