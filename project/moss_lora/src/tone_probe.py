@@ -146,14 +146,22 @@ def main() -> None:
         "--decode", type=int, default=6, help="pairs decoded per LoRA at the decode σs"
     )
     p.add_argument("--decode_sigmas", default="0.1,0.3")
-    p.add_argument("--loras", default=",".join(LORAS))
+    p.add_argument(
+        "--loras", default=",".join(LORAS), help="names from LORAS or name=path"
+    )
     p.add_argument("--tone_dilate", type=int, default=2)
     p.add_argument("--out", default="project/moss_lora/space/tone_probe.json")
     args = p.parse_args()
     device = torch.device("cuda")
     sigmas = [float(s) for s in args.sigmas.split(",")]
     dec_sigmas = [float(s) for s in args.decode_sigmas.split(",")]
-    names = args.loras.split(",")
+    paths = dict(LORAS)
+    names = []
+    for tok in args.loras.split(","):
+        name, _, path = tok.partition("=")
+        if path:
+            paths[name] = path
+        names.append(name)
 
     # ---- samples: (name, x0, ref, embeds, rest tokens, rest pixels or None)
     items = pick_pairs(resolve_under_home(args.cache), args.pairs)
@@ -211,8 +219,8 @@ def main() -> None:
     for name in names:
         net = None
         transformer.ref_timestep, transformer.ref_isolate = None, False
-        if LORAS[name]:
-            net = load_for_inference(transformer, resolve_under_home(LORAS[name]))
+        if paths[name]:
+            net = load_for_inference(transformer, resolve_under_home(paths[name]))
         else:
             # The base model never saw a reference; run it as the LoRAs run.
             transformer.ref_timestep, transformer.ref_isolate = 0.0, True
@@ -308,7 +316,7 @@ def summarize(rows: list[dict], decoded: list[dict]) -> None:
             dc = np.array([r["dc"] for r in rs])
             mean_dc = np.linalg.norm(dc.mean(0))
             norm_dc = np.linalg.norm(dc, axis=1).mean()
-            vm = np.mean([r["rest_vmse"] for r in rs])
+            vm = np.nanmean([r["rest_vmse"] for r in rs])
             t0 = np.nanmean([r["tone0"] for r in rs])
             t8 = np.nanmean([r["tone8"] for r in rs])
             print(
@@ -322,8 +330,8 @@ def summarize(rows: list[dict], decoded: list[dict]) -> None:
     for (page, lora, sigma), ds in sorted(groups.items()):
         print(
             f"{'page' if page else 'pair':>4} {lora:>5} σ {sigma}: "
-            f"ΔL {np.mean([d['dL'] for d in ds]):+.2f} (min {min(d['dL'] for d in ds):+.2f} max {max(d['dL'] for d in ds):+.2f}) "
-            f"Δb {np.mean([d['db'] for d in ds]):+.2f} sat× {np.mean([d['sat'] for d in ds]):.3f}  n={len(ds)}"
+            f"ΔL {np.nanmean([d['dL'] for d in ds]):+.2f} (min {np.nanmin([d['dL'] for d in ds]):+.2f} max {np.nanmax([d['dL'] for d in ds]):+.2f}) "
+            f"Δb {np.nanmean([d['db'] for d in ds]):+.2f} sat× {np.nanmean([d['sat'] for d in ds]):.3f}  n={len(ds)}"
         )
 
 

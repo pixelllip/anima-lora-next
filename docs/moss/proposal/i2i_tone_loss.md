@@ -2,8 +2,9 @@
 
 Status: implemented (`tone_weight`, off by default). No arm passes every gate: the best
 (`tone_weight 0.005`, lr 5e-5, 8 epochs) fixes ΔL but stays bluer (Δb −0.6), and Δb grows
-with training in every recipe tried. Identity pairs and tone jitter did not help. Results in
-[Results](#results-2026-10-25).
+with training in every recipe tried. Identity pairs and tone jitter did not help, and a
+late-started b ×3 term overshoots b to +1.3. Results in [Results](#results-2026-10-25);
+next candidate: [late, lower weight, b ×1](#next-candidate-late-lower-weight-b-1).
 
 The sanitize LoRA `moss_i2i_sanitize_wm` (e6) brightens, cools and slightly desaturates
 the whole page, including far from any text it removes. The training pairs do not teach
@@ -101,7 +102,9 @@ L      = L_mse + tone_weight · mean over cells with coverage ≥ ½ of pooled²
 - Logged separately as `tone` in progress events, like the region / rest parts.
 
 New `TrainRequest` fields (advanced): `tone_weight` (0 = off, the default),
-`tone_pool` (0 | k), `tone_dilate` (tokens, default 2).
+`tone_pool` (0 | k), `tone_dilate` (tokens, default 2), `tone_b_weight` (scale on the
+Lab projection's b row, 1), `tone_start` / `tone_b_start` (fraction of all steps before
+which the term is only logged / the b scale is 1; 0).
 
 ## Plan
 
@@ -247,6 +250,86 @@ in git history):
   on average. In a round trip the small decoder is bluer (Δb −0.26 vs −0.09 over 20
   pages), mostly on the more saturated staged pages. PSNR is equal (38.0 dB), and small
   Hangul is indistinguishable between the two decoders.
+
+- **The term fixed L, not b (2026-10-27).** 200p and four Muon runs on one
+  shared mask (seed 42, mean over the five pages; Δb warm = input b > 5, i.e. skin, red,
+  orange):
+
+  | run | ΔL | Δa | Δb | Δb warm | median ΔE | max \|ΔL\| |
+  |---|---|---|---|---|---|---|
+  | 200p | −0.12 | +0.30 | −0.01 | −0.04 | 1.09 | 0.39 |
+  | e6 | +1.67 | +0.40 | −0.67 | −1.30 | 1.98 | 2.32 |
+  | cs0 | +1.35 | +0.28 | −0.66 | −1.17 | 1.76 | 1.66 |
+  | idt cs0 EMA | +0.81 | +0.49 | −1.10 | −2.00 | 1.77 | 1.02 |
+  | idt w0005 lr 5e-5 e8 EMA | +0.19 | +0.36 | −0.72 | −1.17 | 1.26 | 0.45 |
+
+  The e8 EMA's Δb is cs0's. The four Muon runs share the spatial Δb pattern (on
+  hard_to_sanitize3 the stockings and skirt bluest, hair and background faint), while 200p
+  goes warmer. Δb is largest in mid and dark tones and at high chroma; paper white is near 0.
+  Δa ≈ +0.3 is in 200p too, so it is not the LoRA's.
+- **The b error is in the single-step x̂₀, on training pairs too (2026-10-27).**
+  `tone_probe.py` (job `20261027-122703-f762ce`, 24 pairs of the identity tree + the five
+  pages; `project/moss_lora/space/tone_probe_idt_w0005.json`, untracked), decoded x̂₀ vs
+  x₀ on the rest pixels, Δb at σ 0.1 / 0.3:
+
+  | LoRA | training pairs | held-out pages | render Δb |
+  |---|---|---|---|
+  | base | +0.13 / +0.26 | +0.12 / +0.33 | — |
+  | e2 EMA | −0.06 / 0.00 | −0.05 / +0.03 | −0.19 |
+  | e8 EMA | −0.09 / −0.10 | +0.01 / −0.10 | −0.63 |
+  | e8 raw | +0.38 / +0.60 | +0.42 / +0.46 | +0.34 |
+
+  Pairs and pages agree, so the term sees the b error during training; it is not a
+  held-out gap. The render follows the single-step sign (raw warm, EMA cool), about 6× for
+  the EMA, like the 5–8× seen for L. A b error of 0.1 is 0.01 in ΔE², 4–25× less gradient
+  than the L error the term did fix (single-step 0.2–0.5). The latent DC projected on the
+  tone directions agrees (e8 EMA at σ 0.3: b −0.15 pairs, −0.19 pages). At σ 0.6 the b
+  error averages 0, while the term's magnitude is dominated by high σ.
+
+- **A late b ×3 term overshoots b (2026-10-27).** The idea was to scale the b row of the
+  Lab projection ×3, so that a b error (single-step ~0.1) weighs like the L error the term
+  removed (0.2–0.5). Two runs on the identity tree:
+  - On the w0005 e8 recipe from step 0 (stopped at step 245 of 2216): the tone term ran
+    about 5× b ×1's, the gradient norm about 4× (2.8 / 5.2 at σ < 0.5 / ≥ 0.5, against
+    0.7 / 1.2), clipped on nearly every step.
+  - `moss_i2i_sanitize_idt_cs0_600_late_w0005_b3`: the `idt_cs0_600` recipe with
+    `tone_weight 0.005`, `tone_b_weight 3`, `tone_start 0.5`, and the same σ sequence as
+    the control. Until step 300 the logged term fell with FM alone (28 → 7.2) and FM
+    matched the control (0.091 / 0.092). When the term switched on, the gradient norm went
+    0.20 → 11.2 and the term *rose* to 29, settling at ~21. FM ended 15–25 % above the
+    control.
+
+  Final EMA, mean over the five pages:
+
+  | run | seed | ΔL | Δa | Δb | Δb warm | median ΔE |
+  |---|---|---|---|---|---|---|
+  | idt cs0 EMA (control) | 42, shared mask | +0.81 | +0.49 | −1.10 | −2.00 | 1.77 |
+  | late b ×3 EMA | 42, shared mask | +0.58 | +0.61 | +1.20 | +0.89 | 2.01 |
+  | idt w0005 lr 5e-5 e8 EMA | 42 / 43 / 44 mean, two-run mask | +0.02 | +0.32 | −0.63 | −0.98 | 1.18 |
+  | late b ×3 EMA | 42 / 43 / 44 mean, two-run mask | +0.36 | +0.59 | +1.29 | +1.08 | 2.03 |
+
+  Every page at every seed is warmer (Δb +0.4 to +2.2, most on hard_to_sanitize1 / 2).
+  hard_to_sanitize2 also goes darker (ΔL −0.4 to −1.5) while the other pages go brighter.
+  300 steps moved b by 2.4, so b responds to the term; the weight is too strong.
+  Two-run mask: pixels neither of the two runs changed at that seed (`idt_cs0_600` has
+  only seed 42).
+
+## Next candidate: late, lower weight, b ×1
+
+A micro arm on the `idt_cs0_600` recipe (Muon lr 1e-4, 600 steps, identity tree, ~40 min):
+`tone_start 0.5`, `tone_b_weight 1`, `tone_weight 0.001`. The [late b ×3
+arm](#results-2026-10-25) moved b by 2.4 in 300 steps, so b responds; the weight is what
+was off. At `tone_weight 0.005` with b ×3 the gradient norm went from 0.2 to 11 when the
+term switched on (about 50× the FM gradient). With Muon the update size is set by lr, not
+by the gradient norm, so a term whose gradient dominates steers the whole update. 0.001
+with b ×1 should put the tone gradient near the FM gradient's size.
+
+- Log the FM and tone gradient norms separately (not logged yet), to check the
+  dominance reading directly.
+- Score the final EMA at seeds 42 / 43 / 44 against `idt_cs0_600` EMA and the late b ×3
+  arm, warm-region Δb next to the gates. Check edits by eye on hard_to_sanitize1 / 2.
+- If b still overshoots: 5e-4. If it moves b toward 0 without reaching the gate, carry
+  the weight to the w0005 e8 recipe, where only Δb −0.6 is left.
 
 ## Out of scope
 
