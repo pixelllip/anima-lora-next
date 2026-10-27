@@ -1,10 +1,11 @@
 # MOSS i2i: a tone term on the unedited tokens
 
-Status: implemented (`tone_weight`, off by default). No arm passes every gate: the best
-(`tone_weight 0.005`, lr 5e-5, 8 epochs) fixes ΔL but stays bluer (Δb −0.6), and Δb grows
-with training in every recipe tried. Identity pairs and tone jitter did not help, and a
-late-started b ×3 term overshoots b to +1.3. Results in [Results](#results-2026-10-25);
-next candidate: [late, lower weight, b ×1](#next-candidate-late-lower-weight-b-1).
+Status: implemented (`tone_weight`, off by default). A late, low-weight term
+(`tone_start 0.5`, `tone_weight 0.001`, b ×1) on the 600-step identity recipe is the first
+arm inside the mean tone gates (ΔL −0.31, Δb +0.04 over three seeds); one page at one seed
+is at ΔL −1.04, and the warm regions stay cool (Δb −0.45). Results in
+[Results](#results-2026-10-25); next: [carry it to the full-length
+recipe](#next-carry-the-late-w0001-term-to-full-length).
 
 The sanitize LoRA `moss_i2i_sanitize_wm` (e6) brightens, cools and slightly desaturates
 the whole page, including far from any text it removes. The training pairs do not teach
@@ -314,22 +315,38 @@ in git history):
   Two-run mask: pixels neither of the two runs changed at that seed (`idt_cs0_600` has
   only seed 42).
 
-## Next candidate: late, lower weight, b ×1
+- **A late `tone_weight 0.001` term passes the mean gates (2026-10-27).**
+  `moss_i2i_sanitize_idt_cs0_600_late_w0001`: the `idt_cs0_600` recipe (Muon lr 1e-4,
+  600 steps, identity tree) with `tone_start 0.5`, `tone_weight 0.001`, b ×1. Final EMA,
+  mean over the five pages and seeds 42 / 43 / 44, mask from the b ×3 arm and this one:
 
-A micro arm on the `idt_cs0_600` recipe (Muon lr 1e-4, 600 steps, identity tree, ~40 min):
-`tone_start 0.5`, `tone_b_weight 1`, `tone_weight 0.001`. The [late b ×3
-arm](#results-2026-10-25) moved b by 2.4 in 300 steps, so b responds; the weight is what
-was off. At `tone_weight 0.005` with b ×3 the gradient norm went from 0.2 to 11 when the
-term switched on (about 50× the FM gradient). With Muon the update size is set by lr, not
-by the gradient norm, so a term whose gradient dominates steers the whole update. 0.001
-with b ×1 should put the tone gradient near the FM gradient's size.
+  | run | ΔL | Δa | Δb | Δb warm | median ΔE | sat× |
+  |---|---|---|---|---|---|---|
+  | idt cs0 EMA (control, seed 42 only) | +0.84 | +0.48 | −1.10 | −2.01 | 1.77 | — |
+  | late b ×3 EMA | +0.36 | +0.58 | +1.29 | +1.09 | 2.03 | — |
+  | **late w0001 EMA** | **−0.31** | +0.53 | **+0.04** | −0.45 | 1.33 | 0.99 |
 
-- Log the FM and tone gradient norms separately (not logged yet), to check the
-  dominance reading directly.
-- Score the final EMA at seeds 42 / 43 / 44 against `idt_cs0_600` EMA and the late b ×3
-  arm, warm-region Δb next to the gates. Check edits by eye on hard_to_sanitize1 / 2.
-- If b still overshoots: 5e-4. If it moves b toward 0 without reaching the gate, carry
-  the weight to the w0005 e8 recipe, where only Δb −0.6 is left.
+  - Mean |ΔL| and |Δb| are inside the gates, sat× 0.98–1.00 per seed. One page breaks the
+    per-page gate: hard_to_sanitize2 at seed 43, ΔL −1.04. L now errs dark
+    (hard_to_sanitize1 / 3: −0.35 to −0.85), and the warm regions stay cool. Δa +0.5 has
+    not moved in any run.
+  - Edits match the control by eye: 「無断転載禁止」 and the handle go on
+    hard_to_sanitize1 (seed 42 keeps the empty top-left bubble outline), and
+    hard_to_sanitize2 keeps the same red-box debris as the control.
+  - Training: the gradient norm went 0.22 → 0.56 when the term switched on (b ×3:
+    0.20 → 11.2), and FM stayed at the control's. Output-space gradient norms (logged
+    `g_fm` / `g_tone` / `g_cos`, ∂/∂pred, the tone one at the configured weight):
+    tone / FM 1.4 before the switch, 2.0–2.3 after, cos +0.03 to +0.07.
+  - The logged term *rises* when it is added (2.6 → 7.2 over steps 200–300 → 301–350,
+    ~5.7 after), as it did under b ×3, while the renders move toward the gate. Not
+    explained yet.
+
+## Next: carry the late w0001 term to full length
+
+The w0005 lr 5e-5 e8 recipe with `tone_start 0.5`, `tone_weight 0.001`, b ×1, scored at
+seeds 42 / 43 / 44 against this arm and the w0005 e8 EMA. If it holds, widen the page set
+to ~20 held-out sanitize pages (the gate's shipping condition). If L stays dark, try
+`tone_weight 5e-4` on the 600-step recipe first.
 
 ## Out of scope
 

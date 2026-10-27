@@ -300,6 +300,19 @@ def training_loss(
     )
     if parts is not None:
         parts["tone"] = term.item()
+        if pred.requires_grad:
+            # Output-space gradient norms, the tone one at the configured weight
+            # even before tone_start: one backward cannot split them per param.
+            g_fm, g_tone = (
+                torch.autograd.grad(x, pred, retain_graph=True)[0].float()
+                for x in (loss, term)
+            )
+            g_tone = g_tone * tone.get("log_weight", tone["weight"])
+            parts.update(
+                g_fm=g_fm.norm().item(),
+                g_tone=g_tone.norm().item(),
+                g_cos=F.cosine_similarity(g_fm.flatten(), g_tone.flatten(), 0).item(),
+            )
     return loss + tone["weight"] * term if tone["weight"] else loss
 
 
@@ -885,6 +898,7 @@ def train(
                         weight=req.tone_weight
                         if step >= total * req.tone_start
                         else 0.0,
+                        log_weight=req.tone_weight,
                     )
                 if s.stem in regions or tone is not None:
                     loss = training_loss(
