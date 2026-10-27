@@ -143,7 +143,7 @@ On caststation this kept the style strength of plain tags and leaked fewer of th
 attributes onto other characters. A `layout_json` cache also stores the plain caption, used
 on `plain_caption_rate` (default 0.2) of the steps. **Train and prompt in the same form**
 (`text` on both for plain captions); switching re-encodes the TE cache. In ComfyUI the
-**Anima Caption → MOSS Layout JSON** node ([MOSS Toolkit](https://github.com/sorryhyun/ComfyUI-MOSS-Toolkit),
+**MOSS Caption Helper** node, `task = layout` ([MOSS Toolkit](https://github.com/sorryhyun/ComfyUI-MOSS-Toolkit),
 needs `anime_tools`) does the same conversion.
 
 ## Sampling
