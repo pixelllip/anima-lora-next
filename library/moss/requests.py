@@ -580,6 +580,22 @@ class TrainRequest(Request):
         "squared. '' = the raw 128 channels",
         advanced=True,
     )
+    tone_b_weight: float = _f(
+        1.0,
+        "scale on the b row of the Lab projection (b error weighs its square); "
+        "Lab tone_dirs only",
+        advanced=True,
+    )
+    tone_start: float = _f(
+        0.0,
+        "fraction of all steps before which the tone term is only logged, not added",
+        advanced=True,
+    )
+    tone_b_start: float = _f(
+        0.0,
+        "fraction of all steps before which tone_b_weight is 1",
+        advanced=True,
+    )
     repa_weight: float = _f(
         0.0,
         "relational REPA (Anima's DoG-Gram term, docs/anima/methods/repa.md): weight of "

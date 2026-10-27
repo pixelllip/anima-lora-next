@@ -223,15 +223,18 @@ def region_mse(
     return (torch.where(region, region_weight, rest_weight) * err).mean()
 
 
-def tone_projection(path) -> torch.Tensor:
+def tone_projection(path, b_weight: float = 1.0) -> torch.Tensor:
     """``(3, C)`` least-squares map from a per-channel latent offset to Lab
-    ``(L, a, b)``, from the per-unit directions in ``path``."""
+    ``(L, a, b)``, from the per-unit directions in ``path``; the b row scaled by
+    ``b_weight``."""
     from safetensors.torch import load_file
 
     dirs = load_file(str(path))
-    return torch.linalg.pinv(
+    proj = torch.linalg.pinv(
         torch.stack([dirs[k] for k in ("L", "a", "b")], 1).double()
     ).float()
+    proj[2] *= b_weight
+    return proj
 
 
 def tone_loss(
@@ -533,7 +536,7 @@ def train(
             f"{sum(a == 0 for a in area)} empty",
             flush=True,
         )
-    rests, tone_proj = {}, None
+    rests, tone_proj, tone_proj_b = {}, None, None
     if req.tone_weight or req.tone_log:
         for s in samples:
             latent, _, _, ref = get(s)
@@ -554,11 +557,16 @@ def train(
                 rests[s.stem] = rest
         if req.tone_dirs:
             tone_proj = tone_projection(resolve_under_home(req.tone_dirs)).to(device)
+            tone_proj_b = tone_projection(
+                resolve_under_home(req.tone_dirs), req.tone_b_weight
+            ).to(device)
         share = sorted(r.float().mean().item() for r in rests.values())
         print(
             f"tone: x{req.tone_weight}{' (log only)' if not req.tone_weight else ''}, "
             f"pool {req.tone_pool}, dilate +{req.tone_dilate}, "
-            f"{'Lab via ' + req.tone_dirs if req.tone_dirs else 'raw channels'}; "
+            f"{'Lab via ' + req.tone_dirs if req.tone_dirs else 'raw channels'}"
+            f"{f' (b x{req.tone_b_weight} from {req.tone_b_start:g})' if req.tone_dirs and req.tone_b_weight != 1 else ''}"
+            f"{f', added from {req.tone_start:g}' if req.tone_start else ''}; "
             f"{len(rests)}/{len(samples)} samples with unedited tokens, share median "
             f"{100 * share[len(share) // 2] if share else 0:.0f}%",
             flush=True,
@@ -780,6 +788,10 @@ def train(
             tone_dilate=req.tone_dilate,
             tone_dirs=req.tone_dirs or "raw",
         )
+        if req.tone_dirs and req.tone_b_weight != 1:
+            meta.update(tone_b_weight=req.tone_b_weight, tone_b_start=req.tone_b_start)
+        if req.tone_start:
+            meta.update(tone_start=req.tone_start)
 
     def save(tag: str | None = None, shadow: list | None = None) -> Path:
         """The final file at ``out_path``; an epoch save under ``<dir>/<stem>/``.
@@ -867,8 +879,12 @@ def train(
                     tone = dict(
                         rest=rests[s.stem].to(device),
                         pool=req.tone_pool,
-                        proj=tone_proj,
-                        weight=req.tone_weight,
+                        proj=tone_proj_b
+                        if step >= total * req.tone_b_start
+                        else tone_proj,
+                        weight=req.tone_weight
+                        if step >= total * req.tone_start
+                        else 0.0,
                     )
                 if s.stem in regions or tone is not None:
                     loss = training_loss(

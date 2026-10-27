@@ -11,6 +11,7 @@ from library.moss.train import (
     ema_step,
     region_mse,
     tone_loss,
+    tone_projection,
 )
 
 
@@ -139,6 +140,21 @@ def test_tone_loss_projects_to_lab():
     err = (dirs @ c).view(1, 128, 1, 1).expand(1, 128, 16, 16)
     rest = torch.ones(16, 16, dtype=torch.bool)
     assert torch.isclose(tone_loss(err, rest, 8, proj), c.pow(2).sum(), rtol=1e-4)
+
+
+def test_tone_projection_b_weight_scales_b_error(tmp_path):
+    from safetensors.torch import save_file
+
+    dirs = torch.randn(128, 3, generator=torch.Generator().manual_seed(0))
+    path = tmp_path / "dirs.safetensors"
+    save_file({k: dirs[:, i].contiguous() for i, k in enumerate("Lab")}, str(path))
+    c = torch.tensor([1.5, -0.5, 2.0])
+    err = (dirs @ c).view(1, 128, 1, 1).expand(1, 128, 16, 16)
+    rest = torch.ones(16, 16, dtype=torch.bool)
+    loss = tone_loss(err, rest, 8, tone_projection(path, 3.0))
+    assert torch.isclose(
+        loss, torch.tensor(1.5**2 + 0.5**2 + (3 * 2.0) ** 2), rtol=1e-4
+    )
 
 
 def test_tone_loss_skips_cells_under_half_coverage():
