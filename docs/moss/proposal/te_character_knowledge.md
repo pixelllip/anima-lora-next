@@ -2,13 +2,15 @@
 
 Status: proposal (2026-10-27). Phase 0 passed on `malfoid` (name only 0.29 → with tags 0.83
 tagger recall); `akita neru` turned out to be known to the DiT already. Evidence:
-`project/moss_te_sae/README.md`.
+`project/moss_te_sae/README.md`. The D gate is now the four-way split in
+[D](#approaches-cheapest-first); next are B on `malfoid` and the case-② sweep.
 
 Goal: a prompt that names a character (`akita neru`) should reach the DiT as if it also
 spelled out her appearance (`blonde hair, long hair, side ponytail, yellow eyes, holding
 phone, …`). Hatsune Miku already behaves this way: the TE knows her, and the name alone
-renders her. The knowledge goes into the frozen Qwen3.5-9B TE (or its output). The DiT is
-not touched.
+renders her (whether the DiT reads that knowledge or only her name's identity is the D
+gate). The knowledge goes into the frozen Qwen3.5-9B TE (or its output). The DiT is not
+touched.
 
 ## Why the TE and not a DiT LoRA
 
@@ -86,13 +88,43 @@ TE, branches off = the shipped TE bit for bit). Two losses:
 - **Preservation.** On a calibration set without the trained names (and on names the TE
   already knows), TE output MSE and DiT velocity change stay at zero.
 
+A variant of C is a ROME / MEMIT-style edit: the key is the mid-layer MLP input at the
+name's last token, the value v* is optimised against the teacher through the upper TE
+layers and the DiT read-out (not an LM loss), and MEMIT writes N characters in closed
+form into the same switchable branch. Over B, the edit sits before the upper layers, so
+it reaches the later tokens too (the DiT reads commas and JSON delimiters, which pool
+context: `project/moss_te_sae/src/lora_use.py`). That may help binding and natural-language prompts. Costs: the
+v* fit backpropagates through the upper TE layers, and ROME's locality (attributes
+written by a mid-layer MLP at the subject's last token) is untested on Qwen3.5's GDN /
+full-attention hybrid, so causal tracing picks the layer first.
+
 **D. Make the TE *know* the character (the ambitious one).** LM-loss fine-tuning of the
 TE on wiki text plus appearance QA, so that Neru becomes a Miku-like entity inside Qwen.
 The DiT representation follows only if the DiT reads appearance out of entity knowledge.
-It might instead have memorised name-token identity from MOSS pretraining. Gate D on a
-probe first: across ~500 characters, does a linear probe at the name token predict hair
-and eye colour, and does that accuracy track the cloze knowledge score? If the DiT for
-Miku runs on token identity, D cannot work and C is the line.
+It might instead have memorised name-token identity from MOSS pretraining. A character
+falls in one of four cases:
+
+| | the DiT draws it from the name | the DiT does not |
+|---|---|---|
+| **no attributes in the TE representation** | ① the DiT memorised the name; the TE output works as a hash key (Neru) | ④ neither knows it (`malfoid`) |
+| **attributes in the TE representation** (a compressed tag set) | ③ both (Miku) | ② only the TE knows it |
+
+"Attributes in the representation" means a linear probe at the name token, inside the
+layout-JSON caption, predicts hair and eye colour. QA and cloze alone are not enough,
+since the TE can answer a question without writing the attributes onto the name in a
+caption. ③ does not by itself show that the DiT reads the attributes: it may hold Miku as
+a ① hash key while the TE also knows her. Two tests settle it:
+
+- **How common ② is** (generation only, `project/moss_te_sae/src/tag_recall.py`). Characters the probe
+  reads but the DiT likely never saw in training. Choose them by release date (after
+  MOSS's data, before the TE's) rather than by Danbooru post_count, which says little
+  about MOSS's web pretraining. If the DiT read attributes, ② would be rare.
+- **Attribute steering on ③.** Move Miku's name-token representation along the probe's
+  hair-colour direction and render. Hair changes with identity kept: the DiT reads
+  content. No response, or a broken Miku: hash key.
+
+If the DiT reads content, D (and the MEMIT variant of C) can generalise past the trained
+captions. If it is a hash key, ② is ④ for this work and C is the line. ① needs nothing.
 
 ## Metrics
 
@@ -113,12 +145,15 @@ Miku runs on token identity, D cannot work and C is the line.
    the DiT cannot draw the character from a description either, and only a DiT LoRA is
    left.
 1. **Baseline A** measured on the same seeds.
-2. **B on Neru.** *Gate:* the patch recovers ≥ 80 % of the teacher's recall gain. Below
+2. **B on `malfoid`** (Neru is case ①). *Gate:* the patch recovers ≥ 80 % of the
+   teacher's recall gain. Below
    that, try soft rows. If those fail too, compression is the blocker and C's read-out
    loss has to carry it.
 3. **C on ~50 characters** chosen from the KB as post_count ≥ 500 and failing the cloze
    test, with preservation.
-4. **D probe**, then D if the probe says entity knowledge drives the DiT.
+4. **D gate**: the name-token probe, the case-② sweep and Miku steering
+   ([D](#approaches-cheapest-first)); D only if the DiT reads content. The ② sweep is
+   generation only and can run alongside phase 2.
 
 ## Costs and risks
 
