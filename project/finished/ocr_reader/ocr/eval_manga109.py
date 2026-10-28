@@ -541,6 +541,8 @@ class Ovis3Reader(OvisReader):
     prompt file (``document_markdown`` = OvisOCR2's page parse). Decode as
     the card: greedy, thinking off, 448² / 2880² pixels; the repo now ships
     a ``generation_config.json`` whose eos pair is the one :attr:`eos` sets.
+    A ``--ckpt`` holding ``adapter_config.json`` (``finetune_ovis3_lora.py``)
+    is merged onto the base weights.
     """
 
     name = "ovis3"
@@ -549,10 +551,19 @@ class Ovis3Reader(OvisReader):
     def __init__(self, ckpt: str | None, device: str):
         import os
 
-        super().__init__(ckpt, device)
+        adapter = ckpt and (Path(ckpt) / "adapter_config.json").is_file()
+        super().__init__(None if adapter else ckpt, device)
+        if adapter:
+            from peft import PeftModel
+
+            self.model = (
+                PeftModel.from_pretrained(self.model, ckpt).merge_and_unload().eval()
+            )
+        base = Path(m109.REPO / self.DEFAULT if adapter or not ckpt else ckpt)
         task = os.environ.get("ANIMA_OVIS_TASK", "plain_ocr")
-        path = Path(ckpt or m109.REPO / self.DEFAULT) / "prompts" / f"{task}.txt"
-        self.prompt = path.read_text(encoding="utf-8").strip()
+        self.prompt = (
+            (base / "prompts" / f"{task}.txt").read_text(encoding="utf-8").strip()
+        )
 
 
 READERS = {

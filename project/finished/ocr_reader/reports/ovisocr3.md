@@ -77,3 +77,40 @@ barely moves.
 The build is now a dependency. The wheel (version re-tagged
 `1.7.0+cu132torch2.14`) is the pre-release asset `deps-causal-conv1d-1.7.0`
 on `sorryhyun/anima_lora`, pinned in the `torch-214` group (Linux x86_64).
+
+## LoRA micro arm (`ovis3_lora_micro`, 2026-10-28)
+
+`ocr/finetune_ovis3_lora.py`: P3's data (81 002 rows: COO SFX + speech + the
+gelnote KO / ZH pseudo rows), the card's `plain_ocr` turn as the prompt, and
+loss on the target only. LoRA goes on every vision-tower + merger Linear at
+r 64, and on the LM layers' GDN / attention / MLP projections at r 16 (20.3 M
+trainable). lr 1e-4, bs 16, 1 000 steps = 16 k crops ≈ 0.2 epoch, 21.4 min,
+12.5 crops/s, peak 10.4 GB. Final loss 0.386. One seed.
+
+```
+ANIMA_MANGA109S_ROOT=… make daemon-run ARGS="--stall-timeout 900 \
+  project/finished/ocr_reader/ocr/finetune_ovis3_lora.py --run ovis3_lora_micro --steps 1000 --bs 16 --grad_accum 1"
+```
+
+| gate | OvisOCR3 stock | **LoRA, 0.2 ep** | v4 (VL P3, 2 ep) |
+|---|---|---|---|
+| sincos SFX strict / ♡-blind (n = 597) | 9 / — | **166 / 198** | 346 / 387 |
+| sincos speech strict (n = 272) | 41 | 92 | 123 |
+| COO SFX (n = 2 558) | 224 (8.8 %) | **1 850 (72.3 %)** | 2 223 (86.9 %) |
+| COO speech (n = 2 559) | 1 171 (45.8 %) | 2 189 (85.5 %) | 2 273 (88.8 %) |
+| COO runaway SFX / speech | 42 / 12 | 36 / 13 | 19 / 9 |
+| K3 KO / ZH exact (n = 48) | 22 / 27 | 23 / 29 | 26 / 30 |
+| K3 kana leak KO / ZH | 0 / 0 | 2 / 4 | 3 / 0 |
+
+- **A tenth of v4's compute closes most of the COO gap.** COO SFX goes from
+  8.8 % to 72.3 % (v4 86.9 %) and COO speech from 45.8 % to 85.5 % (v4 88.8 %).
+  The sincos misses are now near-kana, not digits (`びく♡` → `びくん`,
+  `イグッ` → `ズグッ`), and the `♥` target spelling is learnt.
+- **Sincos is half of v4** (166 vs 346 strict). For scale: the finished line's
+  arm B (VL, LM LoRA, tower frozen, 2 epochs) read 110 strict / 157 ♡-blind,
+  though that was on the older 617 basis.
+- **K3 does not move**, and the Japanese-heavy mix starts a kana leak on
+  both languages.
+- **Open: no VL arm at the same budget.** Every VL number is 1–2 epochs, so
+  this arm cannot say whether OvisOCR3 learns faster than VL-1.6. The
+  cheapest next arm is VL P3 cut to 1 000 × 16 (~25 min).
