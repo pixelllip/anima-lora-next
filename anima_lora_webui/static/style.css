@@ -325,3 +325,39 @@ label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--d
   .form-grid { grid-template-columns: 1fr; }
   .pill { max-width: 55vw; }
 }
+
+/* --- 工具台（合并 / EC / TB / Anime / 实验 / 作业） --------------------- */
+.tool-nav { margin-bottom: 14px; }
+.tool-nav .nav-sep { flex: 1; }
+.merge-layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 30%) 1fr;
+  gap: 14px;
+  margin-top: 10px;
+}
+.merge-files { min-width: 0; }
+.merge-files .list { max-height: 62vh; }
+.merge-detail { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.merge-detail > label,
+.merge-opts > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--dim);
+}
+.merge-opts { display: flex; flex-direction: column; gap: 8px; }
+.merge-detail .log { min-height: 160px; }
+.tool-frame {
+  width: 100%;
+  height: 68vh;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.ec-group { margin-top: 10px; }
+.ec-group .field-grid { margin-top: 8px; }
+@media (max-width: 860px) {
+  .merge-layout { grid-template-columns: 1fr; }
+  .tool-frame { height: 55vh; }
+}

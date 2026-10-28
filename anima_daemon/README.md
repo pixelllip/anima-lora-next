@@ -128,6 +128,35 @@ POST /studio/projects/{slug}/krea2/train    enqueue scripts/krea2/train.py --con
 GET  /studio/projects/{slug}/file?path=     image bytes
 ```
 
+### Toolkit pages (`/studio/toolkits/*`, `/studio/easycontrol/*`) — WebUI only
+
+Ported from the Qt GUI's remaining tabs. They are **not** in `/tools` (the MCP
+catalog): merging and the long-lived helpers are console utilities, while the
+AI keeps driving training through `/studio/projects/*`.
+
+```
+GET  /studio/toolkits/merge[?dir=&file=]     adapter dirs + files + bakeability scan
+POST /studio/toolkits/merge                  {mode: dit|loras|extract|analyze, ...} → queued job
+GET  /studio/toolkits/tensorboard            {running, ready, port, runs:[...]}
+POST /studio/toolkits/tensorboard/start      {run?: "all"|relative run dir}
+POST /studio/toolkits/tensorboard/stop
+POST /studio/toolkits/tensorboard/remove     {run}
+GET  /studio/toolkits/anime                  {running, url} — anime_tools panel
+POST /studio/toolkits/anime/start            seed settings + launch (loopback only)
+GET  /studio/toolkits/distill/{turbo,soup}   sectioned TOML → form groups
+POST /studio/toolkits/distill/{turbo,soup}   {values} sparse write (tomlkit, comments kept)
+POST /studio/toolkits/distill/{turbo,soup}/run  turbo → tasks.py turbo; soup → python -m scripts.soup.pipeline
+GET  /studio/easycontrol                     method variants + descriptor variants
+GET  /studio/easycontrol/{variant}?preset=   merged method form / descriptor tables
+POST /studio/easycontrol/{variant}           {values, preset?} sparse write
+POST /studio/easycontrol/{variant}/preprocess  EASYADAPTER=<variant> tasks.py easycontrol-preprocess
+POST /studio/easycontrol/{variant}/train     method → gui-methods; descriptor → base method + [training] folds
+```
+
+TensorBoard binds `0.0.0.0` (like the Qt GUI) so a phone can open it; it has
+**no token** and only reads event files. The anime_tools panel stays on
+loopback by construction, so that tab is desktop-only.
+
 `/config` exposes the **same** field list the Qt GUI's Config tab builds
 (`gui.core.config_io._GROUPS/_BASIC` + `_fields.json` help). Overrides are
 coerced to the merged value's type and `null` removes one; the three virtual

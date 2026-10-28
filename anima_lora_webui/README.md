@@ -43,7 +43,16 @@ pidfile 位置。`ANIMA_WEBUI_VERBOSE=1` 打开访问日志。
 | **参数** | **复现 Qt GUI 的 Config 页**：方法 / 硬件档 + 基础字段 + 可折叠的高级分组；字段、分组、basic/advanced 划分与中文帮助全部来自 `gui.core.config_io` + `_fields.json`，不是前端手抄的第二份。只写用户改过的 overrides，`null` = 恢复预设；保存后重新生成 `train_config.toml` 并显示快照。支持 `?tab=config` 深链 |
 | 训练 | 使用「参数」页保存的配置提交；产物列表（`output/ckpt/<项目>`） |
 | **Krea-2** | 独立训练线的 `TrainRequest` 全表（身份 / 数据与叠加 / 训练预算 / 显存与运行 / 保存与日志），含 style-in-the-loop 的 `stack_lora_*`；保存为 `training_projects/<项目>/krea2.toml`，校验 cache/model 后以 `scripts/krea2/train.py --config` 提交到同一串行队列；产物列表（`output/ckpt_krea2/`）。支持 `?tab=krea2` 深链 |
-| 作业 | 队列 + 详情 + 事件表 + **loss 曲线** + stdout SSE；停止 / 暂停 / 恢复 |
+| **合并** | 复现 Qt GUI 的 Merge 页：适配器目录 / 文件列表 / safetensors 烘焙体检；三种模式（烘焙进 DiT / 融合多个 LoRA / 从两个检查点提取 ΔW LoRA）+ 只读干扰分析；全部走同一串行队列，日志用 job SSE |
+| **EasyControl** | 方法变体（`gui-methods/*.toml`）+ 描述符变体（`configs/easycontrol/*.toml`，colorize / inpaint / sanitize / region）；表单只写改动字段，tomlkit 保留注释与 `[[datasets]]` 蓝图；预处理（`EASYADAPTER=…`）与训练都提交到同一串行队列 |
+| **TensorBoard** | 守护进程起停 TensorBoard（6006 起自动避让），列出 `output/logs` 里真有 event 文件的 run、可单 run 查看 / 删除；内嵌 iframe |
+| **Anime Tools** | 引擎自带策展面板（`anime_tools.gui`）的起停与内嵌；面板只绑回环，手机上不显示 iframe |
+| **实验** | Turbo 蒸馏（`configs/methods/turbo.toml` → `tasks.py turbo`）与 ΔW-soup（`configs/soup/soup.toml` → `python -m scripts.soup.pipeline`）；sectioned TOML 表单保留注释 |
+| 作业 | 全局队列（含**暂停 / 恢复队列**）+ 详情 + 事件表 + **loss 曲线** + stdout SSE；停止 / 暂停 / 恢复单个作业 |
+
+与 Qt GUI 的差异只剩 **MOSS 页**（`gui/lines` + `library/moss`）与 App 内安装；
+其余页签都已对齐。TensorBoard 绑 `0.0.0.0`（手机可看）且本身无令牌，只读日志；
+Anime Tools 面板只绑回环，手机端只有状态、不嵌 iframe。
 
 手机与电脑是同一份状态：手机连桌面的 WebUI 时，筛选结果、caption、参数、作业进度立刻同步。
 AI 工作台调的是同一批 `/studio/*`（MCP 工具 `anima_studio_*`），人机共用一套事实。

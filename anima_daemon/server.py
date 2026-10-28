@@ -21,7 +21,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import config, studio, tail
+from . import config, easycontrol, studio, tail, toolkits
 from .manager import JobManager
 
 logger = logging.getLogger("anima.daemon")
@@ -42,6 +42,14 @@ _STUDIO_SUB_RE = re.compile(
     r"(?P<sub>update|images|file|caption|import|review|trigger|tag|preprocess|train|status|config|krea2)$"
 )
 _STUDIO_KREA2_TRAIN_RE = re.compile(r"^/studio/projects/(?P<slug>[^/]+)/krea2/train$")
+
+# Toolkit pages (merge / TensorBoard / anime_tools) and the EasyControl tab.
+_EASYCONTROL_RE = re.compile(r"^/studio/easycontrol/(?P<variant>[^/]+)$")
+_EASYCONTROL_RUN_RE = re.compile(
+    r"^/studio/easycontrol/(?P<variant>[^/]+)/(?P<action>preprocess|train)$"
+)
+_DISTILL_RE = re.compile(r"^/studio/toolkits/distill/(?P<kind>turbo|soup)$")
+_DISTILL_RUN_RE = re.compile(r"^/studio/toolkits/distill/(?P<kind>turbo|soup)/run$")
 
 _README = Path(__file__).resolve().parent / "README.md"
 
@@ -699,6 +707,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._handle_logs(m.group("id"))
         elif m := _JOB_PROGRESS_RE.match(path):
             self._handle_progress(m.group("id"), query)
+        elif path.startswith("/studio/toolkits/") or path.startswith("/studio/easycontrol"):
+            self._handle_toolkit_get(path, query)
         elif path.startswith("/studio/"):
             self._handle_studio_get(path, query)
         elif m := _JOB_RE.match(path):
@@ -724,6 +734,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._handle_pause(m.group("id"))
         elif m := _JOB_RESUME_RE.match(path):
             self._handle_resume(m.group("id"))
+        elif path.startswith("/studio/toolkits/") or path.startswith("/studio/easycontrol"):
+            self._handle_toolkit_post(path)
         elif path.startswith("/studio/"):
             self._handle_studio_post(path)
         else:
@@ -895,7 +907,7 @@ class _Handler(BaseHTTPRequestHandler):
         """Run one studio operation, mapping caller errors to HTTP 400."""
         try:
             return self._send_json(fn())
-        except studio.StudioError as e:
+        except (studio.StudioError, toolkits.ToolkitError, easycontrol.EasyControlError) as e:
             self._send_json({"error": str(e)}, 400)
         except Exception as e:  # noqa: BLE001 — keep the daemon alive, report honestly
             logger.exception("studio operation failed")
@@ -904,6 +916,81 @@ class _Handler(BaseHTTPRequestHandler):
     def _query_one(self, query: str, name: str, default: str = "") -> str:
         values = urllib.parse.parse_qs(query or "").get(name)
         return values[0] if values else default
+
+    # ---- toolkit pages (merge / TensorBoard / anime_tools / EasyControl) -- #
+    def _handle_toolkit_get(self, path: str, query: str) -> None:
+        p = path.rstrip("/")
+        if p == "/studio/toolkits/merge":
+            dir_name = self._query_one(query, "dir")
+            file_name = self._query_one(query, "file")
+            self._studio_guard(lambda: toolkits.merge_state(dir_name, file_name))
+            return
+        if p == "/studio/toolkits/tensorboard":
+            self._studio_guard(toolkits.tensorboard_state)
+            return
+        if p == "/studio/toolkits/anime":
+            self._studio_guard(toolkits.anime_state)
+            return
+        m = _DISTILL_RE.match(p)
+        if m:
+            self._studio_guard(lambda: toolkits.distill_state(m.group("kind")))
+            return
+        if p == "/studio/easycontrol":
+            self._studio_guard(easycontrol.list_variants)
+            return
+        m = _EASYCONTROL_RE.match(p)
+        if m:
+            preset = self._query_one(query, "preset", "default") or "default"
+            self._studio_guard(lambda: easycontrol.detail(m.group("variant"), preset))
+            return
+        self._send_json({"error": "not found", "path": path}, 404)
+
+    def _handle_toolkit_post(self, path: str) -> None:
+        body = self._read_json()
+        p = path.rstrip("/")
+        if p == "/studio/toolkits/merge":
+            self._studio_guard(lambda: toolkits.merge_run(body, self.manager))
+            return
+        if p == "/studio/toolkits/tensorboard/start":
+            self._studio_guard(lambda: toolkits.tensorboard_start(body))
+            return
+        if p == "/studio/toolkits/tensorboard/stop":
+            self._studio_guard(toolkits.tensorboard_stop)
+            return
+        if p == "/studio/toolkits/tensorboard/remove":
+            self._studio_guard(lambda: toolkits.tensorboard_remove(body))
+            return
+        if p == "/studio/toolkits/anime/start":
+            self._studio_guard(lambda: toolkits.anime_start(body))
+            return
+        m = _DISTILL_RUN_RE.match(p)
+        if m:
+            kind = m.group("kind")
+            self._studio_guard(lambda: toolkits.distill_run(kind, body, self.manager))
+            return
+        m = _DISTILL_RE.match(p)
+        if m:
+            kind = m.group("kind")
+            values = body.get("values")
+            if not isinstance(values, dict):
+                self._send_json({"error": "缺少 values"}, 400)
+                return
+            self._studio_guard(lambda: toolkits.distill_save(kind, values))
+            return
+        m = _EASYCONTROL_RUN_RE.match(p)
+        if m:
+            variant, action = m.group("variant"), m.group("action")
+            if action == "preprocess":
+                self._studio_guard(lambda: easycontrol.preprocess(variant, self.manager))
+            else:
+                preset = str(body.get("preset") or "default")
+                self._studio_guard(lambda: easycontrol.train(variant, preset, self.manager))
+            return
+        m = _EASYCONTROL_RE.match(p)
+        if m:
+            self._studio_guard(lambda: easycontrol.save(m.group("variant"), body))
+            return
+        self._send_json({"error": "not found", "path": path}, 404)
 
     def _handle_studio_get(self, path: str, query: str) -> None:
         if path.rstrip("/") == "/studio/projects":

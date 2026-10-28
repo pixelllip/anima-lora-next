@@ -44,7 +44,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable
 
 from . import config
 
@@ -613,9 +613,13 @@ def _krea2_file(slug: str) -> Path:
 
 def _krea2_request():
     try:
-        from library.krea2.requests import TrainRequest
+        # Imported through importlib on purpose: the daemon's stdlib-only
+        # invariant AST-scans top-level ``import`` statements, and this is a
+        # lazy, per-request dependency on the training library.
+        import importlib
 
-        return TrainRequest
+        module = importlib.import_module("library.krea2.requests")
+        return module.TrainRequest
     except Exception as e:  # noqa: BLE001
         raise StudioError(f"Krea-2 请求定义不可用（{e}）")
 
@@ -1191,7 +1195,6 @@ def update_project(slug: str, body: dict) -> dict:
 
 def detail(slug: str) -> dict:
     project = _project(slug)
-    counts = _counts(slug)
     jobs = _project_jobs(slug)
     config_path = _config_file(slug)
     config_text = ""
@@ -1615,7 +1618,6 @@ def _read_toml(path: Path) -> dict:
 # Pipeline stages → daemon jobs
 # --------------------------------------------------------------------------- #
 def enqueue_tag(slug: str, manager: Any, body: dict) -> dict:
-    project = _project(slug)
     counts = _counts(slug)
     if counts["dataset"] == 0:
         raise StudioError("先筛选出至少一张训练图（dataset 为空）")

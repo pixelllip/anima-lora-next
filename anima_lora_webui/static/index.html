@@ -55,6 +55,16 @@
   </aside>
 
   <main class="main">
+    <nav class="tabs tool-nav" id="tool-nav">
+      <button data-mode="project" class="tab active">训练项目</button>
+      <span class="nav-sep"></span>
+      <button data-mode="merge" class="tab">合并</button>
+      <button data-mode="ec" class="tab">EasyControl</button>
+      <button data-mode="tb" class="tab">TensorBoard</button>
+      <button data-mode="anime" class="tab">Anime Tools</button>
+      <button data-mode="exp" class="tab">实验</button>
+      <button data-mode="jobs" class="tab">作业</button>
+    </nav>
     <section id="empty" class="empty">
       <div class="empty-icon">◐</div>
       <h2>选一个训练项目</h2>
@@ -80,7 +90,6 @@
         <button data-tab="config" class="tab">参数</button>
         <button data-tab="train" class="tab">训练</button>
         <button data-tab="krea2" class="tab">Krea-2</button>
-        <button data-tab="jobs" class="tab">作业</button>
       </nav>
 
       <!-- 数据集 ---------------------------------------------------------- -->
@@ -268,8 +277,186 @@
         </div>
       </section>
 
-      <!-- 作业 ------------------------------------------------------------ -->
-      <section id="tab-jobs" class="tabpane hidden">
+    </div>
+
+    <!-- ================= 工具台（全局，不依赖项目） ================= -->
+    <div id="tool-view" class="hidden">
+      <!-- 合并 ---------------------------------------------------------- -->
+      <section id="tool-merge" class="toolpane hidden">
+        <div class="card">
+          <div class="row wrap">
+            <label>适配器目录 <select id="merge-dir"></select></label>
+            <button id="merge-refresh" class="ghost small">刷新</button>
+            <span id="merge-count" class="dim small"></span>
+          </div>
+          <div class="merge-layout">
+            <div class="merge-files">
+              <div id="merge-files" class="list"></div>
+              <div id="merge-files-empty" class="empty small hidden">这个目录没有 .safetensors。</div>
+            </div>
+            <div class="merge-detail">
+              <div id="merge-scan" class="notice"></div>
+              <label>模式
+                <select id="merge-mode">
+                  <option value="dit">烘焙进 DiT（单个适配器）</option>
+                  <option value="loras">融合多个 LoRA</option>
+                  <option value="extract">从两个检查点提取 ΔW LoRA</option>
+                </select>
+              </label>
+
+              <div id="merge-dit" class="merge-opts">
+                <label>基础 DiT <input id="merge-dit-path" spellcheck="false"></label>
+                <div class="form-grid">
+                  <label>倍率 <input id="merge-mult" type="number" step="0.05" value="1"></label>
+                  <label>dtype
+                    <select id="merge-dtype"><option>bf16</option><option>fp16</option><option>fp32</option></select>
+                  </label>
+                </div>
+                <label>输出（留空 = 自动）<input id="merge-out" spellcheck="false"></label>
+                <label class="check"><input type="checkbox" id="merge-partial"> 允许部分键（partial）</label>
+              </div>
+
+              <div id="merge-loras" class="merge-opts hidden">
+                <p id="merge-selected" class="dim small"></p>
+                <label>权重（逗号分隔，留空 = 各 1.0）<input id="merge-weights" spellcheck="false"></label>
+                <div class="form-grid">
+                  <label>归一化
+                    <select id="merge-normalize"><option>global</option><option>per_module</option><option>off</option></select>
+                  </label>
+                  <label>dtype
+                    <select id="merge-lora-dtype"><option>bf16</option><option>fp16</option><option>fp32</option></select>
+                  </label>
+                </div>
+                <label>输出（留空 = &lt;首个&gt;_mergedN）<input id="merge-lora-out" spellcheck="false"></label>
+                <button id="merge-analyze" class="ghost small">只做干扰分析（不写文件）</button>
+              </div>
+
+              <div id="merge-extract" class="merge-opts hidden">
+                <label>base 检查点 <input id="merge-ex-base" spellcheck="false"></label>
+                <label>tuned 检查点 <input id="merge-ex-tuned" spellcheck="false"></label>
+                <div class="form-grid">
+                  <label>rank <input id="merge-ex-rank" type="number" min="1" value="96"></label>
+                  <label>dtype
+                    <select id="merge-ex-dtype"><option>bf16</option><option>fp16</option><option>fp32</option></select>
+                  </label>
+                  <label>adaln 布局
+                    <select id="merge-ex-layout"><option>runtime</option><option>comfy</option></select>
+                  </label>
+                </div>
+                <label class="check"><input type="checkbox" id="merge-ex-adaln"> 包含 adaln</label>
+                <label>输出 <input id="merge-ex-out" spellcheck="false"></label>
+              </div>
+
+              <div class="row wrap">
+                <button id="merge-run" class="primary">开始</button>
+                <button id="merge-stop" class="warn" disabled>停止</button>
+                <span id="merge-status" class="dim small"></span>
+              </div>
+              <pre id="merge-log" class="log"></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- EasyControl ---------------------------------------------------- -->
+      <section id="tool-ec" class="toolpane hidden">
+        <div class="card">
+          <div class="config-head">
+            <label>变体 <select id="ec-variant"></select></label>
+            <label>硬件档 <select id="ec-preset"></select></label>
+            <span id="ec-kind" class="tag"></span>
+            <span id="ec-dirty" class="tag wait hidden">未保存</span>
+          </div>
+          <p id="ec-note" class="dim small"></p>
+          <div id="ec-fields"></div>
+          <div class="row wrap config-actions">
+            <button id="ec-save" class="primary">保存</button>
+            <button id="ec-preprocess" class="ghost">预处理</button>
+            <button id="ec-train" class="primary">开始训练</button>
+            <button id="ec-stop" class="warn" disabled>停止</button>
+          </div>
+          <div id="ec-status" class="notice"></div>
+          <pre id="ec-log" class="log"></pre>
+        </div>
+      </section>
+
+      <!-- TensorBoard ---------------------------------------------------- -->
+      <section id="tool-tb" class="toolpane hidden">
+        <div class="card">
+          <div class="row wrap">
+            <label>Run
+              <select id="tb-run"><option value="all">全部 runs</option></select>
+            </label>
+            <button id="tb-start" class="primary">打开 TensorBoard</button>
+            <button id="tb-stop" class="warn">停止</button>
+            <button id="tb-refresh" class="ghost">刷新</button>
+            <span id="tb-status" class="dim small"></span>
+          </div>
+          <p class="dim small">TensorBoard 由守护进程起停（6006 起自动避让占用），绑定 0.0.0.0 供手机查看；
+            它本身没有访问令牌，只能读日志，不能训练。</p>
+          <iframe id="tb-frame" class="tool-frame hidden" title="TensorBoard"></iframe>
+          <h3 style="margin-top:14px">Runs</h3>
+          <div id="tb-runs" class="list"></div>
+          <div id="tb-empty" class="empty small hidden">output/logs 里还没有 TensorBoard 事件。</div>
+        </div>
+      </section>
+
+      <!-- Anime Tools ---------------------------------------------------- -->
+      <section id="tool-anime" class="toolpane hidden">
+        <div class="card">
+          <div class="row wrap">
+            <button id="anime-start" class="primary">启动 / 重新连接</button>
+            <button id="anime-refresh" class="ghost">刷新状态</button>
+            <button id="anime-open" class="ghost" disabled>新窗口打开</button>
+            <span id="anime-status" class="dim small"></span>
+          </div>
+          <p class="dim small">Anime Tools 是引擎自带的策展面板（workspace 策展 → Export 只发布 caption / 遮罩）。
+            面板只绑回环地址，<b>手机端打不开</b>；桌面浏览器 / 桌面客户端可以嵌在这里。</p>
+          <iframe id="anime-frame" class="tool-frame hidden" title="Anime Tools"></iframe>
+        </div>
+      </section>
+
+      <!-- 实验（Turbo / Soup） -------------------------------------------- -->
+      <section id="tool-exp" class="toolpane hidden">
+        <div class="card">
+          <div class="config-head">
+            <label>实验线
+              <select id="exp-kind">
+                <option value="turbo">Turbo 蒸馏</option>
+                <option value="soup">ΔW-soup</option>
+              </select>
+            </label>
+            <span id="exp-path" class="dim small"></span>
+          </div>
+          <p id="exp-note" class="dim small"></p>
+          <div id="exp-soup-args" class="hidden">
+            <div class="form-grid">
+              <label>path_pattern <input id="exp-soup-pattern" placeholder="sincos/*"></label>
+              <label>name（留空 = 从 pattern 推导）<input id="exp-soup-name"></label>
+            </div>
+            <label>Phase-2 附加参数 <input id="exp-soup-ft" placeholder="--network_dim 32 --max_train_epochs 8"></label>
+          </div>
+          <div id="exp-fields"></div>
+          <div class="row wrap config-actions">
+            <button id="exp-save" class="primary">保存</button>
+            <button id="exp-run" class="primary">开始</button>
+            <button id="exp-stop" class="warn" disabled>停止</button>
+          </div>
+          <div id="exp-status" class="notice"></div>
+          <pre id="exp-log" class="log"></pre>
+        </div>
+      </section>
+
+      <!-- 作业（全局） ---------------------------------------------------- -->
+      <section id="tool-jobs" class="toolpane hidden">
+        <div class="toolbar">
+          <div class="row wrap">
+            <button id="queue-pause" class="ghost small">暂停队列</button>
+            <button id="queue-resume" class="ghost small">恢复队列</button>
+            <span id="queue-state" class="dim small"></span>
+          </div>
+          <span class="dim small">守护进程只有一条串行队列；训练 / 预处理 / 合并共用。</span>
+        </div>
         <div class="jobs-layout">
           <div class="job-col">
             <div class="col-head"><h3>队列</h3><span id="jobs-count" class="dim small"></span></div>

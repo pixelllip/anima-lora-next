@@ -43,6 +43,25 @@ let krea2Draft = {};
 let krea2Dirty = false;
 let studioSchema = null;
 
+// --- 工具台状态 -------------------------------------------------------------
+let toolMode = "project";
+let mergeState = null;
+let mergeCurrent = "";
+let mergeSelected = new Set();
+let mergeJob = null;
+let ecCatalog = null;
+let ecDetail = null;
+let ecDirty = false;
+let ecJob = null;
+let tbState = null;
+let tbPoll = null;
+let animeState = null;
+let animePoll = null;
+let expState = null;
+let expDirty = false;
+let expJob = null;
+let jobWatch = null;
+
 // --- 基础 -------------------------------------------------------------------
 async function api(path, opts) {
   const res = await fetch("/api" + path, opts);
@@ -165,8 +184,7 @@ async function selectProject(slug) {
   krea2Draft = {};
   krea2Dirty = false;
   closeLog();
-  $("#empty").classList.add("hidden");
-  $("#project-view").classList.remove("hidden");
+  switchMode("project");
   renderProject();
   await loadImages();
   await loadOutputs();
@@ -989,13 +1007,30 @@ function drawLoss(steps) {
 }
 
 // --- 标签页 / 事件 ----------------------------------------------------------
+function switchMode(next) {
+  toolMode = next;
+  for (const b of $$("#tool-nav .tab")) b.classList.toggle("active", b.dataset.mode === next);
+  const projectMode = next === "project";
+  $("#project-view").classList.toggle("hidden", !projectMode || !current);
+  $("#empty").classList.toggle("hidden", !projectMode || !!current);
+  $("#tool-view").classList.toggle("hidden", projectMode);
+  for (const pane of $$("#tool-view > .toolpane")) {
+    pane.classList.toggle("hidden", pane.id !== "tool-" + next);
+  }
+  if (next === "merge") loadMerge();
+  if (next === "ec") loadEc();
+  if (next === "tb") loadTb();
+  if (next === "anime") loadAnime();
+  if (next === "exp") loadExp($("#exp-kind").value || "turbo");
+  if (next === "jobs") { loadJobs(); loadQueueState(); if (selectedJob) loadJobDetail(); }
+}
+
 function switchTab(name) {
   activeTab = name;
   for (const b of $$("#tabs .tab")) b.classList.toggle("active", b.dataset.tab === name);
   for (const pane of $$("#project-view > .tabpane")) {
     pane.classList.toggle("hidden", pane.id !== "tab-" + name);
   }
-  if (name === "jobs") { loadJobs(); if (selectedJob) loadJobDetail(); }
   if (name === "preprocess") renderPreprocess();
   if (name === "config") { if (!config) loadProjectConfig(); else renderConfigForm(); }
   if (name === "krea2") { if (!krea2) loadKrea2(); else renderKrea2Form(); }
@@ -1026,7 +1061,9 @@ function bindEvents() {
   $("#btn-refresh").onclick = async () => {
     await refreshEnv(); await loadProjects();
     if (current) await refreshCurrent();
-    if (activeTab === "jobs") await loadJobs();
+    if (toolMode === "jobs") await loadJobs();
+    if (toolMode === "tb") await loadTb();
+    if (toolMode === "anime") await loadAnime();
   };
   $("#btn-queue").onclick = async () => {
     const btn = $("#btn-queue");
@@ -1040,6 +1077,8 @@ function bindEvents() {
   };
 
   for (const b of $$("#tabs .tab")) b.onclick = () => switchTab(b.dataset.tab);
+  for (const b of $$("#tool-nav .tab")) b.onclick = () => switchMode(b.dataset.mode);
+  bindToolkitEvents();
   for (const b of $$("#image-filters .chip")) {
     b.onclick = () => {
       imageState = b.dataset.state;
@@ -1128,6 +1167,615 @@ function bindEvents() {
   }
 }
 
+// --- 工具台 ---------------------------------------------------------------
+const JOB_WATCH = {};
+const TERMINAL_STATES = new Set(["done", "error", "stopped", "canceled"]);
+
+function watchJobLog(key, id, logEl, statusEl, onDone) {
+  if (JOB_WATCH[key]) JOB_WATCH[key].close();
+  logEl.textContent = "";
+  statusEl.textContent = `作业 ${id} 已排队…`;
+  const es = new EventSource(`/api/jobs/${encodeURIComponent(id)}/logs`);
+  es.onmessage = (ev) => {
+    logEl.textContent += ev.data + "\n";
+    if (logEl.textContent.length > 200000) logEl.textContent = logEl.textContent.slice(-100000);
+    logEl.scrollTop = logEl.scrollHeight;
+  };
+  es.onerror = () => {};
+  const timer = setInterval(async () => {
+    try {
+      const rec = await api(`/jobs/${encodeURIComponent(id)}`);
+      const job = rec.job || rec;
+      statusEl.textContent = `作业 ${id} · ${job.state}`;
+      if (TERMINAL_STATES.has(job.state)) {
+        es.close();
+        clearInterval(timer);
+        delete JOB_WATCH[key];
+        if (onDone) onDone(job);
+      }
+    } catch { /* 下一次轮询再试 */ }
+  }, 2000);
+  JOB_WATCH[key] = {
+    id,
+    close() { es.close(); clearInterval(timer); },
+    stop() { return api(`/jobs/${encodeURIComponent(id)}/stop`, { method: "POST" }); },
+  };
+}
+
+function stopWatched(key, statusEl) {
+  const w = JOB_WATCH[key];
+  if (!w) return;
+  w.stop().then(() => { statusEl.textContent = "已请求停止…"; }).catch((e) => toast("停止失败：" + e.message, true));
+}
+
+// ---- 合并 ----------------------------------------------------------------
+async function loadMerge(dir) {
+  try {
+    const q = new URLSearchParams();
+    if (dir) q.set("dir", dir);
+    if (dir && mergeCurrent) q.set("file", mergeCurrent);
+    const suffix = q.toString() ? `?${q}` : "";
+    mergeState = await api("/studio/toolkits/merge" + suffix);
+  } catch (e) {
+    toast("读合并目录失败：" + e.message, true);
+    return;
+  }
+  const dirs = Object.keys(mergeState.dirs || {});
+  fillSelect($("#merge-dir"), dirs.map((d) => ({ value: d, label: d })), mergeState.dir);
+  mergeCurrent = mergeState.selected || "";
+  mergeSelected = new Set(mergeCurrent ? [mergeCurrent] : []);
+  $("#merge-dit-path").value = mergeState.defaultDit || "";
+  $("#merge-count").textContent = `${(mergeState.files || []).length} 个 .safetensors`;
+  mergeFiles = mergeState.files || [];
+  renderMergeFiles();
+  renderMergeScan(mergeState.scan);
+  renderMergeSelected();
+}
+
+let mergeFiles = [];
+
+function renderMergeFiles() {
+  const box = $("#merge-files");
+  box.innerHTML = "";
+  $("#merge-files-empty").classList.toggle("hidden", mergeFiles.length > 0);
+  for (const f of mergeFiles) {
+    const el = document.createElement("div");
+    el.className = "job" + (f.name === mergeCurrent ? " sel" : "");
+    el.dataset.name = f.name;
+    el.innerHTML = `<div class="r1">
+        <label class="check"><input type="checkbox" class="merge-pick" ${mergeSelected.has(f.name) ? "checked" : ""}> <b>${esc(f.name)}</b></label>
+        <span class="dim small">${fmtSize(f.size)}</span>
+      </div>`;
+    el.onclick = (ev) => {
+      if (ev.target.classList.contains("merge-pick")) return;
+      selectMergeFile(f.name);
+    };
+    box.appendChild(el);
+  }
+}
+
+function renderMergeScan(scan) {
+  const box = $("#merge-scan");
+  if (!scan) {
+    box.className = "notice";
+    box.textContent = "选一个 .safetensors 看它能不能烘焙。";
+    return;
+  }
+  box.className = "notice " + (scan.severity === "ok" ? "ok" : scan.severity === "block" ? "bad" : "");
+  const details = (scan.details || []).join(" · ");
+  box.innerHTML = `<b>${esc(scan.name || "")}</b>：${esc(scan.verdict || "")}
+    <div class="dim small">${esc(details)}${scan.size != null ? " · " + fmtSize(scan.size) : ""}</div>`;
+}
+
+async function selectMergeFile(name) {
+  mergeCurrent = name;
+  if (!$("#merge-loras").classList.contains("hidden")) {
+    mergeSelected.add(name);
+    renderMergeFiles();
+    renderMergeSelected();
+  }
+  try {
+    const q = new URLSearchParams({ dir: $("#merge-dir").value, file: name });
+    const state = await api("/studio/toolkits/merge?" + q);
+    renderMergeScan(state.scan);
+  } catch (e) {
+    toast("扫描失败：" + e.message, true);
+  }
+  for (const el of $$("#merge-files .job")) el.classList.toggle("sel", el.dataset.name === name);
+}
+
+function renderMergeSelected() {
+  const mode = $("#merge-mode").value;
+  const names = [...mergeSelected];
+  $("#merge-selected").textContent = names.length
+    ? `已选 ${names.length} 个：` + names.join("、")
+    : "融合 / 分析至少选两个文件（勾选）。";
+  let ok = false;
+  if (mode === "dit") ok = !!mergeCurrent;
+  else if (mode === "extract") ok = !!$("#merge-ex-tuned").value && !!$("#merge-ex-out").value;
+  else ok = names.length >= 2;
+  $("#merge-run").disabled = !ok;
+  $("#merge-analyze").disabled = names.length < 2;
+}
+
+function onMergeMode() {
+  const mode = $("#merge-mode").value;
+  $("#merge-dit").classList.toggle("hidden", mode !== "dit");
+  $("#merge-loras").classList.toggle("hidden", mode !== "loras");
+  $("#merge-extract").classList.toggle("hidden", mode !== "extract");
+  $("#merge-files").classList.toggle("hidden", mode === "extract");
+  $("#merge-empty").classList.toggle("hidden", mode === "extract");
+  $("#merge-run").textContent =
+    mode === "extract" ? "开始提取" : mode === "loras" ? "融合 LoRA" : "烘焙进 DiT";
+  renderMergeSelected();
+}
+
+async function runMerge(analyze = false) {
+  const mode = analyze ? "analyze" : $("#merge-mode").value;
+  const body = { mode, dir: $("#merge-dir").value };
+  if (mode === "dit") {
+    body.adapter = mergeCurrent;
+    body.dit = $("#merge-dit-path").value;
+    body.multiplier = Number($("#merge-mult").value || 1);
+    body.dtype = $("#merge-dtype").value;
+    body.out = $("#merge-out").value;
+    body.allow_partial = $("#merge-partial").checked;
+  } else if (mode === "loras" || mode === "analyze") {
+    body.adapters = [...mergeSelected];
+    body.weights = $("#merge-weights").value;
+    body.normalize = $("#merge-normalize").value;
+    body.dtype = $("#merge-lora-dtype").value;
+    body.out = $("#merge-lora-out").value;
+  } else {
+    body.base = $("#merge-ex-base").value;
+    body.tuned = $("#merge-ex-tuned").value;
+    body.rank = Number($("#merge-ex-rank").value || 96);
+    body.dtype = $("#merge-ex-dtype").value;
+    body.include_adaln = $("#merge-ex-adaln").checked;
+    body.adaln_layout = $("#merge-ex-layout").value;
+    body.out = $("#merge-ex-out").value;
+  }
+  try {
+    const res = await api("/studio/toolkits/merge", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    mergeJob = res.job_id;
+    $("#merge-stop").disabled = false;
+    $("#merge-status").textContent = `已提交 ${res.label || ""}`;
+    watchJobLog("merge", res.job_id, $("#merge-log"), $("#merge-status"), (job) => {
+      $("#merge-stop").disabled = true;
+      $("#merge-status").textContent = `作业 ${job.id} · ${job.state}`;
+      toast(`合并${job.state === "done" ? "完成" : "结束：" + job.state}`);
+      if (job.state === "done") loadMerge($("#merge-dir").value);
+    });
+  } catch (e) {
+    toast("提交失败：" + e.message, true);
+  }
+}
+
+// ---- EasyControl ---------------------------------------------------------
+async function loadEc() {
+  try {
+    if (!ecCatalog) ecCatalog = await api("/studio/easycontrol");
+  } catch (e) {
+    toast("读 EasyControl 变体失败：" + e.message, true);
+    return;
+  }
+  const currentValue = ecDetail?.value || ecCatalog.variants?.[0]?.value;
+  fillSelect($("#ec-variant"), ecCatalog.variants || [], currentValue);
+  fillSelect($("#ec-preset"), ecCatalog.presets || [], $("#ec-preset").value || "default");
+  await loadEcDetail($("#ec-variant").value, $("#ec-preset").value);
+}
+
+async function loadEcDetail(value, preset) {
+  try {
+    const q = new URLSearchParams({ preset: preset || "default" });
+    ecDetail = await api(`/studio/easycontrol/${encodeURIComponent(value)}?${q}`);
+  } catch (e) {
+    toast("读 EasyControl 配置失败：" + e.message, true);
+    return;
+  }
+  ecDirty = false;
+  $("#ec-dirty").classList.add("hidden");
+  renderEc();
+}
+
+function ecField(f) {
+  const key = esc(f.key);
+  const label = esc(f.key.split(".").pop());
+  const help = f.help ? ` title="${esc(f.help)}"` : "";
+  if (f.type === "bool") {
+    return `<label class="field field-check"${help}><input type="checkbox" data-ec-key="${key}" ${f.value ? "checked" : ""}><span>${label}</span></label>`;
+  }
+  if (f.type === "list") {
+    const text = Array.isArray(f.value) ? f.value.join("\n") : (f.value ?? "");
+    return `<label class="field"${help}><span class="field-label">${label}</span>
+      <textarea rows="2" data-ec-key="${key}" spellcheck="false" placeholder="每行一项；也可贴 JSON 数组">${esc(text)}</textarea></label>`;
+  }
+  if (f.choices && f.choices.length) {
+    const current = String(f.value ?? "");
+    const values = [...new Set([current, ...f.choices].filter((v) => v !== ""))];
+    return `<label class="field"${help}><span class="field-label">${label}</span>
+      <select data-ec-key="${key}">${values.map((v) => `<option value="${esc(v)}" ${v === current ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>`;
+  }
+  const type = f.type === "int" || f.type === "float" ? "number" : "text";
+  const step = f.type === "float" ? 'step="any"' : f.type === "int" ? 'step="1"' : "";
+  return `<label class="field"${help}><span class="field-label">${label}</span>
+    <input type="${type}" ${step} data-ec-key="${key}" value="${esc(f.value ?? "")}" spellcheck="false"></label>`;
+}
+
+function renderEc() {
+  const d = ecDetail;
+  if (!d) return;
+  $("#ec-kind").textContent = d.kind === "descriptor" ? "描述符" : "方法";
+  $("#ec-kind").className = "tag " + (d.kind === "descriptor" ? "done" : "ok");
+  $("#ec-note").textContent = `${d.path} · ${d.note || ""}`;
+  $("#ec-fields").innerHTML = (d.groups || []).map((g, i) => `
+    <details class="field-group ec-group" ${i < 3 ? "open" : ""}>
+      <summary>${esc(g.label)}</summary>
+      <div class="field-grid">${g.fields.map(ecField).join("")}</div>
+    </details>`).join("");
+}
+
+function ecValues() {
+  const values = {};
+  for (const el of $$("#ec-fields [data-ec-key]")) {
+    const key = el.dataset.ecKey;
+    values[key] = el.type === "checkbox" ? el.checked : el.value;
+  }
+  return values;
+}
+
+async function saveEc(silent = false) {
+  if (!ecDetail) return false;
+  try {
+    const res = await api(`/studio/easycontrol/${encodeURIComponent(ecDetail.value)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ values: ecValues(), preset: $("#ec-preset").value }),
+    });
+    ecDirty = false;
+    $("#ec-dirty").classList.add("hidden");
+    $("#ec-status").className = "notice ok";
+    $("#ec-status").textContent = `已保存 ${res.changed ?? 0} 个字段 → ${res.path}`;
+    if (!silent) toast("EasyControl 参数已保存");
+    return true;
+  } catch (e) {
+    $("#ec-status").className = "notice bad";
+    $("#ec-status").textContent = "保存失败：" + e.message;
+    if (!silent) toast("保存失败：" + e.message, true);
+    return false;
+  }
+}
+
+async function ecRun(action) {
+  if (!ecDetail) return;
+  if (ecDirty && !(await saveEc(true))) return;
+  const body = { preset: $("#ec-preset").value };
+  if (action === "preprocess" && !confirm("EasyControl 预处理会重建 / 补齐 cond、text、target 缓存，继续？")) return;
+  try {
+    const res = await api(`/studio/easycontrol/${encodeURIComponent(ecDetail.value)}/${action}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    ecJob = res.job_id;
+    $("#ec-stop").disabled = false;
+    $("#ec-status").className = "notice";
+    $("#ec-status").textContent = `${action === "train" ? "训练" : "预处理"}已提交：${res.job_id}`;
+    watchJobLog("ec", res.job_id, $("#ec-log"), $("#ec-status"), (job) => {
+      $("#ec-stop").disabled = true;
+      toast(`EasyControl ${action} ${job.state === "done" ? "完成" : "结束：" + job.state}`);
+    });
+  } catch (e) {
+    $("#ec-status").className = "notice bad";
+    $("#ec-status").textContent = "提交失败：" + e.message;
+    toast("提交失败：" + e.message, true);
+  }
+}
+
+// ---- TensorBoard ---------------------------------------------------------
+function tbHostUrl(port) {
+  const host = location.hostname || "127.0.0.1";
+  return `http://${host}:${port}`;
+}
+
+async function loadTb() {
+  try {
+    tbState = await api("/studio/toolkits/tensorboard");
+  } catch (e) {
+    toast("读 TensorBoard 状态失败：" + e.message, true);
+    return;
+  }
+  renderTb();
+}
+
+function renderTb() {
+  const s = tbState || {};
+  $("#tb-status").textContent = s.running
+    ? `运行中 :${s.port}${s.ready ? "" : "（启动中）"} · ${s.logDir || ""}`
+    : "未运行";
+  $("#tb-stop").disabled = !s.running;
+  fillSelect(
+    $("#tb-run"),
+    [{ value: "all", label: "全部 runs" }, ...(s.runs || []).map((r) => ({ value: r.path, label: r.path }))],
+    $("#tb-run").value || "all",
+  );
+  const box = $("#tb-runs");
+  box.innerHTML = "";
+  $("#tb-empty").classList.toggle("hidden", (s.runs || []).length > 0);
+  for (const r of s.runs || []) {
+    const el = document.createElement("div");
+    el.className = "job";
+    el.innerHTML = `<div class="r1"><b>${esc(r.path)}</b>
+      <span class="dim small">${fmtTime(r.mtime)}</span></div>
+      <div class="r2"><span></span><span class="row">
+        <button class="mini ghost" data-tb-view="${esc(r.path)}">查看</button>
+        <button class="mini danger" data-tb-del="${esc(r.path)}">删除</button>
+      </span></div>`;
+    box.appendChild(el);
+  }
+  const frame = $("#tb-frame");
+  if (s.running && s.port) {
+    const url = tbHostUrl(s.port);
+    frame.classList.remove("hidden");
+    if (frame.dataset.url !== url) { frame.src = url; frame.dataset.url = url; }
+  } else {
+    frame.classList.add("hidden");
+  }
+}
+
+async function startTb() {
+  try {
+    tbState = await api("/studio/toolkits/tensorboard/start", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run: $("#tb-run").value || "all" }),
+    });
+    renderTb();
+    clearInterval(tbPoll);
+    const deadline = Date.now() + 45000;
+    tbPoll = setInterval(async () => {
+      try { tbState = await api("/studio/toolkits/tensorboard"); renderTb(); } catch { /* ignore */ }
+      if ((tbState?.ready) || Date.now() > deadline) { clearInterval(tbPoll); tbPoll = null; }
+    }, 1500);
+  } catch (e) {
+    toast("启动 TensorBoard 失败：" + e.message, true);
+  }
+}
+
+async function stopTb() {
+  try {
+    tbState = await api("/studio/toolkits/tensorboard/stop", { method: "POST" });
+    renderTb();
+    toast("TensorBoard 已停止");
+  } catch (e) { toast("停止失败：" + e.message, true); }
+}
+
+// ---- Anime Tools ---------------------------------------------------------
+function isLoopbackPage() {
+  return ["", "127.0.0.1", "localhost", "::1"].includes(location.hostname);
+}
+
+async function loadAnime(silent = false) {
+  try {
+    animeState = await api("/studio/toolkits/anime");
+  } catch (e) {
+    if (!silent) toast("读 Anime Tools 状态失败：" + e.message, true);
+    return;
+  }
+  renderAnime();
+}
+
+function renderAnime() {
+  const s = animeState || {};
+  $("#anime-status").textContent = s.running
+    ? `运行中 ${s.url}`
+    : (s.starting ? "启动中…（首次加载 Anime Tools 需要几秒）" : "未运行");
+  $("#anime-open").disabled = !s.running;
+  const frame = $("#anime-frame");
+  if (s.running && s.url && isLoopbackPage()) {
+    frame.classList.remove("hidden");
+    if (frame.dataset.url !== s.url) { frame.src = s.url; frame.dataset.url = s.url; }
+  } else {
+    frame.classList.add("hidden");
+    frame.removeAttribute("src");
+    frame.dataset.url = "";
+  }
+}
+
+async function startAnime() {
+  try {
+    animeState = await api("/studio/toolkits/anime/start", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+    });
+    renderAnime();
+    clearInterval(animePoll);
+    const deadline = Date.now() + 90000;
+    animePoll = setInterval(async () => {
+      await loadAnime(true);
+      if (animeState?.running || Date.now() > deadline) { clearInterval(animePoll); animePoll = null; }
+    }, 2000);
+  } catch (e) {
+    toast("启动 Anime Tools 失败：" + e.message, true);
+  }
+}
+
+// ---- 实验（Turbo / Soup） -------------------------------------------------
+async function loadExp(kind) {
+  try {
+    expState = await api(`/studio/toolkits/distill/${encodeURIComponent(kind || "turbo")}`);
+  } catch (e) {
+    toast("读实验配置失败：" + e.message, true);
+    return;
+  }
+  expDirty = false;
+  renderExp();
+}
+
+function expField(f) {
+  const key = esc(f.key);
+  const label = esc(f.key.split(".").pop());
+  if (f.type === "bool") {
+    return `<label class="field field-check"><input type="checkbox" data-exp-key="${key}" ${f.value ? "checked" : ""}><span>${label}</span></label>`;
+  }
+  if (f.type === "list") {
+    const text = Array.isArray(f.value) ? f.value.join("\n") : (f.value ?? "");
+    return `<label class="field"><span class="field-label">${label}</span>
+      <textarea rows="2" data-exp-key="${key}" spellcheck="false">${esc(text)}</textarea></label>`;
+  }
+  const type = f.type === "int" || f.type === "float" ? "number" : "text";
+  const step = f.type === "float" ? 'step="any"' : f.type === "int" ? 'step="1"' : "";
+  return `<label class="field"><span class="field-label">${label}</span>
+    <input type="${type}" ${step} data-exp-key="${key}" value="${esc(f.value ?? "")}" spellcheck="false"></label>`;
+}
+
+function renderExp() {
+  const s = expState;
+  if (!s) return;
+  $("#exp-path").textContent = s.path || "";
+  $("#exp-note").textContent = s.note || "";
+  $("#exp-soup-args").classList.toggle("hidden", s.kind !== "soup");
+  $("#exp-fields").innerHTML = (s.groups || []).map((g, i) => `
+    <details class="field-group ec-group" ${i < 2 ? "open" : ""}>
+      <summary>${esc(g.label)}</summary>
+      <div class="field-grid">${g.fields.map(expField).join("")}</div>
+    </details>`).join("");
+}
+
+function expValues() {
+  const values = {};
+  for (const el of $$("#exp-fields [data-exp-key]")) {
+    values[el.dataset.expKey] = el.type === "checkbox" ? el.checked : el.value;
+  }
+  return values;
+}
+
+async function saveExp(silent = false) {
+  if (!expState) return false;
+  try {
+    const res = await api(`/studio/toolkits/distill/${encodeURIComponent(expState.kind)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ values: expValues() }),
+    });
+    expDirty = false;
+    $("#exp-status").className = "notice ok";
+    $("#exp-status").textContent = `已保存 ${res.changed ?? 0} 个字段 → ${res.path}`;
+    if (!silent) toast("实验配置已保存");
+    return true;
+  } catch (e) {
+    $("#exp-status").className = "notice bad";
+    $("#exp-status").textContent = "保存失败：" + e.message;
+    return false;
+  }
+}
+
+async function runExp() {
+  if (!expState) return;
+  if (expDirty && !(await saveExp(true))) return;
+  const body = {};
+  if (expState.kind === "soup") {
+    body.pathPattern = $("#exp-soup-pattern").value;
+    body.name = $("#exp-soup-name").value;
+    body.ftArgs = $("#exp-soup-ft").value;
+  }
+  try {
+    const res = await api(`/studio/toolkits/distill/${encodeURIComponent(expState.kind)}/run`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    expJob = res.job_id;
+    $("#exp-stop").disabled = false;
+    watchJobLog("exp", res.job_id, $("#exp-log"), $("#exp-status"), (job) => {
+      $("#exp-stop").disabled = true;
+      toast(`实验任务 ${job.state === "done" ? "完成" : "结束：" + job.state}`);
+    });
+  } catch (e) {
+    $("#exp-status").className = "notice bad";
+    $("#exp-status").textContent = "提交失败：" + e.message;
+  }
+}
+
+// ---- 队列 ---------------------------------------------------------------
+async function loadQueueState() {
+  try {
+    const h = await api("/health");
+    $("#queue-state").textContent = h.paused ? "已暂停（当前作业会跑完）" : "运行中";
+  } catch { /* ignore */ }
+}
+
+async function setQueue(paused) {
+  try {
+    await api(paused ? "/queue/pause" : "/queue/start", { method: "POST" });
+    await loadQueueState();
+    toast(paused ? "队列已暂停" : "队列已恢复");
+  } catch (e) { toast("队列操作失败：" + e.message, true); }
+}
+
+// ---- 工具台事件 ----------------------------------------------------------
+function bindToolkitEvents() {
+  $("#merge-dir").onchange = () => { mergeCurrent = ""; loadMerge($("#merge-dir").value); };
+  $("#merge-refresh").onclick = () => loadMerge($("#merge-dir").value);
+  $("#merge-mode").onchange = onMergeMode;
+  $("#merge-run").onclick = () => runMerge(false);
+  $("#merge-analyze").onclick = () => runMerge(true);
+  $("#merge-stop").onclick = () => stopWatched("merge", $("#merge-status"));
+  $("#merge-ex-tuned").oninput = renderMergeSelected;
+  $("#merge-ex-out").oninput = renderMergeSelected;
+  $("#merge-files").addEventListener("change", (ev) => {
+    if (!ev.target.classList.contains("merge-pick")) return;
+    const name = ev.target.closest(".job")?.dataset.name;
+    if (!name) return;
+    if (ev.target.checked) mergeSelected.add(name); else mergeSelected.delete(name);
+    renderMergeSelected();
+  });
+
+  $("#ec-variant").onchange = () => loadEcDetail($("#ec-variant").value, $("#ec-preset").value);
+  $("#ec-preset").onchange = () => loadEcDetail($("#ec-variant").value, $("#ec-preset").value);
+  $("#ec-fields").addEventListener("input", () => {
+    ecDirty = true;
+    $("#ec-dirty").classList.remove("hidden");
+  });
+  $("#ec-fields").addEventListener("change", () => {
+    ecDirty = true;
+    $("#ec-dirty").classList.remove("hidden");
+  });
+  $("#ec-save").onclick = () => saveEc(false);
+  $("#ec-preprocess").onclick = () => ecRun("preprocess");
+  $("#ec-train").onclick = () => ecRun("train");
+  $("#ec-stop").onclick = () => stopWatched("ec", $("#ec-status"));
+
+  $("#tb-start").onclick = startTb;
+  $("#tb-stop").onclick = stopTb;
+  $("#tb-refresh").onclick = loadTb;
+  $("#tb-runs").addEventListener("click", async (ev) => {
+    const view = ev.target.closest("[data-tb-view]")?.dataset.tbView;
+    const del = ev.target.closest("[data-tb-del]")?.dataset.tbDel;
+    if (view) {
+      $("#tb-run").value = view;
+      await startTb();
+    } else if (del) {
+      if (!confirm(`删除 run「${del}」的日志目录？不可恢复。`)) return;
+      try {
+        tbState = await api("/studio/toolkits/tensorboard/remove", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ run: del }),
+        });
+        renderTb();
+      } catch (e) { toast("删除失败：" + e.message, true); }
+    }
+  });
+
+  $("#anime-start").onclick = startAnime;
+  $("#anime-refresh").onclick = () => loadAnime();
+  $("#anime-open").onclick = () => { if (animeState?.url) window.open(animeState.url, "_blank"); };
+
+  $("#exp-kind").onchange = () => loadExp($("#exp-kind").value);
+  $("#exp-fields").addEventListener("input", () => { expDirty = true; });
+  $("#exp-fields").addEventListener("change", () => { expDirty = true; });
+  $("#exp-save").onclick = () => saveExp(false);
+  $("#exp-run").onclick = runExp;
+  $("#exp-stop").onclick = () => stopWatched("exp", $("#exp-status"));
+
+  $("#queue-pause").onclick = () => setQueue(true);
+  $("#queue-resume").onclick = () => setQueue(false);
+}
+
 // --- 启动 -------------------------------------------------------------------
 async function loadStudioSchema() {
   try {
@@ -1152,6 +1800,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Deep link: `?tab=config` / `?tab=krea2` opens that pane directly.
     const wanted = new URLSearchParams(location.search).get("tab");
     if (wanted && document.querySelector(`#tabs .tab[data-tab="${wanted}"]`)) switchTab(wanted);
+  } else {
+    switchMode("project");
   }
 
   pollTimer = setInterval(async () => {
@@ -1166,6 +1816,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         await loadProjects();
       } catch { /* 页面下一次手动刷新会如实报错 */ }
     }
-    if (activeTab === "jobs") await loadJobs();
+    if (toolMode === "jobs") await loadJobs();
+    if (toolMode === "tb") await loadTb();
   }, 5000);
 });
