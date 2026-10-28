@@ -1,4 +1,6 @@
+import importlib.util
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
@@ -203,19 +205,21 @@ def test_windows_backend_dependencies_are_isolated():
 
     assert "+cu132" in cuda
     assert "flash_attn" in cuda
-    assert "torch[device-gfx1200,device-gfx1201]==2.13.0+rocm10.0.0" in rocm
-    assert "torchvision[device-gfx1200,device-gfx1201]==0.28.0+rocm10.0.0" in rocm
+    assert "torch[device-gfx1200,device-gfx1201]==2.14.0+rocm10.1.0" in rocm
+    assert "torchvision[device-gfx1200,device-gfx1201]==0.29.0a0+rocm10.1.0" in rocm
+    assert "rocm[devel]==10.1.0" in rocm
+    assert "triton-windows>=3.8.0,<3.9.0" in rocm
     assert "+rocm7.14.0" not in rocm
     assert "device-gfx1200" in rocm and "device-gfx1201" in rocm
     assert "flash" not in rocm
 
     sources = project["tool"]["uv"]["sources"]
     assert any(
-        source.get("index") == "amd-rocm-100" and source.get("group") == "rocm-windows"
+        source.get("index") == "amd-rocm-101" and source.get("group") == "rocm-windows"
         for source in sources["torch"]
     )
     indices = project["tool"]["uv"]["index"]
-    rocm_index = next(index for index in indices if index["name"] == "amd-rocm-100")
+    rocm_index = next(index for index in indices if index["name"] == "amd-rocm-101")
     assert rocm_index["url"] == "https://stable.repo.amd.com/rocm/whl-next/"
 
     # GH #92: a flagless `uv sync` (old updaters) must install the CUDA stack
@@ -338,8 +342,8 @@ def test_torch_stacks_pair_flash_attn_and_triton(
     assert any(line.startswith(f"triton-windows=={triton}") for line in lines)
 
 
-def test_rocm_group_resolves_pytorch_213_rocm10():
-    """The ROCm group must resolve the stable Windows ROCm 10 / torch 2.13 stack."""
+def test_rocm_group_resolves_pytorch_214_rocm101():
+    """Select stable ROCm 10.1 with its Windows SDK and no CUDA Flash wheel."""
     result = subprocess.run(
         [
             "uv",
@@ -361,9 +365,9 @@ def test_rocm_group_resolves_pytorch_213_rocm10():
     torch_lines = [line for line in lines if line.startswith("torch==")]
     torchvision_lines = [line for line in lines if line.startswith("torchvision==")]
 
-    assert any("torch==2.13.0+rocm10.0.0" in line for line in torch_lines), torch_lines
+    assert any("torch==2.14.0+rocm10.1.0" in line for line in torch_lines), torch_lines
     assert any(
-        "torchvision==0.28.0+rocm10.0.0" in line for line in torchvision_lines
+        "torchvision==0.29.0a0+rocm10.1.0" in line for line in torchvision_lines
     ), torchvision_lines
     assert not any("+rocm7.14.0" in line for line in torch_lines), torch_lines
     assert not any("+rocm7.14.0" in line for line in torchvision_lines), (
@@ -371,6 +375,58 @@ def test_rocm_group_resolves_pytorch_213_rocm10():
     )
     assert any("amd-torch-device-gfx1200" in line for line in lines)
     assert any("amd-torch-device-gfx1201" in line for line in lines)
+    assert any(line.startswith("rocm-sdk-devel==10.1.0") for line in lines)
+    assert any(line.startswith("triton-windows==3.8.") for line in lines)
     assert not any(
         line.startswith("flash-attn") and "win_amd64" in line for line in lines
     )
+
+
+def test_rocm_windows_metadata_uses_the_matching_runtime():
+    with (ROOT / "pyproject.toml").open("rb") as file:
+        project = tomllib.load(file)
+    metadata = next(
+        entry
+        for entry in project["tool"]["uv"]["dependency-metadata"]
+        if entry["name"] == "torch"
+    )
+    assert metadata["version"] == "2.14.0+rocm10.1.0"
+    requirements = metadata["requires-dist"]
+    assert "rocm[libraries]~=10.1.0" in requirements
+    assert not any(requirement.startswith("triton") for requirement in requirements)
+    devices = [r for r in requirements if r.startswith("amd-torch-device-")]
+    assert len(devices) == 4
+    assert all("==2.14.0+rocm10.1.0" in requirement for requirement in devices)
+
+
+@pytest.mark.parametrize(
+    "torch_version, vision_version, error",
+    [
+        ("2.14.0+rocm10.1.0", "0.29.0a0+rocm10.1.0", None),
+        ("2.13.0+rocm10.0.0", "0.29.0a0+rocm10.1.0", "expected torch "),
+        ("2.14.0+rocm10.1.0", "0.28.0+rocm10.0.0", "expected torchvision "),
+    ],
+)
+def test_smoke_accepts_the_published_stable_versions(
+    monkeypatch, torch_version, vision_version, error
+):
+    """Check the alpha-suffixed stable vision build without importing a GPU runtime."""
+    fake_torch = SimpleNamespace(
+        __version__=torch_version,
+        version=SimpleNamespace(hip="7.16.26385"),
+        cuda=SimpleNamespace(is_available=lambda: True),
+    )
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setitem(
+        sys.modules, "torchvision", SimpleNamespace(__version__=vision_version)
+    )
+    spec = importlib.util.spec_from_file_location(
+        "rocm_smoke_runtime", ROOT / "tests" / "rocm_smoke_test.py"
+    )
+    smoke = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(smoke)
+    if error is None:
+        smoke._validate_runtime()
+    else:
+        with pytest.raises(RuntimeError, match=error):
+            smoke._validate_runtime()

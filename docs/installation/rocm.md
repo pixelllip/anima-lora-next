@@ -41,27 +41,32 @@ The locked ROCm environment packages and verifies RDNA 4 only:
 | `gfx1200` | Radeon RX 9060 XT | Verified |
 | `gfx1201` | Radeon RX 9070 XT | Verified |
 
-Both were tested on the locked ROCm 10.0 Windows environment (tensor
+Both were tested on the ROCm 10.1 Windows package stack (tensor
 allocation, `torch.compile`, bf16 SDPA, backward, finite-value checks).
 
 > The installer detects the GPU vendor, not the AMD architecture. It may select
 > ROCm for any Radeon, but GPUs other than `gfx1200` / `gfx1201` (including
-> RDNA 3, which AMD's ROCm 10.0 matrix lists) are unverified.
+> RDNA 3) are unverified by this project.
 
 ## Locked software stack
 
 The supported Windows ROCm environment is pinned to:
 
 - Python 3.13
-- PyTorch `2.13.0+rocm10.0.0`
-- torchvision `0.28.0+rocm10.0.0`
-- ROCm 10.0 device packages for `gfx1200` and `gfx1201`
-- `triton-windows` for the Windows `torch.compile` runtime
+- PyTorch `2.14.0+rocm10.1.0`
+- torchvision `0.29.0a0+rocm10.1.0`
+- ROCm 10.1 device packages for `gfx1200` and `gfx1201`
+- ROCm SDK/devel `10.1.0` for the headers/tools used by Windows Triton
+- `triton-windows` 3.8 for the Windows `torch.compile` runtime
 
-ROCm uses PyTorch 2.13 because ROCm 10.0 validates that combination on
-Windows; the CUDA path defaults to PyTorch 2.14 + CUDA 13.2 (2.13 / 2.12 opt-in). (The ROCm path has
-also run locally on PyTorch 2.14/2.15 alpha builds; those are not supported
-configurations.)
+ROCm 10.1 validates PyTorch 2.14 on Windows
+([AMD release notes](https://rocm.docs.amd.com/en/docs-10.1.0/about/release-notes.html)).
+The torchvision `a0` suffix is the build published on AMD's stable index; this
+does not select a nightly index. The CUDA path still defaults to PyTorch 2.14
+and CUDA 13.2 (2.13 / 2.12 opt-in).
+
+The SDK/devel package is installed inside the Python environment; a separate
+machine-wide ROCm SDK upgrade is not required for this setup.
 
 ## Attention behavior on ROCm
 
@@ -108,10 +113,12 @@ system, `auto` picks CUDA; set `rocm` to override.
 For a manual ROCm install, run the installer's post-install check:
 
 ```powershell
-uv run --no-group cuda-windows --group rocm-windows python tests/rocm_smoke_test.py
+uv run --no-sync python tasks.py daemon-run -- tests/rocm_smoke_test.py
 ```
 
-It exercises the training path, not just `import torch`.
+It exercises allocation, `torch.compile`, BF16 SDPA, backward and finite-value
+checks, not just `import torch`. Each visible GPU is tested in a separate child
+process, avoiding device switches after compilation on mixed-GPU Windows hosts.
 
 ## Troubleshooting
 

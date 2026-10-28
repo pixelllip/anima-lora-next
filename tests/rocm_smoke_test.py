@@ -25,11 +25,11 @@ def _validate_runtime() -> None:
         raise RuntimeError("ROCm PyTorch cannot access an AMD GPU")
     if torch.version.hip is None:
         raise RuntimeError("installed PyTorch is not a ROCm build")
-    if not str(torch.__version__).startswith("2.13.0+rocm10.0.0"):
-        raise RuntimeError(f"expected torch 2.13.0+rocm10.0.0, got {torch.__version__}")
-    if not str(torchvision.__version__).startswith("0.28.0+rocm10.0.0"):
+    if not str(torch.__version__).startswith("2.14.0+rocm10.1.0"):
+        raise RuntimeError(f"expected torch 2.14.0+rocm10.1.0, got {torch.__version__}")
+    if not str(torchvision.__version__).startswith("0.29.0a0+rocm10.1.0"):
         raise RuntimeError(
-            f"expected torchvision 0.28.0+rocm10.0.0, got {torchvision.__version__}"
+            f"expected torchvision 0.29.0a0+rocm10.1.0, got {torchvision.__version__}"
         )
 
 
