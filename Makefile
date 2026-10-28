@@ -14,12 +14,22 @@
 .SUFFIXES:
 MAKEFLAGS += --no-builtin-rules
 
+# Use the repo venv's interpreter when it exists, so `make` works without
+# activating the venv; fall back to whatever `python` is on PATH. Override with
+# `make PY=/path/to/python <target>`.
+ifeq ($(OS),Windows_NT)
+VENV_PY := .venv/Scripts/python.exe
+else
+VENV_PY := .venv/bin/python
+endif
+PY := $(if $(wildcard $(VENV_PY)),$(VENV_PY),python)
+
 # Export every make-line variable to subprocesses.
 export
 
 .PHONY: help FORCE
 help:
-	@python tasks.py --help
+	@$(PY) tasks.py --help
 
 # FORCE has no recipe, so it's always considered out-of-date — used as a
 # dependency of the catch-all so make doesn't skip targets that share a name
@@ -32,4 +42,4 @@ Makefile: ;
 
 # Catch-all: any other target is forwarded straight to tasks.py.
 %: FORCE
-	@python tasks.py $@ $(ARGS)
+	@$(PY) tasks.py $@ $(ARGS)
