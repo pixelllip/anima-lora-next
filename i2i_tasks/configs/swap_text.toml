@@ -9,5 +9,6 @@ name = "swap_text"
 
 [staging]
 langs = ["en", "ko"]
-# share of pairs that swap only some captioned regions; the rest stay JA
-partial_ratio = 0.5
+# share of pairs that swap only some captioned regions; the rest stay JA. 0: every
+# pair pastes all its clean groups (unclean groups still stay JA, unnamed)
+partial_ratio = 0.0

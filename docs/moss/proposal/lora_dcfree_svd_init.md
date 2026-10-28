@@ -76,7 +76,7 @@ cannot help; kaiming stays.
 
 ## Side check: the sanitize tone shift
 
-[i2i_tone_loss.md](i2i_tone_loss.md) reports a whole-page brightening in
+[i2i_tone_loss.md](../../../project/moss_lora/done/i2i_tone_loss.md) reports a whole-page brightening in
 `moss_i2i_sanitize_wm` (Muon, `weight_svd`, α 0.5, `dc_isolate` off) that the AdamW +
 `dc_isolate` 200p LoRA does not show. A global shift looks like a DC effect, but the
 output DC shift does not separate them: ‖ΔW x̄‖ is 4.49 for 200p and 4.16 for e6 (3.09 at

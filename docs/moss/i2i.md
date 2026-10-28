@@ -24,7 +24,7 @@ is `library.moss.requests.I2I_CACHE`.
 | Task | Reference | Text encoder input | Status |
 |---|---|---|---|
 | `colorize` | B&W page, full size, isolated | the colour caption's layout JSON plus one text item per OCR line (no vision tower) | v4 recipe in the configs (`moss_colorize_3k_textref1_iso_muon_ema`, on the Hub as `colorize/moss_colorize_3k_v4`). v2 (`moss_colorize_3k_ocr`: half size, joint, vision tower) needs `ref_scale = 2`, `vision = true`: `project/moss_lora/plan.md` |
-| `sanitize` | texted image, full size, isolated | one fixed caption for every pair: `no sfx, no dialogue, no watermark` | trained, private on the Hub |
+| `sanitize` | texted image, full size, isolated | one fixed caption for every pair: `no sfx, no dialogue, no watermark` | v3 on the Hub (`sanitize/moss_i2i_sanitize_v3`): the tone term, `docs/moss/tone_loss.md` |
 | `swap_text` | JA manga page, full size, isolated | layout JSON, one text item per line to letter (translated text + bbox) | 1,300-pair run (`moss_i2i_swap_text_1300_ema5e5`): English clean on the held-out pages, Korean down to one-syllable swaps |
 
 ## Running
@@ -73,6 +73,13 @@ the input. Small doodle hearts next to annotations go with the text. The prompt 
 matters: the same page with the layout JSON of `no sfx, no text` (not the training caption)
 came out nearly identical. Still, use the fixed caption, since it is what the LoRA saw.
 
+**v3 (2026-10-28).** Later Muon runs edited better but brightened and cooled the whole
+image. v3 adds the tone term late in training: `tone_weight 0.003`, `tone_start 0.5`, on
+277 pairs (39 of them clean → clean, `post_image_dataset/moss/i2i_sanitize_idt`), Muon
+lr 5e-5, 8 epochs = 2,216 steps. On the five held-out pages it averages ΔL −0.03 /
+Δb −0.23 against the input outside the edit. Method and numbers: `docs/moss/tone_loss.md`. The
+shipped `configs/moss/i2i/sanitize/train.toml` is still the v1 recipe.
+
 **ComfyUI.** [ComfyUI-MOSS-Toolkit](https://github.com/sorryhyun/ComfyUI-MOSS-Toolkit) 0.7.0
 or later (0.6.x: Reference `task custom`, `ref_scale 1`), `example_workflows/moss-i2i-sanitize.json`:
 
@@ -96,11 +103,13 @@ prompt names.
 **Data.** `make i2i-stage TASK=swap_text` (`i2i_tasks/swap_text/prep.py`, knobs in
 `i2i_tasks/configs/swap_text.toml`) registers hitocrawl edition twins (the JA page and
 its `en` / `ko` edition). Each target is the JA page with clean text groups pasted from
-the twin. `full` pairs paste every group; `partial` pairs (`partial_ratio`, 0.5) paste a
-proper subset, and the rest stay Japanese. The caption is layout JSON with one text item
+the twin. `full` pairs paste every clean group; `partial` pairs (`partial_ratio`) paste a
+proper subset. The config sets `partial_ratio = 0` (2026-10-28): the unclean groups
+(44 %) already stay Japanese and uncaptioned in a full pair. The caption is layout JSON with one text item
 per pasted line, `abs_centralized` `yxyx` pixels of the staged page, read off the twin
 (`--caption_ocr` reads the staged target instead). The current tree: 7,744 pairs from 254
-works (en 5,990, ko 1,754; 3,887 partial), with 2,374 lines the OCR misread.
+works (en 5,990, ko 1,754; all full), with 2,374 lines the OCR misread. The runs below
+up to `1300_ema5e5` trained on the earlier tree, 3,887 of whose pairs were partial.
 
 **Cache.** `caption_format = "layout_json"` passes a caption that already is layout JSON
 through as written (`library/moss/cache.py::is_layout_json`), so no `embeds_plain` is
@@ -153,6 +162,18 @@ the first run:
   in magenta type.
 - e1 / EMA / raw differ by one syllable at most; raw letters heavier and slanted. The EMA
   final is the default.
+
+**Full pairs only (`moss_i2i_swap_text_1300_full_ema5e5`).** The same 1,300 stems
+restaged with `partial_ratio = 0` (`pairs_en300_ko1000_full.jsonl`), same recipe, 2,600
+steps at 13.7 GB peak. Seed 0 on the four held-out pages, against `1300_ema5e5`:
+
+- English: EMA exact on all 4 lines. e1 draws `Uwah…`'s outline faint; raw writes
+  `YOU'RE TE BEST`.
+- Korean (5 lines, the misread caption line aside): wrong syllables 1300 EMA 3, full e1 2,
+  full EMA 2, full raw 3 plus a doubled syllable (`뭔뭔가요`). `싼다` → `씬다` stays in
+  every checkpoint of both runs. The errors move: full EMA gets `분인가요` right
+  (1300: `분인나요`) and writes `이건` as `이컨` (1300: `이전`), so one seed on five lines
+  cannot separate the two. The misread line is still drawn as captioned, in magenta.
 
 Next: count Hangul syllables in the `ko` captions (all 1,690 held-in `ko` pairs cover only
 106 works), and drop misread lines from the captions.

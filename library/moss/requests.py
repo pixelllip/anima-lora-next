@@ -554,7 +554,7 @@ class TrainRequest(Request):
         "i2i: weight of the tone term on the unedited tokens (outside the edit "
         "region grown by tone_dilate): the x̂₀ error's masked mean per tone_pool "
         "cell, projected on tone_dirs, squared. Needs a full-size reference. "
-        "0 = off. docs/moss/proposal/i2i_tone_loss.md",
+        "0 = off. docs/moss/tone_loss.md",
         advanced=True,
     )
     tone_log: bool = _f(

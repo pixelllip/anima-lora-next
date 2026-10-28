@@ -1,11 +1,9 @@
 # MOSS i2i: a tone term on the unedited tokens
 
-Status: implemented (`tone_weight`, off by default). A late, low-weight term
-(`tone_start 0.5`, `tone_weight 0.001`, b ×1) on the 600-step identity recipe is the first
-arm inside the mean tone gates (ΔL −0.31, Δb +0.04 over three seeds); one page at one seed
-is at ΔL −1.04, and the warm regions stay cool (Δb −0.45). Results in
-[Results](#results-2026-10-25); next: [carry it to the full-length
-recipe](#next-carry-the-late-w0001-term-to-full-length).
+Status: **shipped 2026-10-28** as sanitize v3 (`tone_weight 0.003`, `tone_start 0.5`, b ×1
+on the w0005 lr 5e-5 e8 recipe; Hub `sorryhyun/MOSS-I2I-LORAs`, `sanitize/moss_i2i_sanitize_v3`).
+Mean over five pages × three seeds: ΔL −0.03, Δb −0.23. User doc: `docs/moss/tone_loss.md`.
+Open: the ~20-page held-out check, Δa +0.4 (unchanged in every run), swap_text.
 
 The sanitize LoRA `moss_i2i_sanitize_wm` (e6) brightens, cools and slightly desaturates
 the whole page, including far from any text it removes. The training pairs do not teach
@@ -341,12 +339,46 @@ in git history):
     ~5.7 after), as it did under b ×3, while the renders move toward the gate. Not
     explained yet.
 
-## Next: carry the late w0001 term to full length
+- **The late w0001 term does not carry to full length (2026-10-28).**
+  `moss_i2i_sanitize_idt_w0001_late_lr5e5_e8`: the w0005 lr 5e-5 e8 recipe (2216 steps)
+  with `tone_start 0.5`, `tone_weight 0.001`, b ×1. Final EMA, mean over the five pages
+  and seeds 42 / 43 / 44, mask from the three runs below:
 
-The w0005 lr 5e-5 e8 recipe with `tone_start 0.5`, `tone_weight 0.001`, b ×1, scored at
-seeds 42 / 43 / 44 against this arm and the w0005 e8 EMA. If it holds, widen the page set
-to ~20 held-out sanitize pages (the gate's shipping condition). If L stays dark, try
-`tone_weight 5e-4` on the 600-step recipe first.
+  | run | ΔL | Δa | Δb | median ΔE | sat× | pages past \|ΔL\| 1 |
+  |---|---|---|---|---|---|---|
+  | **late w0001 e8 EMA** | −0.39 | +0.41 | **−0.87** | 1.41 | 0.92–1.04 | hard_to_sanitize2 at all three seeds (−1.07 / −2.10 / −1.48) |
+  | late w0001 600 EMA | −0.30 | +0.53 | +0.03 | 1.33 | 0.92–1.05 | hard_to_sanitize2 seed 43 (−1.05) |
+  | w0005 e8 EMA | +0.03 | +0.33 | −0.63 | 1.18 | 0.93–1.04 | none |
+
+  - Δb fails the gate and is cooler than w0005 e8 from step 0; every seed is −0.83 to
+    −0.92. The 600-step arm's Δb ≈ 0 does not survive 1100 more steps at this weight.
+  - hard_to_sanitize2 goes dark at every seed, most in the bright input (L 60–101:
+    −1.5 to −2.9) while L < 20 brightens.
+  - Training: |g| 0.20 → 0.65 when the term switched on, back to 0.25 by step 1700;
+    tone / FM output-space gradient 1.3 before, 3.1 just after, 2.0 at the end.
+
+- **A late `tone_weight 0.003` term passes the mean gates at full length (2026-10-28).**
+  `moss_i2i_sanitize_idt_w0003_late_lr5e5_e8`: the w0001 e8 run above with
+  `tone_weight 0.003`. Final EMA, mean over the five pages and seeds 42 / 43 / 44, mask
+  from the three runs:
+
+  | run | ΔL | Δa | Δb | median ΔE | sat× per seed | pages past \|ΔL\| 1 |
+  |---|---|---|---|---|---|---|
+  | **late w0003 e8 EMA** | **−0.03** | +0.41 | **−0.23** | **1.07** | 0.966 / 0.986 / 0.978 | hard_to_sanitize2 seed 43 (−1.07) |
+  | late w0001 e8 EMA | −0.39 | +0.41 | −0.87 | 1.42 | — | hard_to_sanitize2 at all three seeds |
+  | w0005 e8 EMA | +0.03 | +0.33 | −0.63 | 1.19 | — | none |
+
+  - Per page (ΔL / Δb, seed mean): hard_to_sanitize1 −0.07 / +0.12, hard_to_sanitize2
+    −0.53 / −0.12, hard_to_sanitize3 −0.09 / −0.26, usual_case1 +0.13 / −0.59,
+    usual_case2 +0.38 / −0.32. Every seed is inside the mean ΔL and Δb gates (Δb −0.19 to
+    −0.29). sat× at seed 42 is 0.966, just under 0.97. Δa +0.4 is unchanged again.
+  - Edits match w0005 e8 by eye at seed 42: hard_to_sanitize2 loses every caption box and
+    SFX with the same red debris top-left, usual_case2 loses the tiled watermark, and
+    hard_to_sanitize1 loses 「無断転載禁止」 and the handle.
+  - Training, against the w0001 e8 run at equal steps (same σ sequence): FM 1.00× before
+    the switch and 1.02–1.05× after. The term rose on the switch as before (0.83 → 3.7),
+    then kept falling to 0.85 by step 1900, where the w0001 term stalled at ~2.4.
+    |g| 0.17 → 1.23 (clipped at 1.0 on part of the steps), back to 0.31 by step 1700.
 
 ## Out of scope
 
