@@ -10,9 +10,10 @@ term adds an explicit penalty on it. Off by default. Code: `tone_loss` in
 ## Use
 
 ```bash
-make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --config configs/moss/i2i/sanitize/train.toml \
-    --tone_weight 0.003 --tone_start 0.5"
+make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --config configs/moss/i2i/sanitize/train.toml"
 ```
+
+The shipped config sets `tone_weight 0.003`, `tone_start 0.5`.
 
 The shipped sanitize v3 (`sorryhyun/MOSS-I2I-LORAs`, `sanitize/moss_i2i_sanitize_v3`) is
 this setting on the 277-pair identity tree (`post_image_dataset/moss/i2i_sanitize_idt`:

@@ -1,11 +1,17 @@
-# MOSS i2i training for the sanitize task (text / bubble removal) — TrainRequest fields.
+# MOSS i2i training for the sanitize task (text / bubble removal) — TrainRequest fields; the
+# v3 recipe (moss_i2i_sanitize_idt_w0003_late_lr5e5_e8: muon, lr 5e-5, 8 epochs,
+# ema_window 0.1 are the TrainRequest defaults; docs/moss/tone_loss.md).
 #
 #   make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --config configs/moss/i2i/sanitize/train.toml"
 
-cache = "post_image_dataset/moss/i2i_sanitize"
+cache = "post_image_dataset/moss/i2i_sanitize_idt"
 output = "output/ckpt_moss_i2i/moss_i2i_sanitize.safetensors"
+save_every_epochs = 4
 ref_timestep = 0.0             # the reference is clean
 ref_isolate = true             # ref queries see only ref keys (colorize v3)
+# Tone term over the second half: holds the untouched page's L / b at the input's.
+tone_weight = 0.003
+tone_start = 0.5
 # i2i samples carry reference tokens: the t2i default (swap 36, budget 0.5) OOMs.
 # Swap 38 makes room for budget 0.175, which runs ~9% faster than swap 28 / 0.15 at
 # ~8.3k joint tokens (sanitize, 2026-10-26); the H2D-only swap keeps 38 off the

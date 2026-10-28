@@ -77,8 +77,8 @@ came out nearly identical. Still, use the fixed caption, since it is what the Lo
 image. v3 adds the tone term late in training: `tone_weight 0.003`, `tone_start 0.5`, on
 277 pairs (39 of them clean → clean, `post_image_dataset/moss/i2i_sanitize_idt`), Muon
 lr 5e-5, 8 epochs = 2,216 steps. On the five held-out pages it averages ΔL −0.03 /
-Δb −0.23 against the input outside the edit. Method and numbers: `docs/moss/tone_loss.md`. The
-shipped `configs/moss/i2i/sanitize/train.toml` is still the v1 recipe.
+Δb −0.23 against the input outside the edit. Method and numbers: `docs/moss/tone_loss.md`.
+`configs/moss/i2i/sanitize/{cache,train}.toml` carry this recipe.
 
 **ComfyUI.** [ComfyUI-MOSS-Toolkit](https://github.com/sorryhyun/ComfyUI-MOSS-Toolkit) 0.7.0
 or later (0.6.x: Reference `task custom`, `ref_scale 1`), `example_workflows/moss-i2i-sanitize.json`:

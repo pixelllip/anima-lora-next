@@ -9,7 +9,7 @@
 # its own; generate with the same text.
 
 pairs = "post_image_dataset/i2i/sanitize/staging/pairs.jsonl"
-out = "post_image_dataset/moss/i2i_sanitize"
+out = "post_image_dataset/moss/i2i_sanitize_idt"
 resolution = 1024
 # Full-size reference: the edit keeps everything but the text, so the condition
 # keeps its detail. Changing it re-encodes the refs only.
