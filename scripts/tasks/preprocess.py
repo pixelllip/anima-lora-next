@@ -1522,7 +1522,7 @@ def cmd_caption_full(extra):
 # `cmd_preprocess` auto-fetches this (~0.7 MB) vocab on demand: the caption index
 # it gates is a hard requirement for soft-tokens contrastive training (train.py
 # raises FileNotFoundError without it). Fetch is best-effort.
-_CAPTION_INDEX_VOCAB = "models/captioners/anima-tagger-dbv4/vocab.json"
+_CAPTION_INDEX_VOCAB = "models/captioners/anima-tagger-pixai/vocab.json"
 
 
 def cmd_preprocess(extra):

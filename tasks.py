@@ -319,10 +319,10 @@ COMMANDS = {
         "Predict tags for a single image (--image <path>) or sample a random "
         "val-split stem. Pass --show_scores for rating + top-K kept tags.",
     ),
-    "tagger-dbv4": (
-        tagger.cmd_tagger_dbv4,
-        "Build the dbv4-backed (external caformer_b36) tagger checkpoint dir "
-        "from the archived anima-tagger-v5's vocab; sidecar training runs via "
+    "tagger-build": (
+        tagger.cmd_tagger_build,
+        "Build a backbone-backed tagger checkpoint dir (--backend pixai|dbv4, "
+        "pixai by default); sidecar training + threshold refit run via "
         "daemon-run -m anime_tools.tagger.cli.train_sidecar.",
     ),
     "autotag": (
@@ -364,12 +364,12 @@ COMMANDS = {
     "download-tagger": (
         downloads.cmd_download_tagger,
         "Download the Anima Tagger checkpoint (vocab/rules/thresholds/sidecar; "
-        "not the gated backbone — see download-tagger-model)",
+        "not the backbone — see download-tagger-model)",
     ),
     "download-tagger-model": (
         downloads.cmd_download_tagger_model,
-        "Download the full Anima Tagger (our head + the gated GPL-3.0 caformer_b36 "
-        "dbv4 backbone); needs `hf auth login` and accepting the upstream repo terms",
+        "Download the full Anima Tagger (our head + its backbone: "
+        "pixai-tagger-v1.0, Apache-2.0, ~2 GB)",
     ),
     "download-danbooru-tags": (
         downloads.cmd_download_danbooru_tags,

@@ -406,7 +406,7 @@ STRINGS: dict[str, str] = {
     "models_pack_moss_te_fp8": "MOSS-Image fp8 テキストエンコーダー",
     "models_pack_moss_te_fp8_desc": "text_encoder=fp8 用の fp8 Qwen3.5-9B テキストエンコーダー（16.8 GB ではなく約 9.2 GB）。32 層すべてが 16 GB のカードに載ります。トークナイザーは引き続き Base パックのものを使います。",
     "models_pack_tagger": "タガー",
-    "models_pack_tagger_desc": "Anima Tagger: チェックポイント、ゲート付きの dbv4 バックボーン、そこからトレースした ONNX グラフ。",
+    "models_pack_tagger_desc": "Anima Tagger: チェックポイントと pixai-tagger-v1.0 バックボーン (Apache-2.0、約 2 GB)。",
     "models_pack_tags": "Danbooru タグ DB",
     "models_pack_tags_desc": "キャプション補正が照合する約 114k 行のタグ表と、その英語説明。",
     "models_pack_masking": "マスキング",
@@ -416,7 +416,7 @@ STRINGS: dict[str, str] = {
     "models_pack_grouping": "グルーピング",
     "models_pack_grouping_desc": "PE-Spatial-B16-512: REPA の特徴キャッシュ (preprocess-pe) と類似画像グルーピング用タワー。",
     "model_danbooru_tags": "Danbooru タグ DB — キャプション順序補正",
-    "model_tagger": "Anima Tagger — caformer_b36 バックボーン (ゲート付き)",
+    "model_tagger": "Anima Tagger — pixai-tagger-v1.0 バックボーン",
     # HuggingFace 認証 (モデルダイアログ)
     "models_hf_token_placeholder": "HuggingFace トークンを貼り付けてください (hf_…)",
     "models_hf_authenticate": "認証",
@@ -424,8 +424,7 @@ STRINGS: dict[str, str] = {
     '<a href="https://huggingface.co/settings/tokens">'
     "huggingface.co/settings/tokens</a> でトークンを作成し、"
     '<a href="https://huggingface.co/facebook/sam3">huggingface.co/facebook/sam3</a> で SAM3 のアクセスを申請してください。'
-    "Anima Tagger のバックボーンもゲート付きです。"
-    '<a href="https://huggingface.co/animetimm/caformer_b36.dbv4-full">animetimm/caformer_b36.dbv4-full</a> で利用規約に同意してください。',
+    "Anima Tagger のバックボーンは公開されており、トークンは不要です。",
     "models_hf_token_present": "✓ HuggingFace トークンは既に保存されています。",
     "models_hf_not_authenticated": "未認証 — トークンを貼り付けてゲート付きダウンロードを有効にしてください。",
     "models_hf_token_empty": "先にトークンを貼り付けてください。",

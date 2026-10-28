@@ -447,7 +447,7 @@ STRINGS: dict[str, str] = {
     "models_pack_moss_te_fp8": "MOSS-Image fp8 텍스트 인코더",
     "models_pack_moss_te_fp8_desc": "text_encoder=fp8용 fp8 Qwen3.5-9B 텍스트 인코더 (16.8 GB 대신 약 9.2 GB). 32개 레이어 전부가 16 GB 카드에 올라갑니다. 토크나이저는 여전히 Base 팩의 것을 사용합니다.",
     "models_pack_tagger": "태거",
-    "models_pack_tagger_desc": "Anima Tagger: 체크포인트, 접근 승인이 필요한 dbv4 백본, 그리고 그로부터 추출한 ONNX 그래프.",
+    "models_pack_tagger_desc": "Anima Tagger: 체크포인트와 pixai-tagger-v1.0 백본 (Apache-2.0, 약 2 GB).",
     "models_pack_tags": "Danbooru 태그 DB",
     "models_pack_tags_desc": "캡션 교정이 참조하는 약 114k행 태그 테이블과 그 영어 설명.",
     "models_pack_masking": "마스킹",
@@ -457,7 +457,7 @@ STRINGS: dict[str, str] = {
     "models_pack_grouping": "그룹화",
     "models_pack_grouping_desc": "PE-Spatial-B16-512: REPA 특징 캐시 (preprocess-pe)와 유사 이미지 그룹화 타워.",
     "model_danbooru_tags": "Danbooru 태그 DB — 캡션 순서 교정",
-    "model_tagger": "Anima Tagger — caformer_b36 백본 (접근 승인 필요)",
+    "model_tagger": "Anima Tagger — pixai-tagger-v1.0 백본",
     # HuggingFace 인증 (모델 다이얼로그)
     "models_hf_token_placeholder": "HuggingFace 토큰을 붙여넣으세요 (hf_…)",
     "models_hf_authenticate": "인증",
@@ -465,8 +465,7 @@ STRINGS: dict[str, str] = {
     '<a href="https://huggingface.co/settings/tokens">'
     "huggingface.co/settings/tokens</a> 에서 토큰을 생성하고 "
     '<a href="https://huggingface.co/facebook/sam3">huggingface.co/facebook/sam3</a> 에서 SAM3 접근을 요청하세요. '
-    "Anima Tagger 백본도 게이트되어 있으므로 "
-    '<a href="https://huggingface.co/animetimm/caformer_b36.dbv4-full">animetimm/caformer_b36.dbv4-full</a> 에서 약관에 동의해야 합니다.',
+    "Anima Tagger 백본은 공개되어 있어 토큰이 필요 없습니다.",
     "models_hf_token_present": "✓ HuggingFace 토큰이 이미 저장되어 있습니다.",
     "models_hf_not_authenticated": "인증되지 않음 — 토큰을 붙여넣어 게이트 다운로드를 활성화하세요.",
     "models_hf_token_empty": "먼저 토큰을 붙여넣으세요.",

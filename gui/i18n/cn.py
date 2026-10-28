@@ -395,7 +395,7 @@ STRINGS: dict[str, str] = {
     "models_pack_moss_te_fp8": "MOSS-Image fp8 文本编码器",
     "models_pack_moss_te_fp8_desc": "用于 text_encoder=fp8 的 fp8 Qwen3.5-9B 文本编码器（约 9.2 GB，而非 16.8 GB）: 全部 32 层可放入 16 GB 显卡。分词器仍来自 Base 包。",
     "models_pack_tagger": "标注器",
-    "models_pack_tagger_desc": "Anima Tagger: 其检查点、受限的 dbv4 主干, 以及由其追踪导出的 ONNX 图。",
+    "models_pack_tagger_desc": "Anima Tagger: 其检查点与 pixai-tagger-v1.0 主干 (Apache-2.0, 约 2 GB)。",
     "models_pack_tags": "Danbooru 标签 DB",
     "models_pack_tags_desc": "标注修正所参照的约 114k 行标签表及其英文说明。",
     "models_pack_masking": "遮罩",
@@ -405,7 +405,7 @@ STRINGS: dict[str, str] = {
     "models_pack_grouping": "分组",
     "models_pack_grouping_desc": "PE-Spatial-B16-512: REPA 特征缓存 (preprocess-pe) 与近似图像分组塔。",
     "model_danbooru_tags": "Danbooru 标签 DB — 标注顺序校正",
-    "model_tagger": "Anima Tagger — caformer_b36 主干 (受限)",
+    "model_tagger": "Anima Tagger — pixai-tagger-v1.0 主干",
     # HuggingFace 认证（模型对话框）
     "models_hf_token_placeholder": "粘贴你的 HuggingFace 令牌 (hf_…)",
     "models_hf_authenticate": "认证",
@@ -413,8 +413,7 @@ STRINGS: dict[str, str] = {
     '请在 <a href="https://huggingface.co/settings/tokens">'
     "huggingface.co/settings/tokens</a> 创建令牌，并在 "
     '<a href="https://huggingface.co/facebook/sam3">huggingface.co/facebook/sam3</a> 申请 SAM3 访问权限。'
-    "Anima Tagger 主干同样受限，"
-    '请在 <a href="https://huggingface.co/animetimm/caformer_b36.dbv4-full">animetimm/caformer_b36.dbv4-full</a> 同意其条款。',
+    "Anima Tagger 主干是公开的，无需令牌。",
     "models_hf_token_present": "✓ 已保存 HuggingFace 令牌。",
     "models_hf_not_authenticated": "未认证 — 粘贴令牌以启用受限下载。",
     "models_hf_token_empty": "请先粘贴令牌。",

@@ -1,5 +1,5 @@
 """Anima Tagger task entry-points: vocab build / curation modes (``tagger``),
-predict (``test-tagger``), autotag, and the dbv4 checkpoint builder.
+predict (``test-tagger``), autotag, and the backbone checkpoint builder.
 
 ``make tagger`` / ``make test-tagger`` invoke ``python -m anime_tools.tagger.cli.main``
 with the appropriate ``--mode``; extra args are forwarded verbatim. Sidecar
@@ -72,15 +72,14 @@ def cmd_autotag(extra):
     run([PY, "-m", "anime_tools.tagger.cli.autotag", *extra])
 
 
-def cmd_tagger_dbv4(extra):
-    """Build the dbv4-backed tagger checkpoint dir (external caformer backend).
+def cmd_tagger_build(extra):
+    """Build a backbone-backed tagger checkpoint dir (``--backend pixai|dbv4``).
 
-    ``python -m anime_tools.tagger.cli.build_dbv4_ckpt`` — copies our vocab /
-    rules / groups / split from ``--src`` (default ``anima-tagger-v5``) next to
-    a ``config.json`` naming the upstream ``animetimm/*.dbv4-full`` repo and
-    thresholds seeded from its card. No weights are vendored (GPL-3.0, gated
-    — fetched under the user's HF token on first use). Then train the sidecar
-    head (copyright / OC characters / people-count) on the GPU via
+    ``python -m anime_tools.tagger.cli.build_ckpt`` — copies our vocab / rules /
+    groups / split from ``--src`` (default ``anima-tagger-dbv4``) next to a
+    ``config.json`` naming the upstream backbone (pixai by default, at a pinned
+    commit) and thresholds seeded from its card. No weights are vendored. Then
+    train the sidecar head and refit the backbone thresholds on the GPU via
     ``make daemon-run ARGS="-m anime_tools.tagger.cli.train_sidecar"``.
     """
-    run([PY, "-m", "anime_tools.tagger.cli.build_dbv4_ckpt", *extra])
+    run([PY, "-m", "anime_tools.tagger.cli.build_ckpt", *extra])
