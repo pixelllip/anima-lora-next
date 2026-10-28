@@ -271,6 +271,12 @@ def main():
     ap.add_argument("--run", required=True)
     ap.add_argument("--lr", type=float, default=1e-4)
     ap.add_argument("--epochs", type=int, default=2)
+    ap.add_argument(
+        "--steps",
+        type=int,
+        help="stop after this many optimizer steps; the LR decays over them "
+        "(a budget-matched arm, e.g. finetune_ovis3_lora.py's --steps)",
+    )
     ap.add_argument("--bs", type=int, default=16)
     ap.add_argument("--grad_accum", type=int, default=1)
     ap.add_argument("--rank", type=int, default=16)
@@ -466,6 +472,9 @@ def main():
     rng = random.Random(a.seed)
     steps_per_epoch = len(tr) // a.bs // a.grad_accum
     total = steps_per_epoch * a.epochs
+    if a.steps:
+        a.epochs = -(-a.steps // steps_per_epoch)
+        total = a.steps
     if a.smoke:
         total = min(total, 30)
     warm = max(1, int(total * a.warmup))

@@ -10,7 +10,7 @@ the page parse; its card reports OCRBench 88.8 and OCRBench v2 ZH 61.3. Reader:
 The recipe is the card's: `plain_ocr` prompt (stripped), thinking off, greedy,
 448² / 2880² pixels. The repo now ships a `generation_config.json`, and its
 eos pair is the one OvisOCR2 needed patched in. The eval scripts need `pandas`,
-which is now only in the `sr` group: `uv pip install pandas` into the venv.
+a core dependency since 2026-10-29.
 
 ## Crop mode
 
@@ -111,6 +111,42 @@ ANIMA_MANGA109S_ROOT=… make daemon-run ARGS="--stall-timeout 900 \
   though that was on the older 617 basis.
 - **K3 does not move**, and the Japanese-heavy mix starts a kana leak on
   both languages.
-- **Open: no VL arm at the same budget.** Every VL number is 1–2 epochs, so
-  this arm cannot say whether OvisOCR3 learns faster than VL-1.6. The
-  cheapest next arm is VL P3 cut to 1 000 × 16 (~25 min).
+- Every VL number above is 1–2 epochs; the arm below matches the budget.
+
+## VL arm at the same budget (`vl16_p3_micro`, 2026-10-29)
+
+The P3 recipe (tower r64 LoRA + LM full FT, lr 1e-4 / 1e-5, same mix) cut to
+1 000 steps of 8 × 2 = 16 k crops by `finetune_vl16_lora.py --steps 1000`
+(LR decays over the 1 000 steps, as in the Ovis arm). 25.6 min, 12.0 crops/s,
+peak 12.1 GB, 290.6 M trainable. One seed.
+
+```
+ANIMA_MANGA109S_ROOT=… make daemon-run ARGS="--stall-timeout 900 \
+  project/finished/ocr_reader/ocr/finetune_vl16_lora.py --run vl16_p3_micro --steps 1000 --bs 8 --grad_accum 2 \
+  --tower_rank 64 --lm_full --lm_lr 1e-5 --skip_stock_val \
+  --extra_manifest pseudo_gelnote_ko --extra_manifest pseudo_gelnote_zh --speech_ratio 0.909525"
+```
+
+| gate | Ovis3 LoRA, 0.2 ep | **VL P3, 0.2 ep** | paired VL-only / Ovis-only (z) | v4 (2 ep) |
+|---|---|---|---|---|
+| sincos SFX strict / ♡-blind (n = 597) | 166 / 198 | **233 / 279** | 108 / 41 (+5.5); ♡-blind 123 / 42 (+6.3) | 346 / 387 |
+| sincos speech strict (n = 272) | 92 | 101 | 30 / 21 (+1.3) | 123 |
+| COO SFX (n = 2 558) | 1 850 (72.3 %) | **1 924 (75.2 %)** | 258 / 184 (+3.5) | 2 223 (86.9 %) |
+| COO speech (n = 2 559) | 2 189 (85.5 %) | **2 237 (87.4 %)** | 143 / 95 (+3.1) | 2 273 (88.8 %) |
+| COO runaway SFX / speech | 36 / 13 | 20 / 16 | | 19 / 9 |
+| K3 KO / ZH exact (n = 48) | 23 / 29 | 25 / 33 | 5 / 3, 9 / 5 | 26 / 30 |
+| K3 kana leak KO / ZH | 2 / 4 | 9 / 4 | | 3 / 0 |
+
+- **OvisOCR3 does not learn faster.** At the same 16 k crops VL wins every JA
+  gate. The gap is largest on hand-lettered SFX (sincos +67 strict, z +5.5).
+  The Ovis arm's COO jump is not an Ovis-specific speed: the VL arm gets
+  there too and goes a little further.
+- **Not a clean architecture A/B.** Each arm uses its own line's recipe: VL
+  trains the LM in full (290.6 M), Ovis gets LoRA (20.3 M). Full-parameter
+  Ovis fits at bs 4 (10.5 GB, kernel bench above) and is the one confound
+  left. Losses are not compared across the two tokenizers.
+- **K3 is noise at n = 48.** ZH 33 is above v4 (30) and stock (31); trad
+  6 / 12. KO kana leak 9 is the worst of any P3-mix arm.
+
+Verdict: OvisOCR3 has no edge as a fine-tune base at this budget either. The
+line stays closed.

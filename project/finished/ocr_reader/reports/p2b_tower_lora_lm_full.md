@@ -86,4 +86,5 @@ appear to have been re-cut. Prediction files:
 `pandas` is not in the default dependency groups (only the opt-in `sr`
 group), so `pandas==2.3.3` was installed into `.venv` by hand. The next `uv
 sync` removes it. Don't let uv resolve it unpinned: it picked
-`3.1.0rc0` once.
+`3.1.0rc0` once. (Superseded 2026-10-29: `pandas` is a core dependency,
+locked at 3.1.0.)
