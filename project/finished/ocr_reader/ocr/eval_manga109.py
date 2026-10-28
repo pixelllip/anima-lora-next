@@ -542,7 +542,8 @@ class Ovis3Reader(OvisReader):
     the card: greedy, thinking off, 448² / 2880² pixels; the repo now ships
     a ``generation_config.json`` whose eos pair is the one :attr:`eos` sets.
     A ``--ckpt`` holding ``adapter_config.json`` (``finetune_ovis3_lora.py``)
-    is merged onto the base weights.
+    is merged onto the base weights, then its ``lm.safetensors`` (``--lm_full``)
+    is loaded over them.
     """
 
     name = "ovis3"
@@ -559,6 +560,14 @@ class Ovis3Reader(OvisReader):
             self.model = (
                 PeftModel.from_pretrained(self.model, ckpt).merge_and_unload().eval()
             )
+            lm = Path(ckpt) / "lm.safetensors"  # finetune_ovis3_lora.py --lm_full
+            if lm.is_file():
+                from safetensors.torch import load_file
+
+                sd = load_file(str(lm))
+                bad = self.model.load_state_dict(sd, strict=False).unexpected_keys
+                assert not bad, bad[:5]
+                print(f"loaded {lm} ({len(sd)} tensors)")
         base = Path(m109.REPO / self.DEFAULT if adapter or not ckpt else ckpt)
         task = os.environ.get("ANIMA_OVIS_TASK", "plain_ocr")
         self.prompt = (

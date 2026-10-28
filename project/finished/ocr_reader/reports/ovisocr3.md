@@ -148,5 +148,33 @@ ANIMA_MANGA109S_ROOT=… make daemon-run ARGS="--stall-timeout 900 \
 - **K3 is noise at n = 48.** ZH 33 is above v4 (30) and stock (31); trad
   6 / 12. KO kana leak 9 is the worst of any P3-mix arm.
 
-Verdict: OvisOCR3 has no edge as a fine-tune base at this budget either. The
-line stays closed.
+## Ovis with P2b's split (`ovis3_lmfull_micro`, 2026-10-29)
+
+The one confound left above: the same Ovis arm with VL's parametrization.
+`finetune_ovis3_lora.py --lm_full` drops the LM LoRA and trains the 24 LM
+decoder layers in full (498.1 M, fp32 master, lr 1e-5) beside the r64 tower
+LoRA (10.1 M). 1 000 × 8 × 2, 16.2 min, 16.4 crops/s, peak 13.3 GB, final
+loss 0.361 (LoRA arm 0.386 at bs 16 × 1). `final/lm.safetensors` is 951 MB;
+`Ovis3Reader` loads it after merging the adapter.
+
+| gate | Ovis3 LoRA | **Ovis3 LM full** | full vs LoRA (z) | full vs VL micro (z) | VL P3 micro |
+|---|---|---|---|---|---|
+| sincos SFX strict / ♡-blind | 166 / 198 | 121 / 188 | 29 / 74 (−4.4); ♡-blind −0.9 | −8.3; ♡-blind −6.4 | 233 / 279 |
+| sincos speech strict | 92 | 81 | −2.0 | −2.7 | 101 |
+| COO SFX | 72.3 % | 72.3 % | 165 / 166 (−0.1) | −3.7 | 75.2 % |
+| COO speech | 85.5 % | 83.5 % | 94 / 146 (−3.4) | −6.6 | 87.4 % |
+| K3 KO / ZH exact | 23 / 29 | 18 / 28 | −1.7 / −0.4 | −2.3 / −1.4 | 25 / 33 |
+| K3 kana leak KO / ZH | 2 / 4 | 2 / 3 | | | 9 / 4 |
+
+- **VL's split does not help Ovis; it is a little worse.** COO SFX ties the
+  LoRA arm. Most of the sincos drop is hearts: 67 SFX reads are right except a
+  dropped `♥` (`びくっ♡` → `びくっ`), so ♡-blind is 188 vs 198 (z −0.9). The
+  LM at lr 1e-5 has not learnt the `♥` target spelling in 1 000 steps, where
+  the r16 LoRA at 1e-4 had.
+- **The two Ovis parametrizations land within 10 ♡-blind of each other, both
+  ~85 below VL.** The gap to VL is not the adapter layout. Neither arm moves K3.
+- Not tuned: the full-FT lr (1e-5 is VL's 2-epoch value) and the LM LoRA's
+  rank / lr.
+
+Verdict: OvisOCR3 has no edge as a fine-tune base at this budget, under
+either parametrization. The line stays closed.

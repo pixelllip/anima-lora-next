@@ -19,6 +19,11 @@ LoRA (α = 2r) on every Linear of the vision tower + merger at
 ``--rank``; embeddings, ``lm_head`` and the GDN ``in_proj_a`` / ``in_proj_b``
 gates stay frozen. Linear warmup then linear decay to 0 over ``--steps``.
 
+``--lm_full`` is P2b's split (``finetune_vl16_lora.py --lm_full``): no LM
+LoRA, the 24 LM decoder layers train in full at ``--lm_lr`` on an fp32
+master copy and land in ``final/lm.safetensors``, which ``Ovis3Reader`` loads
+after merging the tower adapter.
+
 Writes ``output/ocr/<run>/final/`` (peft adapter; ``eval_*.py --reader ovis3
 --ckpt`` merges it) and ``history.jsonl``. The gates run as separate jobs.
 """
@@ -92,6 +97,12 @@ def main():
     ap.add_argument("--grad_accum", type=int, default=2)
     ap.add_argument("--rank", type=int, default=16)
     ap.add_argument("--tower_rank", type=int, default=64)
+    ap.add_argument(
+        "--lm_full",
+        action="store_true",
+        help="full-finetune the LM decoder layers (fp32 master) instead of the LM LoRA",
+    )
+    ap.add_argument("--lm_lr", type=float, default=1e-5)
     ap.add_argument("--dropout", type=float, default=0.05)
     ap.add_argument("--warmup", type=float, default=0.03)
     ap.add_argument("--speech_ratio", type=float, default=0.909525)
@@ -140,6 +151,8 @@ def main():
     for p in base.parameters():
         p.requires_grad_(False)
     lm, tower = lora_targets(base)
+    if a.lm_full:
+        lm = []
     pattern = {re.escape(t): a.tower_rank for t in tower}
     cfg = LoraConfig(
         r=a.rank,
@@ -151,14 +164,31 @@ def main():
         bias="none",
     )
     model = get_peft_model(base, cfg)
+    full = (
+        [(n, p) for n, p in model.named_parameters() if vl.is_lm_layer_param(n)]
+        if a.lm_full
+        else []
+    )
+    for _, p in full:
+        p.requires_grad_(True)
+    masters = [p.detach().float().clone().requires_grad_(True) for _, p in full]
+    full_ids = {id(p) for _, p in full}
     base.gradient_checkpointing_enable(
         gradient_checkpointing_kwargs={"use_reentrant": False}
     )
     base.enable_input_require_grads()
-    params = [p for p in model.parameters() if p.requires_grad]
+    params = [
+        p for p in model.parameters() if p.requires_grad and id(p) not in full_ids
+    ]
     print(
         f"lora: {len(lm)} LM modules at r {a.rank}, {len(tower)} tower at r "
-        f"{a.tower_rank}; trainable {sum(p.numel() for p in params) / 1e6:.1f}M",
+        f"{a.tower_rank}; trainable {sum(p.numel() for p in params) / 1e6:.1f}M"
+        + (
+            f" + LM layers full {sum(m.numel() for m in masters) / 1e6:.1f}M "
+            f"in {len(masters)} tensors at lr {a.lm_lr}"
+            if full
+            else ""
+        ),
         flush=True,
     )
     print(f"prompt {prompt!r}", flush=True)
@@ -176,7 +206,10 @@ def main():
 
     collate = Collate(proc, prompt, PIXELS["shortest_edge"])
     warm = max(1, int(a.steps * a.warmup))
-    opt = torch.optim.AdamW(params, lr=a.lr, weight_decay=0.0)
+    groups = [{"params": params, "lr": a.lr}]
+    if masters:
+        groups.append({"params": masters, "lr": a.lm_lr})
+    opt = torch.optim.AdamW(groups, lr=a.lr, weight_decay=0.0)
     sched = torch.optim.lr_scheduler.LambdaLR(
         opt,
         lambda s: (
@@ -204,10 +237,16 @@ def main():
             losses.append(loss.item() * a.grad_accum)
             if micro % a.grad_accum:
                 continue
-            torch.nn.utils.clip_grad_norm_(params, 1.0)
+            for (_, p), m in zip(full, masters):
+                m.grad = p.grad.float()
+                p.grad = None
+            torch.nn.utils.clip_grad_norm_(params + masters, 1.0)
             opt.step()
             sched.step()
             opt.zero_grad(set_to_none=True)
+            with torch.no_grad():
+                for (_, p), m in zip(full, masters):
+                    p.copy_(m)
             step += 1
             if step % 25 == 0 or step == a.steps:
                 el = time.time() - t0
@@ -230,6 +269,8 @@ def main():
             if step >= a.steps:
                 break
     model.save_pretrained(out / "final")
+    if full:
+        vl.save_full(out / "final" / vl.LM_FILE, full)
     print(f"saved {out / 'final'} after {(time.time() - t0) / 60:.1f} min", flush=True)
 
 
