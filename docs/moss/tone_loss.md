@@ -36,19 +36,25 @@ the latent's size; a pair whose edit covers the whole image gets no term.
 
 ## The term
 
-With `x_t = (1−σ)x₀ + σε` and `v = ε − x₀`, the prediction's clean estimate is
-`x̂₀ = x_t − σ·v̂`, so `x̂₀ − x₀ = σ(v − v̂)`. On the rest tokens `R` (outside the dilated
-edit region):
+With $`x_t = (1-\sigma)x_0 + \sigma\epsilon`$ and $`v = \epsilon - x_0`$, the prediction's
+clean estimate is $`\hat{x}_0 = x_t - \sigma\hat{v}`$, so $`\hat{x}_0 - x_0 = \sigma(v - \hat{v})`$.
+On the rest tokens $`R`$ (outside the dilated edit region), with $`P_k`$ a mean pool over
+k×k token cells and $`D`$ the `tone_dirs` projection:
 
-```
-e      = (x̂₀ − x₀) ⊙ 1_R                          # (1, 128, h, w), packed latent
-cells  = avgpool_k(e) / avgpool_k(1_R)             # masked mean per k×k cell, coverage ≥ ½
-lab    = tone_dirs · cells                         # per-cell ΔL, Δa, Δb
-L      = L_fm + tone_weight · mean over cells of |lab|²
+```math
+\begin{aligned}
+e &= (\hat{x}_0 - x_0) \odot \mathbf{1}_R
+  && \text{(1, 128, h, w), packed latent} \\
+c &= P_k(e) \,/\, P_k(\mathbf{1}_R)
+  && \text{masked mean per cell, coverage} \ge \tfrac{1}{2} \\
+(\Delta L, \Delta a, \Delta b) &= D\,c
+  && \text{per cell} \\
+\mathcal{L} &= \mathcal{L}_\text{fm} + w_\text{tone} \cdot \operatorname{mean}_\text{cells} \lVert D\,c \rVert^2
+\end{aligned}
 ```
 
-- It reads x̂₀, so it penalises a tone error in the image, and the σ factor down-weights
-  high σ, where x̂₀ is mostly a guess.
+- It reads $`\hat{x}_0`$, so it penalises a tone error in the image, and the σ factor
+  down-weights high σ, where $`\hat{x}_0`$ is mostly a guess.
 - Pooling keeps it blind to texture: only each cell's mean colour counts.
 - `tone_dirs` is each Lab axis's per-channel response in the packed latent, measured by
   encoding pages shifted in L, a and b (`project/moss_lora/src/tone_dirs.py`). With it the
@@ -81,11 +87,6 @@ watermarks and handles all go, and non-text art (hearts, a halo's symbols) stays
 
 - Δa ≈ +0.4 (slightly redder) is the same with and without the term in every run.
 - One dark, high-contrast page (hard_to_sanitize2) still loses up to 1 L at one seed.
-- Measured on sanitize only. swap_text has the same setup (full-size reference, aligned
-  pairs) and can take the term unchanged; colorize changes tone on purpose, so it does not
-  apply there.
-- The gate's shipping condition (~20 held-out pages) has not been run; the numbers above
-  are five pages.
 
 Research log (measurements, the hypotheses ruled out — CNS, CFG, identity pairs, tone
 jitter, the small VAE decoder — and every arm): `project/moss_lora/done/i2i_tone_loss.md`.
