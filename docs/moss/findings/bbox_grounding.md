@@ -45,16 +45,45 @@ every query (σ 0.9; share of the box's in-box gain lost, 1 = gone; bootstrap 95
   26–35, over many heads (the content map moves to the moved box on 70–90 % of pages).
   b14 h4 follows the box at every σ.
 
+## The sanitize LoRA does its edit in the same blocks
+
+`bench/moss_bbox_grounding/sanitize_probe.py`, sanitize v3 (EMA), trained without boxes:
+4 eval pages rendered by the LoRA (its output as the target, so the edit region is what it
+chose to remove) and 15 training pairs, teacher-forced with the isolated reference. Edit
+region `E` = latent RMS diff > 0.6, `K` the rest. Share of the LoRA's gain over Base lost
+with the LoRA off in a block range (19 pages):
+
+| blocks | E σ 0.9 | K σ 0.9 | E σ 0.3 | K σ 0.3 |
+|---|---|---|---|---|
+| each of 0–4 … 21–25 | ≤ 0.03 | ≤ 0.01 | ≤ 0.07 | ≤ 0.02 |
+| **26–35** | **0.79** [0.59, 1.01] | 0.34 | 0.30 | 0.46 |
+| 36–41 | 0.17 | 0.26 | 0.61 | 0.67 |
+| 14–35 | 0.81 | 0.48 | 0.35 | 0.53 |
+
+- At σ 0.9 the edit runs through the LoRA in blocks 26–35 and is edit-specific there:
+  the range where Base binds a bbox item's content to its box and reads the coordinates
+  most. 14–25 add nothing on top. At low σ, 26–41 carry the edit and the copy alike.
+- The LoRA's change to the reference rows (σ-independent: isolated at `ref_timestep 0`)
+  separates E from K with AUC rising from 0.51 (block 0) to 0.80 (block 25): a text mark
+  built in the reference stream, as the refiner builds the bbox's location code. With the
+  LoRA off in 14–25 nothing is lost, so the mark there is redundant, or Base's reference
+  features already carry the text and 26–35 read them.
+- New caption-reading heads for the edit region (E over K mass on `no sfx, no dialogue, no
+  watermark`: e^3–e^5, Base ~e^0) sit late, b35–b41 (b40 h20, b39 h19, b41 h2, b37 h20,
+  b35 h3), not on the heads that bind a bbox item in Base.
+- Whether a page gets cleaned is decided per sample: `usual_case1`'s corner watermark is
+  removed at seed 42, half removed at 44, kept at 0, 1, 2 and 43 (CFG 3 and 4 alike).
+
 ## Hypothesis (untested)
 
 An i2i task can hand the location to this path instead of learning it: put the edit region
 in the layout prompt as an item with a box (from OCR, a detector or a small predictor on the
 reference) and let the LoRA learn only what to draw there. The location is decided at high σ,
-which is where an i2i LoRA otherwise has to find the region from the reference alone.
+which is where an i2i LoRA otherwise has to find the region from the reference alone, and
+the sanitize LoRA's edit runs through the blocks that read the box (26–35). A box would
+also pin the per-seed keep-or-remove call.
 
 ## Open
 
 - Labels other than `text` (characters, objects): same path or not.
-- Whether the sanitize LoRA, trained without boxes, localises the text through a path of
-  its own (reference attention) or reuses this one.
 - A training A/B: an i2i task with and without box items at small data.

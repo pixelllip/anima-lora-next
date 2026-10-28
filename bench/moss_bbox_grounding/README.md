@@ -66,3 +66,46 @@ no longer helps); `moved`: share of the moved box's push into M left (1 = intact
   (later blocks re-read the tokens).
 - **The TE route is negligible:** the tokens after the box (JSON tail, template suffix)
   carry the box causally from the TE, but masking them on top adds ≤ 0.04.
+
+## Run 20261028-2310-sanitize_v3 (`sanitize_probe.py`, sanitize v3 EMA, ~50 min)
+
+`moss_i2i_sanitize_idt_w0003_late_lr5e5_e8` (v3), fixed caption, isolated reference at
+`ref_timestep 0`. Pages: 4 eval pages rendered by the LoRA (seed 0, `generate.toml`;
+`usual_case1` dropped: at seed 0 the LoRA kept, and redrew, its watermark) and 15 training
+pairs (one clean→clean pair has no region). Edit region `E`: latent RMS diff > 0.6 (median
+area 15 %); `K` the rest.
+
+LoRA off in a block range, share of the LoRA's gain over Base lost (all 19 pages; the two
+sets agree):
+
+| blocks | E σ 0.9 | K σ 0.9 | E σ 0.6 | K σ 0.6 | E σ 0.3 | K σ 0.3 |
+|---|---|---|---|---|---|---|
+| 0–4 / 5–8 / 9–13 | 0.03 / 0.01 / 0.01 | ≤ 0.01 | 0.09 / 0.03 / 0.09 | ≤ 0.01 | 0.07 / 0.03 / 0.03 | ≤ 0.02 |
+| 14–20 / 21–25 | 0.03 / 0.02 | ≤ 0.01 | 0.10 / 0.10 | ≤ 0.01 | 0.06 / 0.04 | ≤ 0.01 |
+| **26–35** | **0.79** [0.59, 1.01] | 0.34 | 0.36 | 0.40 | 0.30 | 0.46 |
+| 36–41 | 0.17 | 0.26 | 0.47 | 0.53 | 0.61 | 0.67 |
+| 0–13 | 0.14 | 0.03 | 0.27 | 0.06 | 0.23 | 0.08 |
+| 14–35 / 14–41 | 0.81 / 1.08 | 0.48 / 0.77 | 0.41 / 0.85 | 0.50 / 0.87 | 0.35 / 0.91 | 0.53 / 0.92 |
+
+- **At σ 0.9 the edit runs through the LoRA in blocks 26–35**, edit-specific (E 0.79 vs
+  K 0.34): the range where Base's content attention follows a bbox and the best single
+  range for reading its coordinates. Blocks 14–25 add nothing on top (14–35: 0.81). From
+  σ 0.6 on, 26–41 share E and K alike (repaint and copy texture).
+- **The LoRA marks the text in the reference stream** (σ-independent under isolation):
+  the AUC of ‖h_LoRA − h_Base‖ for E over K on the reference rows climbs from 0.51 (block 0)
+  to 0.80 (block 25), stays 0.65–0.77 to block 35 and falls to 0.17 at block 41. LoRA off
+  in 14–25 costs nothing, so the mark there is not needed, or Base's own reference features
+  already carry the text and 26–35 read them.
+- **The LoRA builds caption-reading heads for the edit region late:** E queries put
+  e^3–e^5 more mass than K queries on the caption (`no sfx, no dialogue, no watermark`) in
+  b40 h20, b39 h19, b41 h2, b37 h20, b35 h3 (Base: ~e^0). These are not the Base heads that
+  bind a bbox item's content (b26 h6, b30 h19, b27 h1, …).
+- Copy attention (each image query on its own reference cell) is lower in E than K in Base
+  too (the teacher-forced target there is not the reference); the LoRA lowers it further
+  only in 30–41.
+
+`usual_case1` by seed (`output/tests/moss_sanitize_uc1_seeds/`, `generate.toml` otherwise):
+the corner watermark is removed at seed 42 (CFG 3 and 4), half removed at 44 (the tail of
+the handle erased), kept at 0, 1, 2 and 43 (at 0 redrawn with wrong glyphs). CFG 3 vs 4
+changes nothing at 42–44. Seed 42 is `GenerateRequest`'s default and the seed of the v3
+tone evals, which is why the page read as always cleaned.
