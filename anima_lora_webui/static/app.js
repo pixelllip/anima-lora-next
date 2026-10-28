@@ -1473,7 +1473,8 @@ async function ecRun(action) {
 
 // ---- TensorBoard ---------------------------------------------------------
 function tbHostUrl(port) {
-  const host = location.hostname || "127.0.0.1";
+  let host = location.hostname || "127.0.0.1";
+  if (host.includes(":") && !host.startsWith("[")) host = `[${host}]`;
   return `http://${host}:${port}`;
 }
 
@@ -1516,9 +1517,23 @@ function renderTb() {
   if (s.running && s.port) {
     const url = tbHostUrl(s.port);
     frame.classList.remove("hidden");
-    if (frame.dataset.url !== url) { frame.src = url; frame.dataset.url = url; }
+    const ready = String(!!s.ready);
+    if (frame.dataset.url !== url) {
+      frame.src = url;
+      frame.dataset.url = url;
+      frame.dataset.ready = ready;
+    } else if (frame.dataset.ready !== ready && s.ready) {
+      // The first load happened while TensorBoard was still binding the port;
+      // reload once it is actually serving, otherwise the iframe stays on the
+      // browser's "connection refused" page.
+      frame.src = url;
+      frame.dataset.ready = ready;
+    }
   } else {
     frame.classList.add("hidden");
+    frame.removeAttribute("src");
+    frame.dataset.url = "";
+    frame.dataset.ready = "";
   }
 }
 
