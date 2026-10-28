@@ -531,6 +531,12 @@ class TrainRequest(Request):
         "i2i: per-token loss multiplier outside the edit region",
         advanced=True,
     )
+    region_weight_end: float | None = _f(
+        None,
+        "i2i: region_weight at the last step, reached linearly from region_weight "
+        "at step 0. None = region_weight throughout",
+        advanced=True,
+    )
     region_threshold: float = _f(
         0.3,
         "per-token RMS of target − reference latent above which a token is "

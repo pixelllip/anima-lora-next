@@ -20,7 +20,8 @@ Objective (report App. A.2): ``z_σ = (1−σ)·z0 + σ·ε``, the DiT predicts
 (text tokens never reach the head), with no σ/SNR weighting. With
 ``region_weight`` / ``rest_weight`` off 1 (i2i, full-size reference) each token's
 error is multiplied before the mean: ``region_weight`` on the tokens the edit
-changes (``edit_region``), ``rest_weight`` on the copied ones.
+changes (``edit_region``, moving linearly to ``region_weight_end`` by the last
+step), ``rest_weight`` on the copied ones.
 
 σ follows the final Stage-3 interval exactly: ``Z ~ N(μ, s²)``, ``S = 1 − sigmoid(Z)``,
 truncated to ``S ≤ cutoff`` and rescaled onto the grid ``{1/1000 … 1}``
@@ -524,7 +525,10 @@ def train(
             flush=True,
         )
     regions = {}
-    if req.region_weight != 1.0 or req.rest_weight != 1.0:
+    region_end = (
+        req.region_weight if req.region_weight_end is None else req.region_weight_end
+    )
+    if req.region_weight != 1.0 or region_end != 1.0 or req.rest_weight != 1.0:
         for s in samples:
             latent, _, _, ref = get(s)
             if ref is None or ref.shape != latent.shape:
@@ -542,7 +546,9 @@ def train(
             )
         area = sorted(r.float().mean().item() for r in regions.values())
         print(
-            f"edit region: x{req.region_weight}, rest x{req.rest_weight}, threshold "
+            f"edit region: x{req.region_weight}"
+            f"{f' -> x{region_end}' if region_end != req.region_weight else ''}"
+            f", rest x{req.rest_weight}, threshold "
             f"{req.region_threshold}, min {req.region_min_tokens} tokens, dilate "
             f"{req.region_dilate}; area median {100 * area[len(area) // 2]:.2f}% "
             f"({100 * area[0]:.2f}-{100 * area[-1]:.2f}%), "
@@ -794,6 +800,8 @@ def train(
             region_min_tokens=req.region_min_tokens,
             region_dilate=req.region_dilate,
         )
+        if region_end != req.region_weight:
+            meta["region_weight_end"] = region_end
     if req.tone_weight:
         meta.update(
             tone_weight=req.tone_weight,
@@ -910,7 +918,8 @@ def train(
                         region=regions[s.stem].to(device)
                         if s.stem in regions
                         else None,
-                        region_weight=req.region_weight,
+                        region_weight=req.region_weight
+                        + (region_end - req.region_weight) * step / max(total - 1, 1),
                         rest_weight=req.rest_weight,
                         parts=parts,
                         tone=tone,
