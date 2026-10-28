@@ -118,9 +118,10 @@ int8 became the default re-encodes on the next `cache` run unless it passes
   Stamped as `rank_pattern` in the file. On caststation (240 updates) and ama_mitsuki
   (848) at r16 the loss matched the run without it; the modulation moved < 1.2 % (shift
   only), and on ama_mitsuki its shift flips sign between low and high σ. Images differ
-  mostly on prompts far from the set. ComfyUI's LoRA loader patches it like the block
-  adapters (`lora_unet_shared_block_modulation`; checked against the `moss-image` node's
-  HF loader).
+  mostly on prompts far from the set. On i2i (uncensor) it kept the area outside the edit
+  visibly better, text most of all, with the edit a tie: `docs/moss/findings/mod_rank_i2i.md`.
+  ComfyUI's LoRA loader patches it like the block adapters
+  (`lora_unet_shared_block_modulation`; checked against the `moss-image` node's HF loader).
 - **Checkpoints**: `--save_every_epochs N` also saves `<name>/<name>_eN.safetensors`
   beside the final file (the last epoch is the final file). A `.json` run report
   (per-step loss) lands beside the LoRA.
