@@ -273,6 +273,11 @@ torch-214 = [
     "torchvision>=0.29.0,<0.30 ; sys_platform != 'win32'",
     "flash-attn @ https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.10.0/flash_attn-2.8.3+cu132torch2.14-cp313-cp313-linux_x86_64.whl ; sys_platform == 'linux' and platform_machine == 'x86_64'",
     "flash-attn @ https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.10.1/flash_attn-2.8.3+cu132torch2.14-cp313-cp313-linux_aarch64.whl ; sys_platform == 'linux' and platform_machine == 'aarch64'",
+    # Qwen3.5 GDN short conv (MOSS TE, OvisOCR3); transformers falls back to
+    # F.conv1d without it. Upstream ships no torch-2.14 wheel and PyPI only the
+    # sdist (~8 min nvcc build), so this is our own build of 1.7.0 — the
+    # pre-release `deps-causal-conv1d-1.7.0`. Rebuild on a torch minor bump.
+    "causal-conv1d @ https://github.com/sorryhyun/anima_lora/releases/download/deps-causal-conv1d-1.7.0/causal_conv1d-1.7.0+cu132torch2.14-cp313-cp313-linux_x86_64.whl ; sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
 torch-213 = [
     "torch>=2.13.0,<2.14 ; sys_platform != 'win32'",
