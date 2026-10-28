@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 UI: dict[str, str] = {
-    "window_title": "MOSS-Image LoRA (alpha)",
+    "window_title": "MOSS-Image LoRA",
     "model_missing": "모델을 찾을 수 없습니다: {path}\n`make download-model ARGS=moss-base`"
     "를 실행하거나 (SFT DiT는 ARGS=moss-sft), 고급 → model_dir을 지정하거나, "
     ".env에 ANIMA_MOSS_MODEL_DIR을 설정하세요.",

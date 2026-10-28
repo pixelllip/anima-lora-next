@@ -6,8 +6,8 @@ that tone's direction (128-d). ``tone_probe.py``'s per-sample DC error on the re
 tokens is then fitted on the directions (least squares), giving a predicted ΔL / Δb
 per sample to compare between LoRAs and against the decoded Lab measurement.
 
-    make daemon-run ARGS="project/moss_lora/src/tone_dirs.py"      # directions (GPU) + analysis
-    .venv/bin/python project/moss_lora/src/tone_dirs.py --analyze   # analysis only
+    make daemon-run ARGS="project/finished/moss_lora/src/tone_dirs.py"      # directions (GPU) + analysis
+    .venv/bin/python project/finished/moss_lora/src/tone_dirs.py --analyze   # analysis only
 """
 
 from __future__ import annotations
@@ -170,8 +170,8 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--analyze", action="store_true", help="skip the VAE, reuse --dirs")
     p.add_argument("--pairs", type=int, default=5)
-    p.add_argument("--dirs", default="project/moss_lora/space/tone_dirs.safetensors")
-    p.add_argument("--probe", default="project/moss_lora/space/tone_probe.json")
+    p.add_argument("--dirs", default="project/finished/moss_lora/space/tone_dirs.safetensors")
+    p.add_argument("--probe", default="project/finished/moss_lora/space/tone_probe.json")
     args = p.parse_args()
     path = resolve_under_home(args.dirs)
     if not args.analyze:

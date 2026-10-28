@@ -2,7 +2,7 @@
 """Per-channel input magnitude at MOSS-Image's LoRA targets — the channel-scaling question.
 
 Measures what arrives at the Linear inputs after RMSNorm + adaLN (findings in
-``project/moss_lora/done/channel_scaling.md``). Training-path forward (no grad):
+``project/finished/moss_lora/done/channel_scaling.md``). Training-path forward (no grad):
 cached latents noised at each σ in ``--sigmas``,
 cond embeds at true length, the reference per-sample forward. A ``forward_pre_hook``
 on ``layers.N.proj.{q,o,ffn_up_gate,ffn_down}`` (k / v share q's input) accumulates

@@ -1,4 +1,4 @@
-"""Tone drift of sanitize renders on the unedited pixels (project/moss_lora/done/i2i_tone_loss.md).
+"""Tone drift of sanitize renders on the unedited pixels (project/finished/moss_lora/done/i2i_tone_loss.md).
 
 Lab after a σ=3 px blur; the mask is the pixels no compared run changed by ΔE > 8,
 dilated 20 px. Per image and run:
@@ -9,8 +9,8 @@ dilated 20 px. Per image and run:
 - median ΔE before and after removing one global Lab offset, one offset per cell,
   and a per-L-bin curve.
 
-    .venv/bin/python project/moss_lora/src/tone_map.py \
-        --runs 200p=output/tests/moss_i2i_sanitize_200p_cli e6=output/tests/moss_i2i_sanitize_wm_e6
+    .venv/bin/python bench/moss_i2i_eval/tone_map.py \
+        --runs a=output/tests/<render dir a> b=output/tests/<render dir b>
 """
 
 from __future__ import annotations

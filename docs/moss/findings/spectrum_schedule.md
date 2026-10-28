@@ -37,7 +37,7 @@ recorded p50 trajectories (5 prompts) and scores `Σ |Δσ_i|·‖v̂_i − v_i�
 | log-SNR spacing | 16 | 0.578 | 0.789 / 0.530 | fridge layout, 004 bottom centre and 017 Hina move |
 
 The 5-prompt set is `run_bench.PROMPTS` at seed 42 and cfg 3. The Space set is
-`project/moss_lora/space/` 004 and 017 at their own size, cfg and seed. The numbers are
+`bench/moss_ab/space/` 004 and 017 at their own size, cfg and seed. The numbers are
 mean latent rel-L2 against p50, which is a drift number. The grids are the verdict.
 
 ## Reading

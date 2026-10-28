@@ -1,7 +1,7 @@
 """Single-step tone bias of sanitize LoRAs on the unedited tokens (no training).
 
 Does the x̂₀ the training loss sees already carry the page-wide brightening /
-cooling that e6 renders show (project/moss_lora/done/i2i_tone_loss.md)? Per LoRA,
+cooling that e6 renders show (project/finished/moss_lora/done/i2i_tone_loss.md)? Per LoRA,
 per σ, with the same noise for every LoRA:
 
 - training pairs: ``x̂₀ = x_t − σ·v̂`` against the cached target on the rest tokens
@@ -15,7 +15,7 @@ DiT off the card, x̂₀ and x₀ of the first ``--decode`` pairs (and every pag
 the lowest σs are decoded and compared in Lab on the rest pixels, the same metric
 as the renders.
 
-    make daemon-run ARGS="--stall-timeout 900 project/moss_lora/src/tone_probe.py"
+    make daemon-run ARGS="--stall-timeout 900 project/finished/moss_lora/src/tone_probe.py"
 """
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ def pick_pairs(cache_dir: Path, n: int) -> list:
 def page_mask(page: str, size: tuple[int, int], src: str) -> np.ndarray:
     """Pixels no render changed by ΔE > 8, dilated 20 px (``tone_map.py``)."""
 
-    from tone_map import delta_e, lab
+    from bench.moss_i2i_eval.tone_map import delta_e, lab
 
     src_lab, _ = lab(
         moss_cache.fit(
@@ -110,7 +110,7 @@ def tone_term(err: torch.Tensor, rest: torch.Tensor, pool: int) -> float:
 
 
 def lab_delta(x_hat: torch.Tensor, x0: torch.Tensor, rest_px: np.ndarray, vae) -> dict:
-    from tone_map import lab
+    from bench.moss_i2i_eval.tone_map import lab
 
     def img(z):
         px = decode(z.to(vae.device), vae)[0].float().cpu()
@@ -150,7 +150,7 @@ def main() -> None:
         "--loras", default=",".join(LORAS), help="names from LORAS or name=path"
     )
     p.add_argument("--tone_dilate", type=int, default=2)
-    p.add_argument("--out", default="project/moss_lora/space/tone_probe.json")
+    p.add_argument("--out", default="project/finished/moss_lora/space/tone_probe.json")
     args = p.parse_args()
     device = torch.device("cuda")
     sigmas = [float(s) for s in args.sigmas.split(",")]

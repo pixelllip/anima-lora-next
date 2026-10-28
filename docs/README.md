@@ -17,9 +17,9 @@ Qwen-Image-2.1 has no docs folder; its reference is `library/qwen21/CLAUDE.md`.
 
 | Doc | Description |
 |-----|-------------|
-| [moss/README.md](moss/README.md) | MOSS-Image LoRA (alpha) — setup, GUI, CLI, defaults and what to expect |
+| [moss/README.md](moss/README.md) | MOSS-Image LoRA — setup, GUI, CLI, defaults and what to expect |
 | [moss/structure.md](moss/structure.md) | The MOSS-Image model end to end — Qwen3.5 text pass, FLUX.2 latent boundary, single-stream DiT, training step and sampler |
-| [moss/i2i.md](moss/i2i.md) | i2i — tasks, reference flags, status (design + probes: [../project/moss_lora/done/i2i.md](../project/moss_lora/done/i2i.md)) |
+| [moss/i2i.md](moss/i2i.md) | i2i — tasks, reference flags, status (design + probes: [../project/finished/moss_lora/done/i2i.md](../project/finished/moss_lora/done/i2i.md)) |
 | [moss/channel_scaling.md](moss/channel_scaling.md) | Channel scaling + `dc_isolate` on MOSS (removed), and how the lr / alpha defaults got here |
 | [moss/dave.md](moss/dave.md) | DAVE on MOSS — same-prompt seed variety (`--dave auto`), ComfyUI node |
 | [moss/tone_loss.md](moss/tone_loss.md) | i2i tone term — keeps the input's brightness and colour outside the edit (`--tone_weight`), sanitize v3 |

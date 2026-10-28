@@ -10,7 +10,7 @@ against compiled arms). Latent names carry a digest of the LoRA (path + mtime),
 prompts, steps, cfg, size, compile, Spectrum (and CNS γ on cns arms), so a rerun
 resumes only what matches.
 
-    make daemon-run ARGS="project/moss_lora/src/lora_ab.py --lora output/ckpt_moss/x.safetensors"
+    make daemon-run ARGS="bench/moss_ab/lora_ab.py --lora output/ckpt_moss/x.safetensors"
 """
 
 import argparse
@@ -20,7 +20,7 @@ from pathlib import Path
 import torch
 from PIL import Image, ImageDraw
 
-from _render import (
+from bench.moss_ab._render import (
     decoded,
     load_dit,
     lora_id,

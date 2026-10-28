@@ -576,7 +576,7 @@ class TrainRequest(Request):
     tone_dirs: str = _f(
         "library/moss/calibration/tone_dirs.safetensors",
         "per-channel latent response to +1 Lab L / a / b "
-        "(project/moss_lora/src/tone_dirs.py); the term is then in Lab units "
+        "(project/finished/moss_lora/src/tone_dirs.py); the term is then in Lab units "
         "squared. '' = the raw 128 channels",
         advanced=True,
     )

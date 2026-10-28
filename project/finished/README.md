@@ -14,12 +14,13 @@ Each subdir is a digest home page (`README.md`): final verdicts with evidence
 pointers, shipped artifacts, and any small open remainder. It does not
 duplicate code or bench tables — canonical sources stay where they live.
 
-**Search.** Each CJK line carries a `.ignore` that hides its record material
+**Search.** Each CJK line and `moss_lora/` carry a `.ignore` that hides its record material
 (docs, reports, dead probes; `cjk_renderable_anima/`, `cjk_anima_scale/` and `ocr_reader/` whole) from ripgrep, so
 Grep / Glob / Explore stay on live code; the `archive-explorer` agent searches
 it (`rg --no-ignore-dot`). What stays visible is what code outside
-`finished/` reads or runs: `sr/`, `mod_guidance/` and `cjk_aware_anima/{assets,
-probes}/` (the reseed line's eval prompts, `bench/grad_init`'s `blind_pairs.py`). Live code (`library/`, `scripts/`,
+`finished/` reads or runs: `sr/`, `mod_guidance/`, `cjk_aware_anima/{assets,
+probes}/` (the reseed line's eval prompts, `bench/grad_init`'s `blind_pairs.py`) and
+`moss_lora/src/` (named in `library/moss` docstrings; its logs are hidden). Live code (`library/`, `scripts/`,
 `tests/`, `configs/`) reads nothing under `project/`; a line's own tests sit in
 its `tests/`. A new outside reference
 into a hidden path means narrowing that line's `.ignore`.
@@ -104,3 +105,11 @@ Finished lines:
   twins, Opus relabel + v4 self-labels) did not beat v4. Gates and code
   runnable by path (`ocr/`, `gate/`, `hito/`); gate images in the gitignored
   `eval_data/`. Digest: [`ocr_reader/README.md`](ocr_reader/README.md).
+- [`moss_lora/`](moss_lora/) — the MOSS-Image line (not Anima; `library/moss/CLAUDE.md`),
+  opened 2026-10-16, moved here 2026-10-28. Shipped: the port, Spectrum, LoRA training
+  (Muon + kaiming + EMA), DAVE, the INT8 TE (SmoothQuant + GPTQ), the GUI / ComfyUI
+  surface, colorize v4 and sanitize v3 (`sorryhyun/MOSS-I2I-LORAs`). Correction training
+  settled (CFG 1.5 + K 2 ≈ CFG 3 at 2× forwards); REPA and caption dropout parked in
+  `_archive/moss_lora/`. Its A/B grids and i2i evals moved to `bench/moss_ab/` and
+  `bench/moss_i2i_eval/`; the rest of `src/` is runnable by path. Open remainder: compile
+  P4 / P5, `ref_scale` in the LoRA metadata. Digest: [`moss_lora/README.md`](moss_lora/README.md).

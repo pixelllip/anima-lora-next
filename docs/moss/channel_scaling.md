@@ -71,7 +71,7 @@ column to 0.13–0.25× (≈ 1/s, s ≈ 3.7–4.8), and the loss curves match.
 
 ![lr 1e-4 twins on the four cells named above: no LoRA | α 0 | α 0.5](assets/channel_scaling_lr1e4_ab.webp)
 
-One seed per cell. Log and open items: `project/moss_lora/done/channel_scaling.md`.
+One seed per cell. Log and open items: `project/finished/moss_lora/done/channel_scaling.md`.
 
 ## Under Muon
 

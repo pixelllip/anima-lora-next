@@ -1,4 +1,4 @@
-"""The DC bias a MOSS LoRA learns, and an ablation that removes it (project/moss_lora/done/i2i_tone_loss.md).
+"""The DC bias a MOSS LoRA learns, and an ablation that removes it (project/finished/moss_lora/done/i2i_tone_loss.md).
 
 Per adapted linear, b = s·up·(down·x̄), with x̄ the calibrated signed token mean of
 its input (``library/moss/calibration/channel_mean.safetensors``): the shift every
@@ -6,7 +6,7 @@ token gets from the input's DC. Prints Σ‖b‖ per run and projection, its lev
 over a random input direction of the same norm, and the cosine of the stacked b
 between runs.
 
-    .venv/bin/python project/moss_lora/src/dc_bias.py \
+    .venv/bin/python project/finished/moss_lora/src/dc_bias.py \
         --runs 200p=output/ckpt_moss_i2i/moss_i2i_sanitize_200p.safetensors e6=…
 
 ``--ablate <lora> --out <file>`` writes the LoRA with x̄ projected out of ``down``

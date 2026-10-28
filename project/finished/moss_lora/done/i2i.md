@@ -3,7 +3,7 @@
 Status: settled 2026-10-25 — the design record and probes behind the shipped i2i surface
 (`GenerateRequest.ref_image`, `configs/moss/i2i/`; user doc `docs/moss/i2i.md`). Proposed
 2026-10-19, four probes measured. The colorize sub-line's kept run and OCR-caption arm:
-`project/moss_lora/colorize_ocr.md`; v3 recipe: `project/moss_lora/plan.md`.
+`project/finished/moss_lora/colorize_ocr.md`; v3 recipe: `project/finished/moss_lora/README.md`.
 
 ## Premise
 
@@ -27,7 +27,7 @@ image goes into the single-stream sequence on `r = 1`, and a plain LoRA learns t
 - **Files**: `library/moss/model.py` (`_RoPE.forward(ref_hw=)`, `embed_sample` /
   `forward` / `forward_batched(ref=)`), `generate.py` (`denoise(ref=)`), `cache.py` /
   `scan.py` (`*.moss_ref.safetensors`), `train.py`, `tune.py`; probe scripts
-  `project/moss_lora/src/colorize_{eval,wild,scale}.py` (`_render.py`); the cache and the
+  `bench/moss_i2i_eval/colorize_{eval,wild}.py` (`_render.py`); the cache and the
   vision-tower TE call shipped as `library/moss/colorize.py` / `vision_te.py`.
 
 ## Probe 1: EasyControl colorize, 1-hour budget

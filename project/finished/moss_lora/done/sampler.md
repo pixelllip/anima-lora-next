@@ -33,7 +33,7 @@ prompts overlap the eval prompts (different seeds).
 
 ## With the caststation LoRA
 
-`project/moss_lora/src/lora_ab.py --arms euler:0.0,euler:1.0,er_sde:1.0,cns:1.0`,
+`bench/moss_ab/lora_ab.py --arms euler:0.0,euler:1.0,er_sde:1.0,cns:1.0`,
 `caststation_r16` ×1.0, 30 steps, eager, 3 prompts × seeds 1–2; grids
 `output/moss/lora/ab_caststation_r16_30st/`. The style survives ER-SDE and renders are
 more finished (clean phone hands where Euler has a gloved claw), at some cost to the set's

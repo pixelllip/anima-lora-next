@@ -11,7 +11,7 @@ named by source path digest and size, the latents by a digest of the LoRA
 (path + mtime), those files, steps, cfg and sampler, so a rerun resumes only what
 matches.
 
-    make daemon-run ARGS="project/moss_lora/src/colorize_wild.py \
+    make daemon-run ARGS="bench/moss_i2i_eval/colorize_wild.py \
         --pages a.png b.webp --loras output/ckpt_moss_i2i/x.safetensors output/ckpt_moss_i2i/y.safetensors"
 """
 
@@ -23,7 +23,7 @@ import torch
 from PIL import Image
 from safetensors.torch import load_file, save_file
 
-from _render import (
+from bench.moss_ab._render import (
     decoded,
     grid,
     load_dit,

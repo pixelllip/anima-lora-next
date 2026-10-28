@@ -1,4 +1,4 @@
-# MOSS-Image LoRA (alpha)
+# MOSS-Image LoRA
 
 **Not Anima.** [MOSS-Image](https://huggingface.co/OpenMOSS-Team/MOSS-Image-Base)
 (OpenMOSS, Apache-2.0) is a 5B single-stream DiT on a frozen Qwen3.5-9B text encoder and
@@ -6,9 +6,9 @@ the FLUX.2 VAE. This repo trains LoRAs for it and samples it with Spectrum on a 
 card. It is a separate line (`library/moss/`): Anima configs, presets, `make lora`,
 caches and LoRAs do not apply to it, and a MOSS LoRA does not load on Anima.
 
-Status: **alpha**. The measurements below come from one style set (caststation, 30 images
-of one artist). Flags and defaults may still move. Step-by-step GUI walkthrough, field
-tables and troubleshooting: `docs/guidelines/moss-guidebook.md`.
+The measurements below come from one style set (caststation, 30 images of one artist).
+Step-by-step GUI walkthrough, field tables and troubleshooting:
+`docs/guidelines/moss-guidebook.md`.
 
 ## Quickstart
 
@@ -184,16 +184,17 @@ workflow: `docs/moss/i2i.md`.
 
 Advanced, not recommended: `--repa_weight` / `--repa_layer` / `--repa_pe_root` (relational
 REPA, parked, `_archive/moss_lora/repa.md`); `--ref_timestep` / `--ref_isolate` /
-`--caption_variant_rate` (set by the i2i recipes, `docs/moss/i2i.md`; probes in `project/moss_lora/done/i2i.md`).
+`--caption_variant_rate` (set by the i2i recipes, `docs/moss/i2i.md`; probes in `project/finished/moss_lora/done/i2i.md`).
 
 ## More
 
 - Channel scaling and `dc_isolate` (removed): `docs/moss/channel_scaling.md`. DAVE: `docs/moss/dave.md`. The i2i tone term: `docs/moss/tone_loss.md`.
 - Findings (attention sink, vision-tower reference, σ staircase, Spectrum schedule):
   `docs/moss/findings/`.
-- i2i design + probes: `project/moss_lora/done/i2i.md`. The Anima-negatives sweep is archived (`_archive/proposals/moss_anima_negatives_revisit.md`).
-- Run logs: `project/moss_lora/` (`plan.md`, open sub-lines, technical-report notes);
-  finished logs (sampler, channel scaling, DAVE, seed soup) in `project/moss_lora/done/`;
-  parked lines (caption dropout, REPA) in `_archive/moss_lora/`.
+- i2i design + probes: `project/finished/moss_lora/done/i2i.md`. The Anima-negatives sweep is archived (`_archive/proposals/moss_anima_negatives_revisit.md`).
+- Run logs: `project/finished/moss_lora/` (`README.md`, sub-line logs, technical-report notes);
+  settled logs (sampler, channel scaling, DAVE, seed soup) in `project/finished/moss_lora/done/`;
+  parked lines (caption dropout, REPA) in `_archive/moss_lora/`. LoRA / sampler A/B grids:
+  `bench/moss_ab/`; colorize and tone evals: `bench/moss_i2i_eval/`.
 - Architecture walkthrough (TE pass, latent boundary, blocks, loss, sampler):
   `docs/moss/structure.md`. Code map: `library/moss/CLAUDE.md`.

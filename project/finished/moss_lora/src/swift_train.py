@@ -15,7 +15,7 @@ sequence as the α 0 run with the same seed.
 ``<output>.swift.json`` logs per step σ, the loss against plain ``v`` and
 ``‖v − v_weak‖²`` (the extrapolation's size).
 
-    make daemon-run ARGS="--stall-timeout 900 project/moss_lora/src/swift_train.py \\
+    make daemon-run ARGS="--stall-timeout 900 project/finished/moss_lora/src/swift_train.py \\
         --guide output/ckpt_moss/<run>/<run>_e5.safetensors --alpha 0.4 \\
         --config configs/moss/lora.toml --cache 'post_image_dataset/moss/channel_(caststation)_layout' \\
         --epochs 20 --plain_caption_rate 0 --output output/ckpt_moss/<name>.safetensors"

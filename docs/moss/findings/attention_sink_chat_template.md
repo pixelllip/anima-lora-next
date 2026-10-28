@@ -50,7 +50,7 @@ seeds 1000–1003; read on steps 0 3 7 11 15 19 23 29.
   (up to 39×), suffix ~10×, `<|im_start|>` ~7×, caption ~5.5×. Only image-derived massive
   channels were left out, so part of the text-side ratio may be the text stream's own.
 - The massive channels themselves (1356, 42, …) are a near-constant offset on every image
-  token (DC 0.98–0.99 of the energy on blocks 0–18, `project/moss_lora/done/dave.md`), not a
+  token (DC 0.98–0.99 of the energy on blocks 0–18, `project/finished/moss_lora/done/dave.md`), not a
   few outlier tokens.
 
 ### What the template writes

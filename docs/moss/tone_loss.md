@@ -57,7 +57,7 @@ c &= P_k(e) \,/\, P_k(\mathbf{1}_R)
   down-weights high σ, where $`\hat{x}_0`$ is mostly a guess.
 - Pooling keeps it blind to texture: only each cell's mean colour counts.
 - `tone_dirs` is each Lab axis's per-channel response in the packed latent, measured by
-  encoding pages shifted in L, a and b (`project/moss_lora/src/tone_dirs.py`). With it the
+  encoding pages shifted in L, a and b (`project/finished/moss_lora/src/tone_dirs.py`). With it the
   term is ΔE² in Lab units.
 
 ## Why late and at 0.003
@@ -89,4 +89,4 @@ watermarks and handles all go, and non-text art (hearts, a halo's symbols) stays
 - One dark, high-contrast page (hard_to_sanitize2) still loses up to 1 L at one seed.
 
 Research log (measurements, the hypotheses ruled out — CNS, CFG, identity pairs, tone
-jitter, the small VAE decoder — and every arm): `project/moss_lora/done/i2i_tone_loss.md`.
+jitter, the small VAE decoder — and every arm): `project/finished/moss_lora/done/i2i_tone_loss.md`.

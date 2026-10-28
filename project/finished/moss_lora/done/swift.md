@@ -23,7 +23,7 @@ U-shaped in α); it has no fine-tuning, LoRA or text-to-image run.
   so σ / noise / caption order match the α 0 run.
 
 Result: loss against `v` within 0.003 of the paired rerun every epoch; renders on the
-two Space prompts (`space/`) inside run-to-run noise.
+two Space prompts (`bench/moss_ab/space/`) inside run-to-run noise.
 
 ## Second arm: α 0.8
 

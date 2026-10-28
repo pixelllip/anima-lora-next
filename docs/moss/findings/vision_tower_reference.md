@@ -16,8 +16,8 @@ MOSS ships no processor config. The probe uses Qwen3.5-9B's own
 that M-RoPE needs.
 
 The MOSS report has no reference-image conditioning or editing
-(`project/moss_lora/report_notes.md`). The DiT's RoPE has an `r` axis reserved for
-references, always 0 (`project/moss_lora/plan.md`). So nothing in training showed the DiT
+(`project/finished/moss_lora/report_notes.md`). The DiT's RoPE has an `r` axis reserved for
+references, always 0 (`project/finished/moss_lora/README.md`). So nothing in training showed the DiT
 an image-derived text stream.
 
 The TE call is the pipeline's (chat template, `add_generation_prompt`,
@@ -86,4 +86,4 @@ CFG 3, uncond `''` skipping block 22, seed 1. Captions are layout JSON. Arms:
 ## Follow-up (measured 2026-10-19)
 
 On colorize, a LoRA trained on these tokens alone reached luma r 0.42; adding a half-size
-VAE reference on `r = 1` reached 0.97 (`project/moss_lora/done/i2i.md`).
+VAE reference on `r = 1` reached 0.97 (`project/finished/moss_lora/done/i2i.md`).

@@ -120,9 +120,10 @@ e3 is clean, stopping earlier is a second fix to keep in mind.
   - A constant per-channel offset on x̂₀ over `R` gives exactly offset² at `tone_pool = 0`.
   - Errors inside the edit region contribute nothing.
   - Cells under half coverage are skipped.
-- Bench (CONTRIBUTING Tier 2): promote the tone script to `bench/moss_i2i_tone/run_bench.py`
-  on `bench/_common.py`. Input: a LoRA plus a page folder. Output: per-image ΔL / Δb /
-  sat× / ΔE on the shared-mask method, in the `result.json` envelope.
+- Bench (CONTRIBUTING Tier 2): promote the tone script to a bench on `bench/_common.py`.
+  Input: a LoRA plus a page folder. Output: per-image ΔL / Δb / sat× / ΔE on the
+  shared-mask method, in the `result.json` envelope. (It moved as is, without the
+  envelope, to `bench/moss_i2i_eval/tone_map.py`.)
 
 **Phase 2: arms (e6 recipe, 280 pairs, Muon, local `blocks_to_swap 28` or a pod)**
 Micro arms first, `max_steps 560` (2 epochs), compared with an equal-step control:
@@ -147,7 +148,7 @@ term starts at about 10 % of `L_mse`. Extend the winner to 6 epochs.
 ## Results (2026-10-25)
 
 Renders as in [Measurements](#measurements), mean over the five pages (scripts:
-`project/moss_lora/src/tone_map.py`; the DC-bias analysis and ablation that were here are
+`bench/moss_i2i_eval/tone_map.py`; the DC-bias analysis and ablation that were here are
 in git history):
 
 | run | recipe | ΔL | Δb | sat× | max \|ΔL\| |
@@ -171,7 +172,7 @@ in git history):
 - **Muon + EMA on i2i**: the transfer evidence is colorize, not sanitize. Hub v4 (Muon,
   kaiming, `ema_window 0.1`) beat the AdamW v3 on the 12-page holdout (chroma err 13.3 →
   11.2), with the TE (fp8 → int8) and steps (8k → 10k) also changed
-  (`project/moss_lora/plan.md` § colorize). On sanitize, one run's EMA filled
+  (`project/finished/moss_lora/README.md` § colorize). On sanitize, one run's EMA filled
   hard_to_sanitize2's red box cleaner than its raw weights, by eye.
 - **CNS and CFG are not the cause (2026-10-26, settled — do not re-raise).**
   `moss_i2i_sanitize_w0002_ema_e6` (Muon lr 5e-5, 6 ep, `tone_weight 0.002`,
@@ -268,7 +269,7 @@ in git history):
   Δa ≈ +0.3 is in 200p too, so it is not the LoRA's.
 - **The b error is in the single-step x̂₀, on training pairs too (2026-10-27).**
   `tone_probe.py` (job `20261027-122703-f762ce`, 24 pairs of the identity tree + the five
-  pages; `project/moss_lora/space/tone_probe_idt_w0005.json`, untracked), decoded x̂₀ vs
+  pages; `project/finished/moss_lora/space/tone_probe_idt_w0005.json`, untracked), decoded x̂₀ vs
   x₀ on the rest pixels, Δb at σ 0.1 / 0.3:
 
   | LoRA | training pairs | held-out pages | render Δb |

@@ -9,7 +9,7 @@ OCR captions run up to ~2.2k text rows, so training starts on the worst case
 ``--ref_isolate`` / ``--holdout_json`` / ``--train_json`` reach the cache and trainer; ``--ocr_from``
 copies another cache's ``ocr.json`` in first so the captions match its reads.
 
-    make daemon-run ARGS="--queue --stall-timeout 1800 project/moss_lora/src/colorize_run.py --name <name>"
+    make daemon-run ARGS="--queue --stall-timeout 1800 bench/moss_i2i_eval/colorize_run.py --name <name>"
 """
 
 import argparse
@@ -20,7 +20,7 @@ import sys
 from library.env import resolve_under_home
 from library.moss.requests import ColorizeCacheRequest, TrainRequest
 
-SRC = "project/moss_lora/src"
+SRC = "bench/moss_i2i_eval"
 
 
 def run(argv):

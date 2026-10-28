@@ -10,7 +10,7 @@ category: rel L2 over all rows, over the image-token rows and over the text rows
 (``space<folder>``), left out of ``all``. An arm whose embeds file exists encodes
 only the entries missing from it.
 
-    make daemon-run ARGS="project/moss_lora/src/te_calib_eval.py \
+    make daemon-run ARGS="project/finished/moss_lora/src/te_calib_eval.py \
         --fp8 rtn=models/moss_image/fp8/qwen35_9b_fp8_e4m3fn.safetensors \
         --fp8 v2=models/moss_image/fp8_gptq_v2/qwen35_9b_fp8_e4m3fn_gptq.safetensors"
 """

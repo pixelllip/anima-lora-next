@@ -4,11 +4,19 @@
 DiT, frozen Qwen3.5-9B TE, frozen FLUX.2 VAE (`OpenMOSS-Team/MOSS-Image-Base`, `-SFT`).
 Code map `library/moss/CLAUDE.md`; user doc `docs/moss/README.md`.
 
-## Active
+**Finished 2026-10-28** (opened 2026-10-16): the port, Spectrum, LoRA training, channel
+scaling (later removed), DAVE, the GUI / ComfyUI surface, the INT8 TE, colorize v4 and
+sanitize v3 all shipped. The A/B and eval scripts later work reuses moved to `bench/moss_ab/`
+(LoRA / sampler grids, the Space prompts) and `bench/moss_i2i_eval/` (colorize eval, tone
+drift); `src/` keeps the line's own probes and trainers, runnable by path. Open remainder:
+compile P4 / P5 (`compile.md`), stamping `ref_scale` in the LoRA metadata (§ Deploy 2), and
+the open questions at the end.
+
+## Sub-lines
 
 | Sub-line | State | Log / code |
 |---|---|---|
-| i2i / colorize (VAE reference on RoPE `r`) | v3 recipe shipped on the Hub as `moss_colorize_3k_v4` (§ below); the in-repo configs still carry v2's | `done/i2i.md`, `colorize_ocr.md`, `src/colorize_*.py` |
+| i2i / colorize (VAE reference on RoPE `r`) | v3 recipe shipped on the Hub as `moss_colorize_3k_v4` (§ below) and in the configs | `done/i2i.md`, `colorize_ocr.md`, `bench/moss_i2i_eval/colorize_*.py` |
 | Correction training (arXiv 2610.14136), dual LoRA | joint D + C holds to K 8; CFG 1.5 + K 2 ≈ CFG 3 at 2× forwards (one seed) | `correction.md`, `src/correction*.py` |
 | TE quantization | INT8 W8A8 (SmoothQuant + act-aware GPTQ) is the default TE | `src/te_*.py`; comparison runs + drivers in `_archive/bench/moss_te_fp8/` |
 | Technical-report digest | reference | `report_notes.md` |
@@ -130,13 +138,14 @@ template-mask code is on `moss-template-mask` in the private `preserve` mirror.
 
 | Script | Role |
 |---|---|
-| `_render.py` | shared render loop (DiT + LoRA + compile, ER-SDE + Spectrum, latent cache, grid) |
-| `lora_ab.py`, `ab_cols.py` | LoRA A/B grids; one sheet per cell |
-| `colorize_{eval,run,wild}.py` | colorize pipeline: `scripts/moss/colorize_cache.py` → `scripts/moss/train.py` → eval, chained by `colorize_run.py`; `wild` for real pages (the cache and `vision_te.py` shipped to `library/moss/`) |
 | `correction.py`, `correction_train.py`, `correction_ab.py` | corrector LoRA, its trainer, CFG × K grids |
 | `te_gptq.py`, `te_calib.py`, `te_calib_eval.py` | calibrated TE rounding (fp8 / INT8), its calibration manifest, per-category eval |
+| `swift_train.py` | SWIFT target extrapolation (`done/swift.md`) |
+| `tone_probe.py`, `tone_dirs.py`, `dc_bias.py` | the i2i tone probes (`done/i2i_tone_loss.md`); `tone_dirs.py` built `library/moss/calibration/tone_dirs.safetensors` |
 
-`space/`: the two Space prompts every A/B renders.
+Moved to `bench/`: `_render.py`, `lora_ab.py`, `ab_cols.py`, `schedule_ab.py` and the Space
+prompts (`space/004`, `017`) → `bench/moss_ab/`; `colorize_{eval,run,wild}.py`,
+`tone_map.py` → `bench/moss_i2i_eval/`. `space/` here keeps the untracked tone probe outputs.
 
 ## Open questions
 

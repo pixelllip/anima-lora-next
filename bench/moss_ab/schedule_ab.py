@@ -13,7 +13,7 @@ runs. ComfyUI's ``normal`` is the pipeline grid before the snap, so
 ``--ref`` adds a fine-grid Euler solve per prompt (``snap:p200`` by default);
 each arm's latent rel-L2 to it is printed and written to ``result.json``.
 
-    make daemon-run ARGS="--stall-timeout 900 project/moss_lora/src/schedule_ab.py"
+    make daemon-run ARGS="--stall-timeout 900 bench/moss_ab/schedule_ab.py"
 """
 
 import argparse
@@ -22,7 +22,7 @@ import json
 import torch
 from safetensors.torch import load_file
 
-from _render import decoded, grid, render, save_latent, settings_tag, uncond_embeds
+from bench.moss_ab._render import decoded, grid, render, save_latent, settings_tag, uncond_embeds
 from bench._moss import PROMPTS
 from library.env import resolve_under_home
 from library.moss.loader import compile_blocks, empty_cache, load_transformer, load_vae

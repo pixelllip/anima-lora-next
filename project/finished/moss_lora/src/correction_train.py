@@ -25,7 +25,7 @@ the swapped blocks back, so the swapper sees two ordinary steps. D is saved as
 
 ``<output>.corr.json`` logs D's loss, the corrected loss and ``γ`` per step.
 
-    make daemon-run ARGS="project/moss_lora/src/correction_train.py \\
+    make daemon-run ARGS="project/finished/moss_lora/src/correction_train.py \\
         --joint --corr_sigma 0.15 \\
         --config configs/moss/lora.toml --cache 'post_image_dataset/moss/channel_(caststation)_layout' \\
         --epochs 20 --output output/ckpt_moss/<name>.safetensors"

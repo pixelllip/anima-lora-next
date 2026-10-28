@@ -20,7 +20,7 @@ CbCr distance to the target at 1/8 size). Latent names carry a digest of the LoR
 matches. Base-arm latents live under ``output/tests/colorize_base/<cache>/``,
 shared by every LoRA evaluated on that cache.
 
-    make daemon-run ARGS="project/moss_lora/src/colorize_eval.py --lora output/ckpt_moss_i2i/<name>.safetensors --cache post_image_dataset/moss/<name>"
+    make daemon-run ARGS="bench/moss_i2i_eval/colorize_eval.py --lora output/ckpt_moss_i2i/<name>.safetensors --cache post_image_dataset/moss/<name>"
 """
 
 import argparse
@@ -32,8 +32,8 @@ from PIL import Image
 from safetensors import safe_open
 from safetensors.torch import load_file
 
-from colorize_wild import chroma, luma_r
-from _render import (
+from bench.moss_i2i_eval.colorize_wild import chroma, luma_r
+from bench.moss_ab._render import (
     decoded,
     grid,
     load_dit,

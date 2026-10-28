@@ -316,7 +316,7 @@ def _moss_rows() -> tuple[Asset, ...]:
             notes="~9.2 GB. Decoder linears INT8 ConvRot (Hadamard-rotated, per-row "
             "scale; SmoothQuant 0.5 + activation-aware GPTQ), int8 activations; "
             "embedding rel. L2 ~0.10 vs bf16 on the calibration eval split, as fp8 "
-            "(project/moss_lora/src/te_calib_eval.py), ~1.7x fp8's encode speed.",
+            "(project/finished/moss_lora/src/te_calib_eval.py), ~1.7x fp8's encode speed.",
         ),
         Asset(
             id="moss_te_fp8",

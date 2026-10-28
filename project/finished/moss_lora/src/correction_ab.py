@@ -9,7 +9,7 @@ skip 22, no Spectrum (its forecast has no corrected counterpart). Prompts are
 ``lora_ab.py``'s; latents are cached under a digest of both LoRAs, prompts and
 sampler settings.
 
-    make daemon-run ARGS="project/moss_lora/src/correction_ab.py \\
+    make daemon-run ARGS="project/finished/moss_lora/src/correction_ab.py \\
         --denoiser output/ckpt_moss/<floor>.safetensors \\
         --corrector output/ckpt_moss/<corrector>.safetensors"
 """
@@ -18,9 +18,9 @@ import argparse
 
 import torch
 
-from _render import decoded, grid, lora_id, save_latent, settings_tag, uncond_embeds
+from bench.moss_ab._render import decoded, grid, lora_id, save_latent, settings_tag, uncond_embeds
 from correction import CorrectorLoRA, corrected_velocity
-from lora_ab import PROMPTS
+from bench.moss_ab.lora_ab import PROMPTS
 from library.env import resolve_under_home
 from library.inference.sampling import ERSDESampler
 from library.moss.cache import caption_converter

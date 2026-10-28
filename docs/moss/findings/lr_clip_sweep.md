@@ -12,9 +12,9 @@ apart from the three knobs below. `max_grad_norm = 1e9` is "no clip". With `grad
 the sample count stays 600 and the optimizer takes 600 / `grad_accum` updates (warmup
 counts updates).
 
-Each LoRA was sampled by `project/moss_lora/src/lora_ab.py --arms er_sde:1.0` (3 prompts
+Each LoRA was sampled by `bench/moss_ab/lora_ab.py --arms er_sde:1.0` (3 prompts
 × seeds 1, 2 × Base and SFT, 50 steps, CFG 3) and laid side by side with
-`project/moss_lora/src/ab_cols.py`.
+`bench/moss_ab/ab_cols.py`.
 
 | column | run | lr | max_grad_norm | grad_accum | updates |
 |---|---|---|---|---|---|

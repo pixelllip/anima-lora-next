@@ -9,7 +9,7 @@ tower keep their checkpoint dtype. Key names are the HF checkpoint's (``language
 ``visual.*``), which ``MOSSImageCLIPLoader`` reads as-is.
 
 The published file is GPTQ-rounded on the same grid and scale (``quantized=``,
-from ``project/moss_lora/src/te_gptq.py``).
+from ``project/finished/moss_lora/src/te_gptq.py``).
 
 ``load_fp8_text_encoder`` reads that file back into the HF ``Qwen3_5Model``: the
 quantized linears become :class:`FP8Linear` (fp8 resident, dequantised to bf16 per

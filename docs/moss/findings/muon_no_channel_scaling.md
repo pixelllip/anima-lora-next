@@ -79,6 +79,6 @@ on the t2i forward and never re-taken with reference tokens present (i2i).
   series.
 - The same pair on an i2i cache. The i2i LoRAs shipped so far trained with the older
   default (`weight_svd`, α 0.5, `dc_isolate` on); the 1-hour colorize arm
-  (`project/moss_lora/plan.md`, v3 basis) is the place to read Muon / kaiming / α 0 against
+  (`project/finished/moss_lora/README.md`, v3 basis) is the place to read Muon / kaiming / α 0 against
   luma r, chroma error and per-glyph lettering.
 - Muon at lr 1e-4 without scaling (the lr where plain AdamW LoRAs went off-prompt).

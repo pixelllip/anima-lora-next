@@ -33,7 +33,7 @@ counted by the processor at ``width × height`` (``cache.target_size`` of the
 source at 1024, the size the page is fitted to), checked against the colorize
 cache's own ``n_text``. CPU only: the tokenizer and the processor, no weights.
 
-    .venv/bin/python project/moss_lora/src/te_calib.py
+    .venv/bin/python project/finished/moss_lora/src/te_calib.py
 """
 
 from __future__ import annotations

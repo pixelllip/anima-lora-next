@@ -98,8 +98,9 @@ Invariants that bite:
   moves every `.weight` under a block); `networks/` is bound to Anima module names.
 - Decode with the DiT off the card — the fp32 VAE decode at ~2 MP does not fit beside it.
 
-Research log: `project/moss_lora/plan.md` (settled logs in `done/`, parked ones in
-`_archive/moss_lora/`); findings: `docs/moss/findings/`. ComfyUI: the MOSS Toolkit and
+Research log (finished 2026-10-28): `project/finished/moss_lora/README.md` (settled logs in
+`done/`, parked ones in `_archive/moss_lora/`); A/B and i2i eval scripts: `bench/moss_ab/`,
+`bench/moss_i2i_eval/`; findings: `docs/moss/findings/`. ComfyUI: the MOSS Toolkit and
 the Spectrum pack's **KSampler (Spectrum for MOSS)** (`custom-nodes` skill).
 
 ## Shared infrastructure

@@ -46,7 +46,7 @@ per token):
   (``int8.Int8ConvRotLinear``). The log's ``rtn`` / ``gptq`` errors are then the
   W8A8 output error ``‖X̃Qᵀ − X_r W_rᵀ‖² / ‖X_r W_rᵀ‖²``.
 
-    make daemon-run ARGS="--stall-timeout 1800 project/moss_lora/src/te_gptq.py"
+    make daemon-run ARGS="--stall-timeout 1800 project/finished/moss_lora/src/te_gptq.py"
 """
 
 from __future__ import annotations

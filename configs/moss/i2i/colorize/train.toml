@@ -1,6 +1,6 @@
 # MOSS i2i training for the colorize task — TrainRequest fields; the v4 recipe
 # (moss_colorize_3k_textref1_iso_muon_ema: muon, kaiming, ema_window 0.1 are the
-# TrainRequest defaults; project/moss_lora/plan.md).
+# TrainRequest defaults; project/finished/moss_lora/README.md).
 #
 #   make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --config configs/moss/i2i/colorize/train.toml"
 

@@ -5,7 +5,7 @@ side-by-side columns: `output/tests/ab_caststation_dc_isolate/cols/` (none / ada
 muon_noDC). Basis: arXiv 2605.10468 (Qu, Huang, Horvath, ICML 2026). Its claim is that
 fine-tuning with a different optimizer from the one used in pretraining disrupts pretrained
 knowledge, and LoRA mitigates it. On their Muon-pretrained model, LoRA-Muon beat LoRA-Adam.
-MOSS was pretrained with Muon–AdamW (`project/moss_lora/report_notes.md`).
+MOSS was pretrained with Muon–AdamW (`project/finished/moss_lora/report_notes.md`).
 
 ## Setting
 
