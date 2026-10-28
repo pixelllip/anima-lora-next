@@ -533,6 +533,28 @@ class OvisReader:
         ).strip()
 
 
+class Ovis3Reader(OvisReader):
+    """`ATH-MaaS/OvisOCR3` (@ 4833d5d; same ``qwen3_5`` 0.8B body as OvisOCR2,
+    no MTP layer). Unlike OvisOCR2 it ships task prompts under ``prompts/``;
+    a crop is read with ``plain_ocr`` (the card's general-OCR prompt, stripped
+    as its ``general_ocr_prompt`` does). ``ANIMA_OVIS_TASK`` picks another
+    prompt file (``document_markdown`` = OvisOCR2's page parse). Decode as
+    the card: greedy, thinking off, 448² / 2880² pixels; the repo now ships
+    a ``generation_config.json`` whose eos pair is the one :attr:`eos` sets.
+    """
+
+    name = "ovis3"
+    DEFAULT = "models/ovis_ocr3"
+
+    def __init__(self, ckpt: str | None, device: str):
+        import os
+
+        super().__init__(ckpt, device)
+        task = os.environ.get("ANIMA_OVIS_TASK", "plain_ocr")
+        path = Path(ckpt or m109.REPO / self.DEFAULT) / "prompts" / f"{task}.txt"
+        self.prompt = path.read_text(encoding="utf-8").strip()
+
+
 READERS = {
     "manga_ocr": MangaOcrReader,
     "ppocr": PpocrReader,
@@ -541,6 +563,7 @@ READERS = {
     "hayai": HayaiReader,
     "hunyuan": HunyuanReader,
     "ovis": OvisReader,
+    "ovis3": Ovis3Reader,
 }
 
 
