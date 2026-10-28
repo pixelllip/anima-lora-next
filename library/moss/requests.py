@@ -408,6 +408,18 @@ class TrainRequest(Request):
         "at rank 32), = rank for lokr / loha. lokr ignores it "
         "when the rank reaches half the larger factor's side and both factors are full",
     )
+    mod_rank: int = _f(
+        0,
+        "> 0: also adapt shared_block_modulation (the timestep's shift / scale / gate, "
+        "one Linear shared by all 42 blocks) at this rank, Anima's adaln_rank. 0 = off",
+        advanced=True,
+    )
+    mod_alpha: float | None = _f(
+        None,
+        "alpha of the mod_rank adapter. Default alpha · sqrt(mod_rank / rank), "
+        "Anima's adaln √r law (90.5 at rank 32 / alpha 128 / mod_rank 16)",
+        advanced=True,
+    )
     factor: int = _f(
         -1,
         "lokr only: cap on the small Kronecker factor's side (-1 = near-square "

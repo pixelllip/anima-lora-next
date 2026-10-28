@@ -612,10 +612,19 @@ def train(
     transformer.requires_grad_(False)
     transformer.ref_timestep = req.ref_timestep if req.ref_timestep >= 0 else None
     transformer.ref_isolate = req.ref_isolate
+    alpha = req.alpha if req.alpha is not None or req.algo != "lora" else LORA_ALPHA
+    rank_pattern = None
+    if req.mod_rank:
+        if req.algo != "lora":
+            raise SystemExit(f"mod_rank is lora only, not {req.algo}")
+        mod_alpha = req.mod_alpha
+        if mod_alpha is None:
+            mod_alpha = alpha * math.sqrt(req.mod_rank / req.rank)
+        rank_pattern = {"shared_block_modulation": (req.mod_rank, mod_alpha)}
     network = LoRANetwork(
         transformer,
         rank=req.rank,
-        alpha=req.alpha if req.alpha is not None or req.algo != "lora" else LORA_ALPHA,
+        alpha=alpha,
         targets=req.targets,
         dtype=torch.float32,
         down_init=req.down_init,
@@ -630,6 +639,7 @@ def train(
         svd_slice=req.svd_slice,
         svd_slice_count=req.svd_slice_count,
         svd_drop_loud=req.svd_drop_loud,
+        rank_pattern=rank_pattern,
     )
     patched = network.apply_to()
     network.to(device)
@@ -649,6 +659,8 @@ def train(
         "lokr": f"factor {req.factor}",
         "loha": "hadamard",
     }[req.algo]
+    for pat, (r, a) in network.rank_pattern.items():
+        detail += f"; {pat} rank {r} alpha {a:g}"
     print(
         f"{req.algo}: rank {req.rank} alpha {network.alpha} ({detail}) on {patched} linears, "
         f"{network.num_parameters / 1e6:.1f}M params (fp32 masters, saved {req.lora_dtype})",

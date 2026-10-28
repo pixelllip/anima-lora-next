@@ -18,6 +18,8 @@ rank = 32
 # alpha = 128.0                # unset: 128 for lora, = rank for lokr / loha
 # factor = -1                  # lokr only
 down_init = "kaiming"          # lora only: kaiming | weight_svd | weight_svd_nodc (docs/moss/findings/muon_channel_init.md)
+# mod_rank = 16                # opt-in: also adapt shared_block_modulation (timestep shift/scale/gate, shared by all 42 blocks); lora only
+# mod_alpha = 90.5             # unset: alpha · sqrt(mod_rank / rank)
 # svd_slice = 0                # weight_svd only: window [k·r, (k+1)·r) of W0's basis
 # svd_slice_count = 0          # > 0: interleaved slices {k, k+N, …}
 optimizer = "muon"             # muon | adamw (lokr / loha always adamw); docs/moss/findings/muon_lora.md

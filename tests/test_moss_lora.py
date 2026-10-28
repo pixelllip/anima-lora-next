@@ -92,6 +92,38 @@ def test_save_load_round_trip(tmp_path):
         load_network(_tiny(layers=4), path)
 
 
+def test_rank_pattern_adds_modulation_and_round_trips(tmp_path):
+    model = _tiny()
+    torch.manual_seed(3)
+    plain = LoRANetwork(model, rank=4, alpha=8.0)
+    after_plain = torch.rand(1)
+    torch.manual_seed(3)
+    net = LoRANetwork(
+        model, rank=4, alpha=8.0, rank_pattern={"shared_block_modulation": (2, 3.0)}
+    )
+    # the extra adapter is built under a forked RNG: same block init, same stream after
+    assert torch.equal(torch.rand(1), after_plain)
+    for key, adapter in plain.adapters.items():
+        assert torch.equal(net.adapters[key].down.weight, adapter.down.weight)
+    mod = net.adapters["shared_block_modulation"]
+    assert mod.down.weight.shape == (2, 96) and mod.scale == 1.5
+    assert len(net.target_names) == len(plain.target_names) + 1
+
+    x, e = _inputs()
+    for adapter in net.adapters.values():
+        torch.nn.init.normal_(adapter.up.weight, std=0.1)
+    net.apply_to()
+    want = _out(model, x, e)
+    net.restore()
+    path = tmp_path / "mod.safetensors"
+    net.save(path, "fp32")
+    fresh = _tiny()
+    loaded, meta = load_network(fresh, path)
+    assert loaded.rank_pattern == {"shared_block_modulation": (2, 3.0)}
+    loaded.apply_to()
+    assert torch.allclose(_out(fresh, x, e), want, atol=1e-6)
+
+
 def test_saved_keys_match_comfy_lora_map(tmp_path):
     # ComfyUI's model_lora_keys_unet maps lora_unet_<weight key, dots → _>;
     # the loader then reads .lora_down/.lora_up/.alpha under it.

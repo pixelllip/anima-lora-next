@@ -111,6 +111,16 @@ int8 became the default re-encodes on the next `cache` run unless it passes
   `--blocks_to_swap 24` or more at 1024² (swap 12 / budget 0.15 ran out of memory); `tune_swap.py` measures a LoRA only.
   `--down_init` applies to `lora` only. At lr 1e-4, LoKr f8 came close to the LoRA and LoHa
   r16 overshot (palette shift, costume leakage); LoHa at lr 5e-5 is unmeasured.
+- **`--mod_rank`** (opt-in, 0 = off; `lora` only): also adapts `shared_block_modulation`,
+  the one timestep → shift / scale / gate Linear all 42 blocks share, at its own rank
+  (`--mod_alpha`, default `alpha · √(mod_rank / rank)`, Anima's adaln √r law). The
+  block adapters' init and the training noise stay those of the same run without it.
+  Stamped as `rank_pattern` in the file. On caststation (240 updates) and ama_mitsuki
+  (848) at r16 the loss matched the run without it; the modulation moved < 1.2 % (shift
+  only), and on ama_mitsuki its shift flips sign between low and high σ. Images differ
+  mostly on prompts far from the set. ComfyUI's LoRA loader patches it like the block
+  adapters (`lora_unet_shared_block_modulation`; checked against the `moss-image` node's
+  HF loader).
 - **Checkpoints**: `--save_every_epochs N` also saves `<name>/<name>_eN.safetensors`
   beside the final file (the last epoch is the final file). A `.json` run report
   (per-step loss) lands beside the LoRA.

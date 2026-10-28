@@ -39,10 +39,17 @@ LyCORIS's key names (``lokr_w1``, ``hada_w1_a``, …, plus an ``alpha`` buffer).
 LoKr applies in bypass (grouped GEMMs on the tokens; ΔW is never built). LoHa
 rebuilds ΔW each forward and runs one GEMM against ``W + ΔW``, LyCORIS's own
 LoHa path, so the delta is rounded to the base weight's bf16 grid in the forward.
+
+``rank_pattern`` (``{regex: (rank, alpha)}``) adds the linears each regex fullmatches,
+at their own rank and alpha (MOSS's ``mod_rank``: ``shared_block_modulation``). They
+are built after the ``targets`` pass under a forked RNG, so the ``targets`` adapters'
+init and the training noise drawn after it match a run without them. Stamped as JSON
+(``rank_pattern``) and read back by ``from_file``.
 """
 
 from __future__ import annotations
 
+import json
 import math
 import re
 from typing import ClassVar
@@ -271,6 +278,7 @@ class LoRANetwork(nn.Module):
         svd_slice: int = 0,
         svd_slice_count: int = 0,
         svd_drop_loud: int = 0,
+        rank_pattern: dict[str, tuple[int, float]] | None = None,
     ):
         super().__init__()
         if down_init not in DOWN_INITS:
@@ -314,42 +322,65 @@ class LoRANetwork(nn.Module):
         self.svd_slice = int(svd_slice)
         self.svd_slice_count = int(svd_slice_count)
         self.svd_drop_loud = int(svd_drop_loud)
+        self.rank_pattern = {
+            p: (int(r), float(a)) for p, (r, a) in (rank_pattern or {}).items()
+        }
+        extra = [(re.compile(p), r, a) for p, (r, a) in self.rank_pattern.items()]
         self.num_blocks = self._num_blocks(model)
         self.adapters = nn.ModuleDict()
         self._targets: list[tuple[str, nn.Linear]] = []
-        for name, module in model.named_modules():
-            if not isinstance(module, nn.Linear) or not pattern.fullmatch(name):
+        linears = [
+            (name, module)
+            for name, module in model.named_modules()
+            if isinstance(module, nn.Linear)
+        ]
+        for name, module in linears:
+            if not pattern.fullmatch(name) or any(
+                p.fullmatch(name) for p, _, _ in extra
+            ):
                 continue
-            if algo == "lokr":
-                adapter = LoKrAdapter(module, rank, self.alpha, factor, dtype)
-            elif algo == "loha":
-                adapter = LoHaAdapter(module, rank, self.alpha, dtype)
-            else:
-                adapter = LoRAAdapter(
-                    module.in_features, module.out_features, rank, self.alpha, dtype
-                )
-                if down_init == "weight_svd_nodc" and name not in channel_mean:
-                    raise ValueError(f"no channel mean for {name}")
-                if self.svd_drop_loud and name not in channel_stats:
-                    raise ValueError(f"no channel stats for {name}")
-                if down_init in _SVD_INITS:
-                    adapter.init_down_weight_svd(
-                        module,
-                        self.svd_slice,
-                        self.svd_slice_count,
-                        drop=_drop_directions(
-                            channel_mean[name]
-                            if down_init == "weight_svd_nodc"
-                            else None,
-                            channel_stats[name] if self.svd_drop_loud else None,
-                            self.svd_drop_loud,
-                        ),
-                    )
-            self.adapters[name.replace(".", "_")] = adapter
-            self._targets.append((name, module))
+            self._add(
+                name, module, rank, self.alpha, dtype, channel_stats, channel_mean
+            )
+        with torch.random.fork_rng(devices=[]):
+            for name, module in linears:
+                for p, r, a in extra:
+                    if p.fullmatch(name):
+                        self._add(
+                            name, module, r, a, dtype, channel_stats, channel_mean
+                        )
+                        break
         if not self._targets:
             raise ValueError(f"no nn.Linear matched {targets!r}")
         self._applied = False
+
+    def _add(self, name, module, rank, alpha, dtype, channel_stats, channel_mean):
+        algo, down_init = self.algo, self.down_init
+        if algo == "lokr":
+            adapter = LoKrAdapter(module, rank, alpha, self.factor, dtype)
+        elif algo == "loha":
+            adapter = LoHaAdapter(module, rank, alpha, dtype)
+        else:
+            adapter = LoRAAdapter(
+                module.in_features, module.out_features, rank, alpha, dtype
+            )
+            if down_init == "weight_svd_nodc" and name not in channel_mean:
+                raise ValueError(f"no channel mean for {name}")
+            if self.svd_drop_loud and name not in channel_stats:
+                raise ValueError(f"no channel stats for {name}")
+            if down_init in _SVD_INITS:
+                adapter.init_down_weight_svd(
+                    module,
+                    self.svd_slice,
+                    self.svd_slice_count,
+                    drop=_drop_directions(
+                        channel_mean[name] if down_init == "weight_svd_nodc" else None,
+                        channel_stats[name] if self.svd_drop_loud else None,
+                        self.svd_drop_loud,
+                    ),
+                )
+        self.adapters[name.replace(".", "_")] = adapter
+        self._targets.append((name, module))
 
     @classmethod
     def _num_blocks(cls, model: nn.Module) -> int | None:
@@ -395,6 +426,10 @@ class LoRANetwork(nn.Module):
             "alpha": str(self.alpha),
             "targets": self.targets,
         }
+        if self.rank_pattern:
+            meta["rank_pattern"] = json.dumps(
+                {p: [r, a] for p, (r, a) in self.rank_pattern.items()}
+            )
         if self.num_blocks is not None:
             # A LoRA is depth-specific: module names carry the block index.
             meta["ss_num_blocks"] = str(self.num_blocks)
@@ -457,6 +492,7 @@ class LoRANetwork(nn.Module):
             dtype=dtype or SAVED_DTYPES.get(meta.get("lora_dtype", ""), torch.float32),
             algo=meta.get("algo", "lora"),
             factor=int(meta.get("factor", -1)),
+            rank_pattern=json.loads(meta.get("rank_pattern", "{}")),
         )
         network.load_state_dict(_state_from_file(state, network.algo))
         return network, meta
