@@ -109,3 +109,15 @@ the corner watermark is removed at seed 42 (CFG 3 and 4), half removed at 44 (th
 the handle erased), kept at 0, 1, 2 and 43 (at 0 redrawn with wrong glyphs). CFG 3 vs 4
 changes nothing at 42–44. Seed 42 is `GenerateRequest`'s default and the seed of the v3
 tone evals, which is why the page read as always cleaned.
+
+## Runs 20261029-1040-sanitize_q1_base, 20261029-1110-sanitize_q1_mod16 (quarter-data A/B, ~28 min each)
+
+`moss_i2i_sanitize_q1_e4{,_mod16}`: the v3 recipe on 69 of the 277 pairs for 276 steps, the
+second with `mod_rank 16`. Held-out pages: each arm's own s42 renders
+(`output/tests/moss_i2i_sanitize/ab_q1_mod16/<arm>/s42`, `usual_case1` kept: cleaned at
+s42); training pairs drawn from the q1 subset (`--cache_dir
+post_image_dataset/moss/i2i_sanitize_idt_q1`); 21 pages each. Adapters outside the blocks
+(`mod_rank`'s `shared_block_modulation`) stay on in every block range and get their own
+`mod` condition (only them off). Tables and reading: `docs/moss/findings/mod_rank_i2i.md`
+§ Sanitize. The first mod16 attempt died at page 13 on an Xid 8 (driver watchdog, the card
+drives the display) and was rerun unchanged.

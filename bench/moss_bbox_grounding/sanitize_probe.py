@@ -245,9 +245,15 @@ def main() -> None:
         f"{transformer.ref_isolate}; {len(pages)} pages",
         flush=True,
     )
+    # Adapters outside the blocks (mod_rank's shared_block_modulation) go under -1:
+    # on in every block range, off in their own "mod" condition.
+    ranges = dict(RANGES)
     by_block = {}
     for name, adapter in network.adapters.items():
-        by_block.setdefault(int(name.split("_")[1]), []).append(adapter)
+        b = int(name.split("_")[1]) if name.startswith("layers_") else -1
+        by_block.setdefault(b, []).append(adapter)
+    if -1 in by_block:
+        ranges["mod"] = [-1]
 
     def lora_off(blocks):
         for b, ads in by_block.items():
@@ -278,7 +284,7 @@ def main() -> None:
     transformer.layer_hook = probe
 
     P, Z = len(pages), len(sigmas)
-    conds = ["lora", "base", *RANGES]
+    conds = ["lora", "base", *ranges]
     loss = np.full((P, Z, len(conds), 2), np.nan, np.float32)
     att = np.full((P, Z, 2, len(STATS), num_blocks, heads, 2), np.nan, np.float32)
     mark = np.full((P, Z, 2, num_blocks, 3), np.nan, np.float32)
@@ -318,8 +324,8 @@ def main() -> None:
                     mark[pi, zi] = probe.mark
                     probe.mode = None
                     del base_h, probe.base_h
-                    for ci, name in enumerate(RANGES, start=2):
-                        lora_off(set(RANGES[name]))
+                    for ci, name in enumerate(ranges, start=2):
+                        lora_off(set(ranges[name]))
                         loss[pi, zi, ci] = run()
                     network.set_multiplier(1.0)
                 print(
@@ -350,7 +356,7 @@ def main() -> None:
                 "K": {"lora": round(float(L[:, 0, 1].mean()), 4),
                       "base": round(float(L[:, 1, 1].mean()), 4)},
             }  # fmt: skip
-            for ci, name in enumerate(RANGES, start=2):
+            for ci, name in enumerate(ranges, start=2):
                 rec = {}
                 for ri, reg in enumerate("EK"):
                     g = gain[:, ri].mean()

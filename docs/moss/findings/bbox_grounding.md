@@ -71,6 +71,10 @@ with the LoRA off in a block range (19 pages):
 - New caption-reading heads for the edit region (E over K mass on `no sfx, no dialogue, no
   watermark`: e^3–e^5, Base ~e^0) sit late, b35–b41 (b40 h20, b39 h19, b41 h2, b37 h20,
   b35 h3), not on the heads that bind a bbox item in Base.
+- The structure takes the full run to form. At 276 steps on a quarter of the pairs
+  (`mod_rank_i2i.md` § Sanitize) blocks 26–35 off lose 0.36 of `E`'s gain and 0.41 of
+  `K`'s at σ 0.9, the reference-row AUC stays ≤ 0.37 up to block 30 (0.68 at 35), and the
+  caption heads are the same ones at about half the strength.
 - Whether a page gets cleaned is decided per sample: `usual_case1`'s corner watermark is
   removed at seed 42, half removed at 44, kept at 0, 1, 2 and 43 (CFG 3 and 4 alike).
 
