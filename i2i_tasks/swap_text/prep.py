@@ -35,7 +35,9 @@ the caption lists the text read off that target. Six stages, each idempotent:
    a relettering) or ``--max_uncovered``, and assigns each twin OCR line to the
    region its centre falls in. A line holding kana or CJK ideographs
    (``JA_SCRIPT``) inside a region is a misread of the translated lettering.
-   A group is *clean* when a non-misread line landed in it, none misread, its
+   A group is *clean* when a non-misread line landed in it, none misread, every
+   twin text block (``det``) landing in it is covered by a kept line (pasted,
+   an unread block is lettering the caption does not name), its
    ``seam`` ≤ ``--max_seam`` and ``leftover`` ≤ ``--max_leftover``, and the
    twin keeps the page's look inside its paste mask (``page_metrics``,
    cached in ``<root>/pool_metrics.json``): outside the union of both sides'
@@ -717,6 +719,8 @@ def colour_gate(m: dict, a) -> str | None:
 
 
 def stage_pool(a) -> None:
+    from anime_tools.ocr.reread import covered
+
     reads = json.loads((a.root / "ocr.json").read_text(encoding="utf-8"))
     dets = json.loads((a.root / "det.json").read_text(encoding="utf-8"))
     mpath = a.root / "pool_metrics.json"
@@ -765,7 +769,7 @@ def stage_pool(a) -> None:
         _write_text(mpath, json.dumps(metrics))
 
     gate_drops: dict[str, int] = {}
-    misread_lines, rows = 0, []
+    misread_lines, unread_groups, rows = 0, 0, []
     for p in pages:
         pm = metrics[p["key"]]
         if pm["bg_resid"] > a.max_bg_resid:
@@ -780,6 +784,15 @@ def stage_pool(a) -> None:
         ]
         misread_lines += sum(misread)
         bad = {k for k, m in zip(owner, misread) if m}
+        # A twin text block no kept line covers: pasted, it is lettering the
+        # caption does not name.
+        blocks = [["", b] for b in dets[p["key"]]["tgt"]]
+        read_boxes = [tuple(b) for _, b in lines]
+        unread = {
+            k
+            for (_, b), k in zip(blocks, assign_lines(blocks, p["regions"], a.pad_frac))
+            if k is not None and not covered(tuple(b), read_boxes)
+        }
         group_of = {k: gi for gi, g in enumerate(p["groups"]) for k in g["regions"]}
         has_line = {
             group_of[k] for k, m in zip(owner, misread) if k is not None and not m
@@ -792,6 +805,9 @@ def stage_pool(a) -> None:
                 or g["seam"] > a.max_seam
                 or g["leftover"] > a.max_leftover
             ):
+                continue
+            if unread & set(g["regions"]):
+                unread_groups += 1
                 continue
             why = colour_gate(pm["groups"][gi], a)
             if why:
@@ -845,6 +861,7 @@ def stage_pool(a) -> None:
         "works": len({r["work"] for r in rows}),
         **{f"dropped_{k}": v for k, v in n.items()},
         "misread_lines": misread_lines,
+        "groups_dropped_unread_block": unread_groups,
         "groups_dropped_by_colour_gate": gate_drops,
         "clean_group_frac": round(
             sum(g["clean"] for r in rows for g in r["groups"]) / max(n_groups, 1), 3
