@@ -79,7 +79,9 @@ class HostMasters:
 
     The buffers are ordinary allocations registered with ``cudaHostRegister``,
     exact-size: the caching host allocator behind ``pin_memory()`` rounds each
-    request up to a power of two (a 0.21 GB MOSS block takes 0.25 GB).
+    request up to a power of two (a 0.21 GB MOSS block takes 0.25 GB). Once a
+    registration fails, that buffer and every later one fall back (see
+    :meth:`_alloc`).
     """
 
     _ALIGN = 256
@@ -123,11 +125,17 @@ class HostMasters:
         H2D copies, same results."""
         if self._mode == "register":
             flat = torch.empty(total, dtype=torch.uint8)
-            err = torch.cuda.cudart().cudaHostRegister(flat.data_ptr(), total, 0)
+            cudart = torch.cuda.cudart()
+            err = cudart.cudaHostRegister(flat.data_ptr(), total, 0)
             if int(err) == 0:
                 self._flats.append(flat)
                 return flat
-            self._fallback(f"cudaHostRegister failed ({int(err)}) for {total} bytes")
+            # torch's cudart enum names only success; print the code and string.
+            self._fallback(
+                f"cudaHostRegister failed (error {int(err)}: "
+                f"{cudart.cudaGetErrorString(err)}) for {total} bytes "
+                f"after {len(self._flats)} pinned blocks"
+            )
         if self._mode == "pin":
             try:
                 return torch.empty(total, dtype=torch.uint8, pin_memory=True)
@@ -137,7 +145,10 @@ class HostMasters:
 
     def _fallback(self, reason: str) -> None:
         self._mode = "pin" if self._mode == "register" else "pageable"
-        print(f"HostMasters: {reason}; falling back to {self._mode} host memory")
+        print(
+            f"HostMasters: {reason}; falling back to {self._mode} host memory",
+            flush=True,
+        )
 
     def release(self) -> None:
         """Unregister the buffers; tensors still viewing them stay valid (pageable)."""

@@ -127,3 +127,45 @@ def test_h2d_only_refuses_trainable_block_weights():
     net = _net()
     with pytest.raises(ValueError, match="frozen"):
         place(net, "layers", DEVICE, blocks_to_swap=3, h2d_only=True)
+
+
+@pytest.mark.parametrize("pin_ok", [True, False], ids=["pin", "pageable"])
+def test_h2d_only_falls_back_when_register_refused(monkeypatch, capsys, pin_ok):
+    """A refused ``cudaHostRegister`` (Windows, swap 30) sends that master and
+    every later one to ``pin_memory()``, and on its failure to pageable memory;
+    the numerics stay the resident model's."""
+    real = torch.cuda.cudart()
+    real_empty = torch.empty
+
+    class Refusing:
+        calls = 0
+
+        def cudaHostRegister(self, ptr, size, flags):
+            Refusing.calls += 1
+            if Refusing.calls > 2:
+                return 2
+            return real.cudaHostRegister(ptr, size, flags)
+
+        def cudaGetErrorString(self, err):
+            return "out of memory"
+
+        def __getattr__(self, name):
+            return getattr(real, name)
+
+    def empty(*args, pin_memory=False, **kwargs):
+        if pin_memory and not pin_ok:
+            raise RuntimeError("pinned host allocation refused")
+        return real_empty(*args, pin_memory=pin_memory, **kwargs)
+
+    base = _net()
+    resident = _run(copy.deepcopy(base), 0, False, backward=True)
+    monkeypatch.setattr(torch.cuda, "cudart", Refusing)
+    monkeypatch.setattr(torch, "empty", empty)
+    h2d = _run(copy.deepcopy(base), 6, True, backward=True)
+    out = capsys.readouterr().out
+    assert "out of memory) for" in out and "after 2 pinned blocks" in out
+    assert ("falling back to pageable" in out) != pin_ok
+    assert Refusing.calls == 3
+    for ref, h in zip(resident, h2d):
+        for r, x in zip(ref, h):
+            assert torch.equal(r, x)
