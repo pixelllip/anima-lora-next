@@ -44,13 +44,14 @@ questions run through it:
 | 10-28 | [entity_series](reports/entity_series_2026_10_28.md) | series is linear over name vectors; the Vocaloid centroid transfers the outfit grammar |
 | 10-29 | [base_contrast](reports/base_contrast_2026_10_29.md) | the template's effect on caption rows is an instruct × template interaction (0.10 / 0.24 alone, 0.60 together) |
 | 10-29 | [template_attn](reports/template_attn_2026_10_29.md) | ~95 % of image→text attention lands on 10 template rows whose heavy members carry a prompt-constant value; the channel LoRA does not move it |
+| 10-29 | [template_causal](reports/template_causal_2026_10_29.md) | swapping suffix rows changes nothing; cutting the caption keys loses the prompt; cutting the template keys collapses the image: the template gates, the caption carries |
 
 ## Open
 
 - Causal check on the SAE side: ablate / boost single features in the TE and generate
   with a fixed seed. The error term carries ~1/3 of what the DiT reads, which bounds any
   SAE-space edit.
-- Causal check on the template rows: cut the image queries off from the template keys, or
-  swap the template rows between two prompts, and render.
+- Which blocks carry the caption read: a per-block `no_caption_keys` cut
+  ([template_causal](reports/template_causal_2026_10_29.md) cut all blocks at once).
 - [hypothesis.md](hypothesis.md): test 3 (Base contrast) is done; tests 1 (wrapper sweep),
   2 (name × context split) and 4 (training arm) are not.

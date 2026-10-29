@@ -87,6 +87,5 @@ Same prompts, seed and sampler.
 
 ## Limits
 
-One seed, seven prompts. Attention mass is not gradient influence. The causal check is not
-done: cut the image queries off from the template keys, or swap the template rows between
-two prompts, and render.
+One seed, seven prompts. Attention mass is not gradient influence. The causal check is
+[template_causal](template_causal_2026_10_29.md).
