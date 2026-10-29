@@ -25,7 +25,8 @@ the caption lists the text read off that target. Six stages, each idempotent:
 2. **ocr** (GPU) — reads every twin ``.tgt.webp`` within ``--max_resid`` /
    ``--max_uncovered`` through the anime_tools
    reader, with the MOSS caption helper's floors
-   (``library.moss.colorize.readable``), into ``<root>/ocr.json``.
+   (``library.moss.colorize.readable``) and a Latin line at reader score
+   ``LATIN_MIN_SCORE`` whatever its det, into ``<root>/ocr.json``.
 3. **det** (GPU) — AnimeText text blocks on both sides of the same pages
    (``.src.webp`` and ``.tgt.webp``) into ``<root>/det.json``: the text mask the
    pool's colour gates measure around, independent of the build's diff regions
@@ -111,6 +112,7 @@ LANG_TAG = {"en": "english text", "ko": "korean text"}
 JA_SCRIPT = re.compile(
     r"[\u3040-\u30ff\u31f0-\u31ff\u3400-\u4dbf\u4e00-\u9fff\uff66-\uff9f]"
 )
+LATIN_MIN_SCORE = 0.8
 INVALID = 255
 WEBP = [cv2.IMWRITE_WEBP_QUALITY, 95]
 # The staged target is lossless: outside its paste mask it is the decoded source
@@ -465,13 +467,23 @@ def ok_pages(a) -> list[dict]:
 
 def _ocr_reader(a):
     """``(engine, readable)``: the anime_tools reader with the MOSS caption
-    helper's floors (``library.moss.colorize.readable``)."""
+    helper's floors (``library.moss.colorize.readable``), plus a Latin line
+    read at ``LATIN_MIN_SCORE`` whatever its det — the detector scores
+    scanlation lettering 0.3–0.6 and the reader 0.8–0.9 on reads that are
+    right."""
     from anime_tools.ocr import load_ocr
     from anime_tools.ocr.animetext import DEFAULT_CONF
     from anime_tools.ocr.reread import RereadEngine
-    from anime_tools.ocr.sfx import SfxReader
+    from anime_tools.ocr.sfx import SfxReader, is_latin
 
-    from library.moss.colorize import readable
+    from library.moss.colorize import LATIN_MIN_GLYPH, readable
+
+    def keep(ln) -> bool:
+        return readable(ln) or (
+            is_latin(ln.text)
+            and ln.score >= LATIN_MIN_SCORE
+            and ln.glyph_px >= LATIN_MIN_GLYPH
+        )
 
     reader = SfxReader.load(device=a.device)
     engine = RereadEngine(
@@ -481,7 +493,7 @@ def _ocr_reader(a):
         skip_en=False,
         min_det=DEFAULT_CONF,
     )
-    return engine, readable
+    return engine, keep
 
 
 def _read_into(a, path: Path, todo: list, paths: list[Path], label: str) -> dict:
