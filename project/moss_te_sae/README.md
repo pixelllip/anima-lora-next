@@ -45,6 +45,7 @@ questions run through it:
 | 10-29 | [base_contrast](reports/base_contrast_2026_10_29.md) | the template's effect on caption rows is an instruct × template interaction (0.10 / 0.24 alone, 0.60 together) |
 | 10-29 | [template_attn](reports/template_attn_2026_10_29.md) | ~95 % of image→text attention lands on 10 template rows whose heavy members carry a prompt-constant value; the channel LoRA does not move it |
 | 10-29 | [template_causal](reports/template_causal_2026_10_29.md) | swapping suffix rows changes nothing; cutting the caption keys loses the prompt; cutting the template keys collapses the image: the template gates, the caption carries |
+| 10-29 | [quote_attn](reports/quote_attn_2026_10_29.md) | a quoted string is read by the lettering's own queries through fixed heads (b21 h20), peak blocks 19–21; its rows carry the words, the rest of the caption the balloon and script |
 
 ## Open
 
@@ -53,5 +54,8 @@ questions run through it:
   SAE-space edit.
 - Which blocks carry the caption read: a per-block `no_caption_keys` cut
   ([template_causal](reports/template_causal_2026_10_29.md) cut all blocks at once).
+- Whether a boxed text item (swap_text captions) is read through the same heads as a
+  quoted string (b13 h20, b21 h20, b24 h11, b26 h12;
+  [quote_attn](reports/quote_attn_2026_10_29.md)).
 - [hypothesis.md](hypothesis.md): test 3 (Base contrast) is done; tests 1 (wrapper sweep),
   2 (name × context split) and 4 (training arm) are not.
