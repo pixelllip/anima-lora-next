@@ -4,7 +4,7 @@
 Every hitocrawl work is the same pages lettered in JA and in a translated
 edition (``en/``, ``ko/``). The condition is the JA page; the target is the
 same page with its translated lettering pasted where the OCR can read it, and
-the caption lists the text read off that target. Four stages, each idempotent:
+the caption lists the text read off that target. Six stages, each idempotent:
 
 1. **build** (CPU, ``--workers``) — per work × language: phash-align pages,
    register the twin onto the JA page (ORB partial affine), drop unregistered
@@ -26,15 +26,30 @@ the caption lists the text read off that target. Four stages, each idempotent:
    ``--max_uncovered`` through the anime_tools
    reader, with the MOSS caption helper's floors
    (``library.moss.colorize.readable``), into ``<root>/ocr.json``.
-3. **assemble** (CPU) — drops pages past ``--max_resid`` (another scan, not
+3. **det** (GPU) — AnimeText text blocks on both sides of the same pages
+   (``.src.webp`` and ``.tgt.webp``) into ``<root>/det.json``: the text mask the
+   pool's colour gates measure around, independent of the build's diff regions
+   (which hold whatever changed, text or not).
+4. **pool** (CPU) — drops pages past ``--max_resid`` (another scan, not
    a relettering) or ``--max_uncovered``, and assigns each twin OCR line to the
    region its centre falls in. A line holding kana or CJK ideographs
    (``JA_SCRIPT``) inside a region is a misread of the translated lettering.
    A group is *clean* when a non-misread line landed in it, none misread, its
-   ``seam`` ≤ ``--max_seam`` and ``leftover`` ≤ ``--max_leftover``; a page
-   with none drops. Every target is the JA page with groups pasted from the
-   twin — lettering the reader cannot read, or that a paste would tear, stays
-   JA:
+   ``seam`` ≤ ``--max_seam`` and ``leftover`` ≤ ``--max_leftover``, and the
+   twin keeps the page's look inside its paste mask (``page_metrics``,
+   cached in ``<root>/pool_metrics.json``): outside the union of both sides'
+   text blocks and the twin's OCR lines the twin matches (``nontext`` ≤
+   ``--max_nontext`` — a darker balloon fill or screentone, a censor bar or
+   mosaic one edition lacks, a translator's end card), and the lettering keeps its
+   colour (``ink_shift`` ≤ ``--max_ink_shift``, no light ↔ dark flip against
+   the background of ≥ ``--flip_contrast`` on both sides). A page with no
+   clean group drops. Writes ``<root>/pool/<lang>/{stem}`` (``.src.webp`` /
+   ``.tgt.webp`` symlinks to the built pair, the twin uncomposited),
+   ``pool.jsonl`` (clean groups, their lines, the metrics) and ``stats.json``;
+   reruns rewrite the tree.
+5. **assemble** (CPU) — samples ``--sample`` pool pages (0: all) and builds
+   each target: the JA page with groups pasted from the twin — lettering the
+   reader cannot read, that a paste would tear or recolour, stays JA:
 
    * **full** — every clean group pasted.
    * **partial** (``--partial_ratio`` of the pairs) — a random proper subset
@@ -42,7 +57,7 @@ the caption lists the text read off that target. Four stages, each idempotent:
 
    Writes ``<root>/staging/<lang>/{stem}`` (``.tgt.webp``, ``.src.webp``
    symlink), ``plan.jsonl`` and ``stats.json``; reruns rewrite the tree.
-4. **caption** — captions each target with the twin read's lines in its
+6. **caption** — captions each target with the twin read's lines in its
    pasted groups (CPU), or with ``--caption_ocr`` (GPU) with a second read of
    the staged target itself (``<root>/ocr_staged.json``, keyed by page and
    pasted regions); either way only lines holding no kana or CJK ideograph, so
@@ -56,7 +71,8 @@ Stems are ``{anchor}_{page}_{lang}``; ``pairs.jsonl`` rows carry ``work`` so a
 holdout can split by work (the same work appears in both languages).
 
     make i2i-stage TASK=swap_text ARGS="--limit 4"
-    make daemon-run ARGS="i2i_tasks/swap_text/prep.py --stages ocr assemble caption"
+    make daemon-run ARGS="i2i_tasks/swap_text/prep.py --stages ocr det pool assemble caption"
+    .venv/bin/python i2i_tasks/swap_text/prep.py --stages assemble caption --sample 2000
 """
 
 from __future__ import annotations
@@ -545,6 +561,287 @@ def stage_ocr(a) -> None:
     )
 
 
+# ------------------------------------------------------------------ det
+
+
+def stage_det(a, chunk=32) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    path = a.root / "det.json"
+    dets = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    todo = [
+        p
+        for p in ok_pages(a)
+        if p["resid"] <= a.max_resid
+        and p["uncovered"] <= a.max_uncovered
+        and p["key"] not in dets
+    ]
+    print(f"det: {len(todo)} pages to detect ({len(dets)} cached)", flush=True)
+    if not todo:
+        return
+    from anime_tools.ocr.animetext import AnimeTextDetector
+
+    det = AnimeTextDetector.load(device=a.device)
+    t0 = time.time()
+    with ThreadPoolExecutor(a.workers) as io:
+        for s in range(0, len(todo), chunk):
+            part = todo[s : s + chunk]
+            files = [
+                str(p["dir"] / f"{p['page']}.{side}.webp")
+                for p in part
+                for side in ("src", "tgt")
+            ]
+            boxes = det.detect_batch(list(io.map(cv2.imread, files)))
+            for k, p in enumerate(part):
+                dets[p["key"]] = {
+                    side: [[int(v) for v in b] for b in boxes[2 * k + i]]
+                    for i, side in enumerate(("src", "tgt"))
+                }
+            done = s + len(part)
+            if done % (chunk * 20) == 0 or done == len(todo):
+                _write_text(path, json.dumps(dets))
+                rate = done / (time.time() - t0)
+                print(
+                    f"  det {done}/{len(todo)}, {rate:.1f} page/s, "
+                    f"eta {(len(todo) - done) / rate / 60:.0f} min",
+                    flush=True,
+                )
+
+
+# ------------------------------------------------------------------ pool
+
+
+def _lab(img: np.ndarray) -> np.ndarray:
+    return cv2.cvtColor(img, cv2.COLOR_BGR2LAB).astype(np.float32)
+
+
+def _mode_lab(px: np.ndarray) -> np.ndarray:
+    """Mean of the most populated 16-level Lab bin: the background of a
+    lettering region, robust to the ink on it."""
+    q = np.clip(px // 16, 0, 15).astype(np.int32)
+    code = q[:, 0] * 256 + q[:, 1] * 16 + q[:, 2]
+    return px[code == np.bincount(code, minlength=4096).argmax()].mean(0)
+
+
+def _ink(lab: np.ndarray, bg: np.ndarray, sel: np.ndarray):
+    """``(a, b, L − bg L)`` medians of the ink pixels ``sel``, None if too few."""
+    if sel.sum() < 30:
+        return None
+    a, b, L = (float(np.median(lab[..., c][sel])) for c in (1, 2, 0))
+    return a, b, L - float(bg[0])
+
+
+def page_metrics(job) -> tuple[str, dict]:
+    """``(key, metrics)`` for one built page: per group, inside its paste mask,
+    ``nontext`` (median |ΔLab| src vs twin outside the union of both sides'
+    text blocks and the twin's OCR lines — the median, so lettering the
+    detector missed does not count unless it fills the region), and the colour of the ink the swap replaces against the ink it brings
+    (``ink_shift``: their a/b distance; ``pol_src`` / ``pol_tgt``: their
+    lightness against the region's background). Page-wide: ``bg_resid``, the
+    mean |ΔLab| outside every text block."""
+    key, d, page, groups, boxes, dilate_frac, det_pad = job
+    src = cv2.imread(str(d / f"{page}.src.webp"), cv2.IMREAD_COLOR)
+    tgt = cv2.imread(str(d / f"{page}.tgt.webp"), cv2.IMREAD_COLOR)
+    labels = cv2.imread(str(d / f"{page}.lab.png"), cv2.IMREAD_UNCHANGED)
+    text = np.zeros(labels.shape, bool)
+    for x0, y0, x1, y1 in boxes:
+        text[
+            max(0, y0 - det_pad) : y1 + det_pad, max(0, x0 - det_pad) : x1 + det_pad
+        ] = True
+    ls, lt = _lab(src), _lab(tgt)
+    diff = np.linalg.norm(ls - lt, axis=-1)
+    bg = (labels != INVALID) & ~text
+    out = {"bg_resid": round(float(diff[bg].mean()), 2) if bg.any() else 0.0}
+    rows = []
+    pad = 2 * max(2, round(min(labels.shape) * dilate_frac)) + 2
+    for g in groups:
+        regions = g["regions"]
+        # region boxes are the build's diff boxes; grow_regions may reach past
+        # them, so take the crop from the labels themselves
+        ys, xs = np.nonzero(np.isin(labels, [k + 1 for k in regions]))
+        if not len(xs):
+            rows.append({})
+            continue
+        sl = (
+            slice(max(0, ys.min() - pad), ys.max() + pad + 1),
+            slice(max(0, xs.min() - pad), xs.max() + pad + 1),
+        )
+        m = paste_mask(labels[sl], regions, dilate_frac) > 0
+        dm, s_, t_ = diff[sl], ls[sl], lt[sl]
+        free = m & ~text[sl]
+        row = {"free": int(free.sum())}
+        if free.sum() >= 100:
+            row["nontext"] = round(float(np.median(dm[free])), 2)
+        if m.sum() >= 200:
+            bs, bt = _mode_lab(s_[m]), _mode_lab(t_[m])
+            changed = m & (dm > 30)
+            ink_s = _ink(s_, bs, changed & (np.linalg.norm(s_ - bs, axis=-1) > 40))
+            ink_t = _ink(t_, bt, changed & (np.linalg.norm(t_ - bt, axis=-1) > 40))
+            if ink_s and ink_t:
+                row["ink_shift"] = round(
+                    float(np.hypot(ink_s[0] - ink_t[0], ink_s[1] - ink_t[1])), 2
+                )
+                row["pol_src"], row["pol_tgt"] = round(ink_s[2], 1), round(ink_t[2], 1)
+        rows.append(row)
+    out["groups"] = rows
+    return key, out
+
+
+def _metrics_job(job):
+    cv2.setNumThreads(1)
+    return page_metrics(job)
+
+
+def colour_gate(m: dict, a) -> str | None:
+    """The gate a group's ``page_metrics`` row fails, else None."""
+    if m.get("nontext", 0) > a.max_nontext:
+        return "nontext"
+    if m.get("ink_shift", 0) > a.max_ink_shift:
+        return "ink_shift"
+    ps, pt = m.get("pol_src", 0), m.get("pol_tgt", 0)
+    if ps * pt < 0 and min(abs(ps), abs(pt)) >= a.flip_contrast:
+        return "ink_flip"
+    return None
+
+
+def stage_pool(a) -> None:
+    reads = json.loads((a.root / "ocr.json").read_text(encoding="utf-8"))
+    dets = json.loads((a.root / "det.json").read_text(encoding="utf-8"))
+    mpath = a.root / "pool_metrics.json"
+    metrics = json.loads(mpath.read_text(encoding="utf-8")) if mpath.exists() else {}
+    n = dict.fromkeys(
+        ["unread", "undetected", "resid", "uncovered", "uncaptioned", "bg_resid"], 0
+    )
+    pages = []
+    for p in ok_pages(a):
+        if p["resid"] > a.max_resid:
+            n["resid"] += 1
+        elif p["uncovered"] > a.max_uncovered:
+            n["uncovered"] += 1
+        elif p["key"] not in reads:
+            n["unread"] += 1
+        elif p["key"] not in dets:
+            n["undetected"] += 1
+        else:
+            pages.append(p)
+
+    todo = [p for p in pages if p["key"] not in metrics]
+    print(f"pool: {len(todo)} pages to measure ({len(metrics)} cached)", flush=True)
+    jobs = [
+        (
+            p["key"],
+            p["dir"],
+            p["page"],
+            p["groups"],
+            dets[p["key"]]["src"]
+            + dets[p["key"]]["tgt"]
+            + [[round(v) for v in b] for _, b in reads[p["key"]]],
+            a.dilate_frac,
+            a.det_pad,
+        )
+        for p in todo
+    ]
+    t0 = time.time()
+    with Pool(a.workers, initializer=_single_thread) as pool:
+        for k, (key, m) in enumerate(
+            pool.imap_unordered(_metrics_job, jobs, chunksize=4), 1
+        ):
+            metrics[key] = m
+            if k % 1000 == 0 or k == len(jobs):
+                print(f"  measure {k}/{len(jobs)}, {time.time() - t0:.0f}s", flush=True)
+    if todo:
+        _write_text(mpath, json.dumps(metrics))
+
+    gate_drops: dict[str, int] = {}
+    misread_lines, rows = 0, []
+    for p in pages:
+        pm = metrics[p["key"]]
+        if pm["bg_resid"] > a.max_bg_resid:
+            n["bg_resid"] += 1
+            continue
+        lines = [[t.strip(), b] for t, b in reads[p["key"]]]
+        lines = [ln for ln in lines if ln[0]]
+        owner = assign_lines(lines, p["regions"], a.pad_frac)
+        misread = [
+            k is not None and bool(JA_SCRIPT.search(t))
+            for (t, _), k in zip(lines, owner)
+        ]
+        misread_lines += sum(misread)
+        bad = {k for k, m in zip(owner, misread) if m}
+        group_of = {k: gi for gi, g in enumerate(p["groups"]) for k in g["regions"]}
+        has_line = {
+            group_of[k] for k, m in zip(owner, misread) if k is not None and not m
+        }
+        clean = []
+        for gi, g in enumerate(p["groups"]):
+            if (
+                gi not in has_line
+                or bad & set(g["regions"])
+                or g["seam"] > a.max_seam
+                or g["leftover"] > a.max_leftover
+            ):
+                continue
+            why = colour_gate(pm["groups"][gi], a)
+            if why:
+                gate_drops[why] = gate_drops.get(why, 0) + 1
+                continue
+            clean.append(gi)
+        if not clean:
+            n["uncaptioned"] += 1
+            continue
+        rows.append(
+            {
+                "stem": f"{p['anchor']}_{p['page']}_{p['lang']}",
+                "key": p["key"],
+                "work": p["anchor"],
+                "lang": p["lang"],
+                "size": p["size"],
+                "groups": [
+                    {**g, **pm["groups"][gi], "clean": gi in clean}
+                    for gi, g in enumerate(p["groups"])
+                ],
+                "bg_resid": pm["bg_resid"],
+                "lines": [
+                    [*ln, group_of[k]]
+                    for ln, k, m in zip(lines, owner, misread)
+                    if k is not None and not m and group_of[k] in clean
+                ],
+            }
+        )
+
+    pool_dir = a.root / "pool"
+    for f in pool_dir.glob("*/*"):
+        f.unlink()
+    (pool_dir / "pool.jsonl").unlink(missing_ok=True)
+    by_key = {p["key"]: p for p in pages}
+    for r in rows:
+        p = by_key[r["key"]]
+        base = pool_dir / r["lang"]
+        base.mkdir(parents=True, exist_ok=True)
+        for side in ("src", "tgt"):
+            (base / f"{r['stem']}.{side}.webp").symlink_to(
+                os.path.relpath(p["dir"] / f"{p['page']}.{side}.webp", base)
+            )
+    _write_text(
+        pool_dir / "pool.jsonl",
+        "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows),
+    )
+    n_groups = sum(len(r["groups"]) for r in rows)
+    stats = {
+        "pages": len(rows),
+        "by_lang": {lang: sum(r["lang"] == lang for r in rows) for lang in a.langs},
+        "works": len({r["work"] for r in rows}),
+        **{f"dropped_{k}": v for k, v in n.items()},
+        "misread_lines": misread_lines,
+        "groups_dropped_by_colour_gate": gate_drops,
+        "clean_group_frac": round(
+            sum(g["clean"] for r in rows for g in r["groups"]) / max(n_groups, 1), 3
+        ),
+    }
+    _write_text(pool_dir / "stats.json", json.dumps(stats, indent=1))
+    print(json.dumps(stats, indent=1), flush=True)
+
+
 # ------------------------------------------------------------------ assemble
 
 
@@ -608,69 +905,52 @@ def compose_job(job) -> None:
 
 
 def stage_assemble(a) -> None:
-    reads = json.loads((a.root / "ocr.json").read_text(encoding="utf-8"))
-    pages, plans = [], []
-    n = dict.fromkeys(
-        ["unread", "resid", "uncovered", "uncaptioned", "misread_lines"], 0
-    )
-    for p in ok_pages(a):
-        if p["resid"] > a.max_resid:
-            n["resid"] += 1
-            continue
-        if p["uncovered"] > a.max_uncovered:
-            n["uncovered"] += 1
-            continue
-        if p["key"] not in reads:
-            n["unread"] += 1
-            continue
-        lines = [[t.strip(), b] for t, b in reads[p["key"]]]
-        lines = [ln for ln in lines if ln[0]]
-        owner = assign_lines(lines, p["regions"], a.pad_frac)
-        misread = [
-            k is not None and bool(JA_SCRIPT.search(t))
-            for (t, _), k in zip(lines, owner)
-        ]
-        n["misread_lines"] += sum(misread)
-        bad = {k for k, m in zip(owner, misread) if m}
-        group_of = {k: gi for gi, g in enumerate(p["groups"]) for k in g["regions"]}
-        has_line = {
-            group_of[k] for k, m in zip(owner, misread) if k is not None and not m
-        }
-        clean = [
-            gi
-            for gi, g in enumerate(p["groups"])
-            if gi in has_line
-            and not bad & set(g["regions"])
-            and g["seam"] <= a.max_seam
-            and g["leftover"] <= a.max_leftover
-        ]
-        if not clean:
-            n["uncaptioned"] += 1
-            continue
-        lines = [
-            (ln, group_of[k])
-            for ln, k, m in zip(lines, owner, misread)
-            if k is not None and not m
-        ]
-        pages.append((p, clean, lines))
-
-    n_eligible = sum(len(c) >= 2 for _, c, _ in pages)
-    p_partial = min(1.0, a.partial_ratio * len(pages) / max(n_eligible, 1))
-    for p, clean, lines in pages:
-        stem = f"{p['anchor']}_{p['page']}_{p['lang']}"
-        rng = random.Random(_stable_seed(f"{a.seed}:{stem}"))
+    pool_rows = [
+        json.loads(ln)
+        for ln in (a.root / "pool" / "pool.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    pool_rows = [r for r in pool_rows if r["lang"] in a.langs]
+    n_pool = len(pool_rows)
+    if a.sample and a.sample < n_pool:
+        pool_rows = sorted(
+            pool_rows, key=lambda r: _stable_seed(f"{a.seed}:sample:{r['stem']}")
+        )[: a.sample]
+    plans = []
+    clean_of = [
+        [gi for gi, g in enumerate(r["groups"]) if g["clean"]] for r in pool_rows
+    ]
+    n_eligible = sum(len(c) >= 2 for c in clean_of)
+    p_partial = min(1.0, a.partial_ratio * len(pool_rows) / max(n_eligible, 1))
+    for r, clean in zip(pool_rows, clean_of):
+        rng = random.Random(_stable_seed(f"{a.seed}:{r['stem']}"))
         groups = clean
         if len(clean) >= 2 and rng.random() < p_partial:
             groups = sorted(rng.sample(clean, rng.randint(1, len(clean) - 1)))
-        chosen = sorted(r for gi in groups for r in p["groups"][gi]["regions"])
-        keep = [ln for ln, gi in lines if gi in groups]
-        plans.append((p, stem, chosen, keep, len(groups), len(clean)))
+        chosen = sorted(k for gi in groups for k in r["groups"][gi]["regions"])
+        keep = [[t, b] for t, b, gi in r["lines"] if gi in groups]
+        plans.append((r, chosen, keep, len(groups), len(clean)))
 
     staging = a.root / "staging"
     for f in staging.glob("*/*"):
         f.unlink()
     (staging / "pairs.jsonl").unlink(missing_ok=True)
-    jobs = [(p, chosen, a.root, a.dilate_frac, a.feather) for p, _, chosen, *_ in plans]
+    jobs = [
+        (
+            {
+                "anchor": r["work"],
+                "page": r["key"].rsplit("/", 1)[1],
+                "lang": r["lang"],
+                "dir": a.root / "work" / r["lang"] / r["work"],
+            },
+            chosen,
+            a.root,
+            a.dilate_frac,
+            a.feather,
+        )
+        for r, chosen, *_ in plans
+    ]
     t0 = time.time()
     with Pool(a.workers, initializer=_single_thread) as pool:
         for k, _ in enumerate(pool.imap_unordered(compose_job, jobs, chunksize=4), 1):
@@ -681,34 +961,28 @@ def stage_assemble(a) -> None:
 
     rows = [
         {
-            "stem": stem,
-            "key": p["key"],
-            "work": p["anchor"],
-            "lang": p["lang"],
-            "size": p["size"],
+            "stem": r["stem"],
+            "key": r["key"],
+            "work": r["work"],
+            "lang": r["lang"],
+            "size": r["size"],
             "mode": "full" if n_swapped == n_clean else "partial",
-            "groups": len(p["groups"]),
+            "groups": len(r["groups"]),
             "clean_groups": n_clean,
             "swapped_groups": n_swapped,
             "chosen": chosen,
             "lines": keep,
         }
-        for p, stem, chosen, keep, n_swapped, n_clean in plans
+        for r, chosen, keep, n_swapped, n_clean in plans
     ]
     _write_text(
         staging / "plan.jsonl",
         "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows),
     )
     stats = {
+        "pool": n_pool,
         "planned": len(rows),
         "partial_eligible": n_eligible,
-        **{f"dropped_{k}": v for k, v in n.items() if k != "misread_lines"},
-        "misread_lines": n["misread_lines"],
-        "clean_group_frac": round(
-            sum(len(c) for _, c, _ in pages)
-            / max(sum(len(p["groups"]) for p, *_ in pages), 1),
-            3,
-        ),
     }
     _write_text(staging / "stats.json", json.dumps(stats, indent=1))
     print(json.dumps(stats, indent=1), flush=True)
@@ -790,8 +1064,8 @@ def main() -> None:
     ap.add_argument(
         "--stages",
         nargs="+",
-        default=["build", "ocr", "assemble", "caption"],
-        choices=["build", "ocr", "assemble", "caption"],
+        default=["build", "ocr", "det", "pool", "assemble", "caption"],
+        choices=["build", "ocr", "det", "pool", "assemble", "caption"],
     )
     ap.add_argument("--hito", type=Path, default=Path.home() / "hitocrawl/retrieved")
     ap.add_argument("--root", default="post_image_dataset/i2i/swap_text")
@@ -862,6 +1136,42 @@ def main() -> None:
         help="group leftover above which a partial pair never pastes it",
     )
     ap.add_argument(
+        "--det_pad", type=int, default=4, help="text block pad (px) in the pool's mask"
+    )
+    ap.add_argument(
+        "--max_bg_resid",
+        type=float,
+        default=1e9,
+        help="page mean |ΔLab| outside every text block above which it leaves the pool",
+    )
+    ap.add_argument(
+        "--max_nontext",
+        type=float,
+        default=8.0,
+        help="group median |ΔLab| in its paste mask outside the text blocks above "
+        "which it is never pasted",
+    )
+    ap.add_argument(
+        "--max_ink_shift",
+        type=float,
+        default=15.0,
+        help="group a/b distance between the replaced and the pasted ink above "
+        "which it is never pasted",
+    )
+    ap.add_argument(
+        "--flip_contrast",
+        type=float,
+        default=40.0,
+        help="ink lightness vs background on both sides at which a sign flip "
+        "(dark ↔ light lettering) keeps a group from being pasted",
+    )
+    ap.add_argument(
+        "--sample",
+        type=int,
+        default=0,
+        help="pool pages the assemble stage stages (0: all)",
+    )
+    ap.add_argument(
         "--pad_frac",
         type=float,
         default=0.15,
@@ -881,6 +1191,8 @@ def main() -> None:
         {
             "build": stage_build,
             "ocr": stage_ocr,
+            "det": stage_det,
+            "pool": stage_pool,
             "assemble": stage_assemble,
             "caption": stage_caption,
         }[stage](a)

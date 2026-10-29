@@ -102,7 +102,14 @@ prompt names.
 
 **Data.** `make i2i-stage TASK=swap_text` (`i2i_tasks/swap_text/prep.py`, knobs in
 `i2i_tasks/configs/swap_text.toml`) registers hitocrawl edition twins (the JA page and
-its `en` / `ko` edition). Each target is the JA page with clean text groups pasted from
+its `en` / `ko` edition) into a pool, `pool/<lang>/{stem}.{src,tgt}.webp` (symlinks to
+the built pair) with `pool.jsonl`: a group of lettering is clean when it was read, would
+paste without tearing, and the twin keeps the page's look around it. AnimeText blocks on
+both sides plus the OCR lines mask the text, and outside that mask the twin must match
+(`--max_nontext`: no darker fill or screentone, censor bar or mosaic one edition lacks,
+translator's end card), while the lettering keeps its colour (`--max_ink_shift`, no
+dark ↔ light flip). `assemble` samples `--sample` pool pages (0: all) into `staging/`.
+Each target is the JA page with clean text groups pasted from
 the twin. `full` pairs paste every clean group; `partial` pairs (`partial_ratio`) paste a
 proper subset. The config sets `partial_ratio = 0` (2026-10-28): the unclean groups
 (44 %) already stay Japanese and uncaptioned in a full pair. The caption is layout JSON with one text item
