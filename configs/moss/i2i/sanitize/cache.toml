@@ -1,0 +1,20 @@
+# MOSS i2i cache for the sanitize task (text / bubble removal) — CacheRequest fields.
+#
+#   make i2i-stage TASK=sanitize                   # mine the pair tree + pairs.jsonl
+#   make i2i-preprocess TASK=sanitize MODEL=moss   # this file → scripts/moss/cache.py
+#
+# Each row of pairs.jsonl caches its target (the clean `_no_tags` twin) as the
+# latent and its condition (the texted `_tags` twin) as {stem}.moss_ref. The
+# reference carries the edit, so every pair encodes one fixed caption instead of
+# its own; generate with the same text.
+
+pairs = "post_image_dataset/i2i/sanitize/staging/pairs.jsonl"
+out = "post_image_dataset/moss/i2i_sanitize_idt"
+resolution = 1024
+# Full-size reference: the edit keeps everything but the text, so the condition
+# keeps its detail. Changing it re-encodes the refs only.
+ref_scale = 1
+caption_format = "fixed"
+# Copied as FIXED_CAPTIONS["sanitize"] in the ComfyUI MOSS Toolkit's caption helper and
+# verbatim in generate.toml — change all three together.
+fixed_caption = "no sfx, no dialogue, no watermark"

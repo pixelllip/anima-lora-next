@@ -2,7 +2,8 @@
 
 Sidecars ``scripts/moss/{cache,train,generate}.py``. The generate sidecar takes
 one ``lora_multiplier``, so a Test is two jobs into one run folder: ``lora/``
-with the adapter, then ``base/`` without it, same prompts and seeds.
+with the adapter, then ``base/`` without it, same prompts and seeds. The i2i tabs
+after Train are ``gui.moss.i2i``.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ import json
 from pathlib import Path
 
 from gui.lines.window import LineSpec, run
-from gui.moss.strings import FIELDS_CN, FIELDS_CN_GENERATE, UI
+from gui.moss.strings import FIELDS, FIELDS_GENERATE, UI
 from library.moss.requests import (
     CacheRequest,
     GenerateRequest,
@@ -21,6 +22,12 @@ from library.moss.requests import (
     variant_dir,
 )
 from library.moss.scan import cache_counts, scan
+
+
+def _extra_pages(panel) -> list:
+    from gui.moss.i2i import pages
+
+    return pages(panel)
 
 
 def _test_runs(req: GenerateRequest) -> list[GenerateRequest]:
@@ -62,8 +69,9 @@ SPEC = LineSpec(
     test_runs=_test_runs,
     test_images=_test_images,
     ui=UI,
-    fields_cn=FIELDS_CN,
-    fields_cn_test=FIELDS_CN_GENERATE,
+    fields=FIELDS,
+    fields_test=FIELDS_GENERATE,
+    extra_pages=_extra_pages,
 )
 
 

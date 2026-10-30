@@ -19,8 +19,17 @@ additive configs/krea2/**
 additive scripts/krea2/probe_port.py
 additive scripts/downstream/upstream-sync.ps1
 additive .github/workflows/upstream-sync.yml
+additive anima_daemon/studio.py
+additive anima_daemon/easycontrol.py
+additive anima_daemon/toolkits.py
+additive library/moss/single_file.py
+additive scripts/moss/probe_single_file.py
+additive docs/anima/methods/krea2-style-in-the-loop.md
 additive tests/test_downstream_guards.py
 additive tests/test_krea2_line.py
+additive tests/test_krea2_stack_lora.py
+additive tests/test_studio.py
+additive tests/test_toolkits.py
 additive tests/test_webui_server.py
 additive anima_lora_webui/**
 
@@ -35,3 +44,10 @@ patched gui/i18n/cn.py
 patched gui/explanations/guides/cn/_fields.json
 patched README.md
 patched NOTICE
+patched anima_daemon/README.md
+patched anima_daemon/server.py
+patched anima_daemon/mcp.py
+patched scripts/tasks/preprocess.py
+patched library/lines/adapters.py
+patched library/moss/loader.py
+patched library/moss/model.py

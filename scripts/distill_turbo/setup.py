@@ -68,7 +68,7 @@ _LATENT_RES_RE = re.compile(r"_(\d{3,4})x(\d{3,4})_anima\.npz$")
 def _cached_token_counts(data_dir: str) -> set:
     """Distinct token counts present in the cached latents under ``data_dir``.
 
-    Mirrors ``train.py::_derive_token_budget``: caches are the source of truth
+    Mirrors ``library.anima.trainer.data.derive_token_budget``: caches are the source of truth
     for which tiers are present, not ``target_res``. Parses (W, H) out of each
     latent's filename (no per-file I/O).
     """

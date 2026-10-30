@@ -6,7 +6,7 @@ baseline so preprocess-owned fields surface in the form. That baseline also fed
 preprocess knobs. Most were harmless ("unknown key" warnings), but
 ``caption_tag_dropout_rate`` collides with a real ``train.py`` argparse arg whose
 meaning is *live dataloader tag dropout* — the dataset blueprint generator
-pushed it onto every subset and tripped ``assert_extra_args``:
+pushed it onto every subset and tripped ``data.configure_dataset_features``:
 
     AssertionError: when caching Text Encoder output, token_warmup_step or
     caption_tag_dropout_rate cannot be used

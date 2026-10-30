@@ -56,6 +56,8 @@ def test_every_visible_row_belongs_to_a_listed_pack():
         "cjk",
         "moss-base",
         "moss-sft",
+        "moss-te-int8",
+        "moss-te-fp8",
     ]
     assert not (set(DL.HIDDEN_PACKS) & pack_ids)
 
@@ -109,7 +111,15 @@ def test_by_pack_keeps_pack_order_and_drops_empty_packs():
     assert list(grouped) == [p.id for p in DL.PACKS if p.id in grouped]
     assert all(rows for rows in grouped.values())
     trainer_only = DL.by_pack(DL.catalog())
-    assert list(trainer_only) == ["anima", "pe", "cjk", "moss-base", "moss-sft"]
+    assert list(trainer_only) == [
+        "anima",
+        "pe",
+        "cjk",
+        "moss-base",
+        "moss-sft",
+        "moss-te-int8",
+        "moss-te-fp8",
+    ]
 
 
 def test_resolve_raises_naming_the_unknown_token():
@@ -324,6 +334,8 @@ def test_the_two_tabs_show_the_two_catalog_halves():
             "cjk",
             "moss-base",
             "moss-sft",
+            "moss-te-int8",
+            "moss-te-fp8",
         ]
         # Busy disables every button on *both* tabs: the dialog runs one job.
         dlg._set_busy(True)

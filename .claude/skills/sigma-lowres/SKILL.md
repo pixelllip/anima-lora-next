@@ -7,7 +7,7 @@ description: σ-demoted training (--sigma_lowres) — routing rules and their va
 
 Opt-in: routes each train step's latent grid by noise level — high-σ steps train on a
 lower-res sibling latent of the same image. Full contract + measured arm table:
-`docs/optimizations/sigma_lowres.md`.
+`docs/anima/optimizations/sigma_lowres.md`.
 
 ## Routing rules
 

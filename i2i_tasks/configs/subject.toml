@@ -1,0 +1,10 @@
+name = "subject"
+
+[staging]
+caption_index = 'post_image_dataset/captions/caption_index.json'
+resized_dir = 'post_image_dataset/resized'
+lora_cache_dir = 'post_image_dataset/lora'
+min_group = 2
+max_per_character = 16
+solo_only = true
+seed = 42

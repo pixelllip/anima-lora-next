@@ -11,7 +11,7 @@ the shipped `pooled_text_proj_0413.safetensors` is a release asset, so the
 everyday surface is inference-side (`make test MOD=1`, the ComfyUI node), not
 training-side. The loop still runs, as module invocations from the repo root.
 
-Feature docs stay where they were — [`docs/inference/mod-guidance.md`](../../../docs/inference/mod-guidance.md)
+Feature docs stay where they were — [`docs/anima/inference/mod-guidance.md`](../../../docs/anima/inference/mod-guidance.md)
 is canonical for the architecture, the inference profiles, and the full flag
 tables for both commands below.
 
@@ -22,7 +22,7 @@ tables for both commands below.
 | `prep.py` | Phase 1 (`T5("")` uncond sidecar) + Phase 2 (teacher-synthesized clean latents) |
 | `synth.py` | Phase 2 teacher-driven synthesis |
 | `distill.py` | The training loop — student (uncond crossattn + pooled inject) vs frozen teacher, MSE |
-| `config.py` | argparser → frozen dataclass (CLI-first, no TOML layer; the template `scripts/distill_cjk/` was cloned from) |
+| `config.py` | argparser → frozen dataclass (CLI-first, no TOML layer; the template `_archive/scripts/distill_cjk/` was cloned from) |
 | `teacher_cache.py` | Train + val teacher-prediction caches (K pre-sampled σ bins per sample) |
 | `validation.py` | Fixed-σ teacher↔student MSE pass |
 

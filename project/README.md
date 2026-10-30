@@ -17,7 +17,7 @@ verdicts + full tables, `results/` = run envelopes). A promoted line may
 adopt these into its home — `project/<line>/bench/` for the bench and e.g.
 `initial_proposal.md` for the founding proposal (the archived directedit_ec
 and sigma_lowres lines did both); lines that haven't keep them in
-`bench/<line>/` and `docs/proposal/<line>*.md`.
+`bench/<line>/` and `docs/anima/proposal/<line>*.md`.
 
 A line leaves the active set one of two ways:
 
@@ -33,7 +33,7 @@ Retired lines so far:
 - `sigma_lowres` — archived 2026-08-19 → `_archive/sigma_lowres/`. The research
   branches + paper drafts were already mirrored to the private repo
   (2026-08-15) and deleted from public origin; the shipped `--sigma_lowres`
-  feature stays live (`docs/optimizations/sigma_lowres.md`).
+  feature stays live (`docs/anima/optimizations/sigma_lowres.md`).
 - `directedit_ec` — archived 2026-08-19 → `_archive/directedit_ec/`. Private
   mirroring still pending; the state is snapshot in the mirror's `main` and
   in origin history. EasyEdit ship proposal + paper prep remain the owed
@@ -44,7 +44,8 @@ Finished lines are listed in [`finished/README.md`](finished/README.md)
 encoder-side CJK line `cjk_aware_anima` and its DiT-side successor
 `cjk_aware_anima_dit`, both 2026-09-24; the wake line
 `cjk_renderable_anima`, 2026-09-30; its production line `cjk_anima_scale`,
-2026-10-09; the PaddleOCR-VL reader v4 line `ocr_reader`, 2026-10-15).
+2026-10-09; the PaddleOCR-VL reader v4 line `ocr_reader`, 2026-10-15; the MOSS-Image
+line `moss_lora`, 2026-10-28).
 
 Active projects:
 

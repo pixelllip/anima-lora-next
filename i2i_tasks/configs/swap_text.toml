@@ -1,0 +1,17 @@
+name = "swap_text"
+
+# swap_text: JA manga page → the same page with its lettering translated (hitocrawl
+# edition twins; i2i_tasks/swap_text/prep.py). MOSS-only — the staging tree's
+# pairs.jsonl feeds configs/moss/i2i/swap_text/cache.toml.
+#
+#   make i2i-stage TASK=swap_text ARGS="--limit 4"      # build + ocr, det (GPU) + pool + assemble + caption
+#   make i2i-stage TASK=swap_text ARGS="--stages assemble caption --sample 2000"   # resample the pool
+#   make i2i-preprocess TASK=swap_text MODEL=moss
+
+[staging]
+langs = ["en", "ko"]
+# share of pairs that swap only some captioned regions; the rest stay JA. 0: every
+# pair pastes all its clean groups (unclean groups still stay JA, unnamed)
+partial_ratio = 0.0
+# pool pages staged (0: the whole pool, post_image_dataset/i2i/swap_text/pool/)
+sample = 0

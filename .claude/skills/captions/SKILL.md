@@ -35,7 +35,7 @@ frees it before the TE child.
 | `make caption-full` | `PositionRequest` → `OcrRequest` (`ocr`) → `ExportRequest` (`export`) | the whole derived-caption chain, one daemon job (re-enters `tasks.py caption-full --inline` inside it, so the stages share a process). **Applies by default** (`--dry_run` to plan) — every step writes the derived tree, which the master's dry-run guard exists to protect. `--skip_position` / `--skip_ocr` re-combine from the sidecars already read; `--ocr_min_det` / `--ocr_min_glyph` are the floors |
 | `make preprocess-captions` | `CorrectRequest` (`correct`) | corrects the revised caption in place (mirrors the master only for an image with none) + `.variants.txt` under `post_image_dataset/resized/`; `--caption_drop_groups` |
 | `make caption-index` | plain CLI `anime_tools.captions.index` | `post_image_dataset/captions/caption_index.json` (`--out` spelled by the trainer) |
-| `make autotag` / `make tagger*` | plain CLIs `anime_tools.tagger.cli.*` | single-image / vocab build / dbv4 ckpt |
+| `make autotag` / `make tagger*` | plain CLIs `anime_tools.tagger.cli.*` | single-image / vocab build / backbone ckpt (`make tagger-build`) |
 
 Stage wiring (`scripts/tasks/preprocess.py`): autotag runs **first** (right after
 resize, `apply=True`), then position clauses, then correction/variants, then TE —

@@ -15,6 +15,7 @@ import pytest
 from library.training.progress import (
     ProgressSink,
     _find_cmmd,
+    command_job_path,
     _flatten_logs,
     read_status,
 )
@@ -61,6 +62,15 @@ def test_resolve_path_explicit_override(tmp_path):
         progress_jsonl=explicit, output_dir="/ignored", output_name="r"
     )
     assert ProgressSink.resolve_path(args) == explicit
+
+
+def test_command_job_path_prefers_the_daemon_job_dir(tmp_path, monkeypatch):
+    monkeypatch.delenv("ANIMA_DAEMON_JOB_DIR", raising=False)
+    assert command_job_path("logs/run.progress.jsonl") == "logs/run.progress.jsonl"
+    monkeypatch.setenv("ANIMA_DAEMON_JOB_DIR", str(tmp_path))
+    assert command_job_path("logs/run.progress.jsonl") == str(
+        tmp_path / "progress.jsonl"
+    )
 
 
 def test_full_lifecycle_schema(tmp_path):
@@ -336,3 +346,23 @@ def test_run_status_skips_command_jobs_and_survives_empty_dirs(tmp_path):
     (jobs / "20260901-1200-abcdef").mkdir()  # command job: no stream
     assert rs._find_streams(logs, jobs) == []  # missing logs dir is not an error
     assert rs._find_streams(logs, None) == []
+
+
+def test_run_status_names_a_running_job_before_its_stream(tmp_path, monkeypatch):
+    """A train job writes run_start only after its model loads; until then a bare
+    run-status showed the previous (dead) run instead of the job on the GPU."""
+    logs, jobs = tmp_path / "logs", tmp_path / "jobs"
+    _daemon_stream(jobs, "20261023-222131-3bd611", "old")
+    new = jobs / "20261023-222244-7072b5"
+    new.mkdir()
+    rec = {"id": new.name, "method": "moss-i2i-train", "state": "running", "pid": 1}
+    (new / "job.json").write_text(json.dumps(rec))
+    monkeypatch.setattr(rs, "_pid_alive", lambda pid: True)
+    assert rs._streamless_running_job(jobs)["id"] == new.name
+
+    (new / "progress.jsonl").write_text(json.dumps(_run_start(run="new")) + "\n")
+    assert rs._streamless_running_job(jobs) is None  # its stream speaks for it
+
+    (new / "progress.jsonl").unlink()
+    monkeypatch.setattr(rs, "_pid_alive", lambda pid: False)
+    assert rs._streamless_running_job(jobs) is None  # a stale "running" record

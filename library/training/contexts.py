@@ -2,8 +2,8 @@
 
 ``TrainCtx``/``ValCtx`` are frozen bundles built once in ``train()`` and
 threaded through per-step/per-batch methods; ``RuntimeState`` is the mutable
-per-run counterpart. Live here (not train.py) so ``loop.py`` and other
-entrypoints can import them directly.
+per-run counterpart. Live here (not in ``library.anima.trainer``) so
+``loop.py`` and other entrypoints can import them directly.
 """
 
 from __future__ import annotations
@@ -32,8 +32,6 @@ class TrainCtx:
     tokenize_strategy: Any
     vae_dtype: torch.dtype
     weight_dtype: torch.dtype
-    train_text_encoder: bool
-    train_unet: bool
     optimizer_eval_fn: Callable
     optimizer_train_fn: Callable
     is_tracking: bool
@@ -58,9 +56,9 @@ class ValCtx:
 
 @dataclass(frozen=True)
 class DatasetBundle:
-    """Return of ``AnimaTrainer._prepare_dataset``: the train/val dataset groups
-    plus the shared collator and the ``multiprocessing.Value`` step/epoch
-    counters the collator and loop read."""
+    """Return of ``library.anima.trainer.data.build_datasets``: the train/val
+    dataset groups plus the shared collator and the ``multiprocessing.Value``
+    step/epoch counters the collator and loop read."""
 
     train_group: Any
     val_group: Any
@@ -69,22 +67,21 @@ class DatasetBundle:
     collator: Any
     use_user_config: bool
     use_dreambooth_method: bool
+    caption_dropout_enabled: bool = False
 
 
 @dataclass(frozen=True)
 class NetworkBundle:
-    """Return of ``AnimaTrainer._create_and_apply_network``: the built+applied
-    adapter network and the train/eval flags derived while applying it."""
+    """Return of ``library.anima.trainer.network.create_and_apply_network``:
+    the built+applied adapter network and the resolved factory kwargs."""
 
     network: Any
     net_kwargs: dict
-    train_unet: bool
-    train_text_encoder: bool
 
 
 @dataclass(frozen=True)
 class OptimizerBundle:
-    """Return of ``AnimaTrainer._setup_optimizer_and_dataloader``: optimizer (+
+    """Return of ``library.anima.trainer.optim.build_optimizer_and_dataloaders``: optimizer (+
     its name/args and train/eval fns), LR schedule, and the train/val
     dataloaders, all pre-``accelerator.prepare``."""
 
@@ -102,10 +99,10 @@ class OptimizerBundle:
 
 @dataclass(frozen=True)
 class AcceleratedBundle:
-    """Return of ``AnimaTrainer._prepare_with_accelerator``: the
+    """Return of ``library.anima.trainer.optim.prepare_with_accelerator``: the
     ``accelerator.prepare``-wrapped network/optimizer/dataloaders/scheduler plus
-    the re-resolved model handles (the wrapped DiT, the cast/prepared text
-    encoders, and the chosen unet weight dtype)."""
+    the re-resolved model handles (the wrapped DiT, the cast text encoders,
+    and the chosen unet weight dtype)."""
 
     network: Any
     optimizer: Any
@@ -115,17 +112,17 @@ class AcceleratedBundle:
     training_model: Any
     unet: Any
     text_encoders: list
-    text_encoder: Any
     unet_weight_dtype: torch.dtype
 
 
 @dataclass
 class RuntimeState:
-    """Per-run mutable state threaded across trainer methods (unlike the
-    frozen ``*Ctx`` bundles above)."""
+    """Per-run mutable state threaded across the per-step phases
+    (``library.anima.trainer.step.AnimaStep.state``; unlike the frozen
+    ``*Ctx`` bundles above)."""
 
     # Merged from adapters' `extra_forwards` in get_noise_pred_and_target;
-    # consumed by the loss composer in _process_batch_inner.
+    # consumed by the loss composer in AnimaStep._process_batch_inner.
     extras_for_step: dict = field(default_factory=dict)
     # EMA λ for the flow_matching_vr AsymFlow §5.2 control variate (frozen
     # reference = trainable DiT with network.set_multiplier(0)).
@@ -137,6 +134,6 @@ class RuntimeState:
     # Gates whether ensure_uncond_crossattn stages the sidecar above.
     caption_dropout_enabled: bool = False
     # Online memorization Δ-gap tracker (library/training/mem_reweight.py),
-    # created when --mem_reweight_mode is set; updated in _attach_aux_losses,
-    # consumed (EMA + loss_weights multiply) in _process_batch_inner.
+    # created when --mem_reweight_mode is set; updated in AnimaStep._attach_aux_losses,
+    # consumed (EMA + loss_weights multiply) in AnimaStep._process_batch_inner.
     mem_tracker: object | None = None

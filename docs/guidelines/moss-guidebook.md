@@ -2,7 +2,7 @@
 
 A guide to training and testing LoRAs for MOSS-Image in the GUI. Open it with `make gui` and set the top-bar **Model** dropdown to **MOSS-Image** (`make gui-moss` opens the same panel in its own window). The panel is in English, or in Chinese when the GUI language is Chinese.
 
-The MOSS line is **alpha**: one real style run has been measured so far (a 30-image artist set), and flags and defaults may still move. Every number below comes from that run and its benchmarks on a 16 GB RTX 5070 Ti.
+The MOSS line is **alpha**: one style set so far (30 images of one artist), with many A/Bs on it, and flags and defaults may still move. The numbers below come from those A/Bs and from benchmarks on a 16 GB RTX 5070 Ti.
 
 ---
 
@@ -39,6 +39,8 @@ The MOSS line is **alpha**: one real style run has been measured so far (a 30-im
 
 ## 2. Setup
 
+> Install the repo first with the shared [installation guide](../installation/README.md).
+
 | Pack | Contents | Size |
 |---|---|---|
 | `moss-base` | DiT, text encoder, VAE, tokenizer | ~27 GB |
@@ -70,7 +72,7 @@ Images with same-name `.txt` captions, subfolders included. The default source i
 - **Train and prompt in the same format**: `caption_format` (Preprocess) and `prompt_format` (Test) must match — both `layout_json`, or both `text` for plain captions. Prompts are typed in Anima tag format either way; `layout_json` converts them.
 - **The trigger is the artist tag as it appears in the captions**, e.g. `@channel (caststation)`. Put it in the prompt the same way.
 - A natural-language prompt passes through `layout_json` as one caption string and behaves like the plain-text prompt.
-- In ComfyUI, the **Anima Caption → MOSS Layout JSON** node (Anima Tagger pack) does the same conversion in front of the text encoder.
+- In ComfyUI, the **MOSS Caption Helper** node with `task = layout` ([MOSS Toolkit](https://github.com/sorryhyun/ComfyUI-MOSS-Toolkit) pack) does the same conversion in front of the text encoder.
 
 ### 3.2 Preprocess
 
@@ -93,7 +95,7 @@ Press **Run preprocessing**. The status line counts images, captions and cached 
 | `output` | `output/ckpt_moss/moss_lora.safetensors` | LoRA path; a `.json` run report (per-step loss) lands beside it |
 | `model` | `base` | Which DiT to train on |
 | `epochs` | `8` | Passes over the cache (one image per step) |
-| `save_every_epochs` | `0` | Also save every N epochs, as `<name>_e10.safetensors` etc. |
+| `save_every_epochs` | `0` | Also save every N epochs, as `<name>/<name>_e10.safetensors` etc. beside the final file (the last epoch is the final file itself) |
 
 Rank, alpha, lr and the adapter type are in §4. **Train** reads `cache`; **Preprocess, then train** runs Preprocess first and points `cache` at its `out`.
 
@@ -109,25 +111,22 @@ Renders the prompt twice with the same seed: once with the LoRA at `lora_multipl
 
 ## 4. Recommended Settings
 
-The measured run: 30 images of one artist (`@channel (caststation)`), Base, LoRA rank 16, alpha 16, lr 1e-4 (the earlier defaults), `weight_svd`, 20 epochs = 600 steps, about 18–21 minutes. Of the variants tried, this one carried the most of the artist's cues with no leakage. The current defaults (rank 32, alpha 128, lr 5e-5, channel scaling 0.5, DC isolation) came from later comparisons, below.
+The comparisons ran on 30 images of one artist (`@channel (caststation)`), Base, 20 epochs = 600 steps (about 18–21 minutes).
 
 | Field | Default | Notes |
 |---|---|---|
 | `algo` | `lora` | `lokr` / `loha`: §4.1 |
 | `rank` | `32` | 37.2 M parameters at rank 16 (the earlier default) |
 | `alpha` | `128` for `lora` (scale 4 at rank 32); = rank for `lokr` / `loha` | scale = alpha / rank |
-| `lr` | `5e-5` | AdamW, 5 % linear warmup |
-| `channel_scaling_alpha` | `0.5` | `lora` only; `0` turns it off |
-| `dc_isolate` | on | `lora` only; one LoRA rank row for the input's constant offset |
-| `down_init` | `weight_svd` | `weight_svd` or `kaiming` |
+| `lr` | `5e-5` | 5 % linear warmup |
+| `optimizer` | `muon` | `adamw` is the earlier default; `lokr` / `loha` always use AdamW |
+| `down_init` | `kaiming` | `kaiming` or `weight_svd` |
 | `epochs` | `8` | the measured run used 20 |
-| `caption_dropout` | `0` | the measured run used 0 |
+| `plain_caption_rate` | `0.2` | `layout_json` caches only: share of steps trained on the plain Anima caption instead of its layout JSON |
 
-- **alpha and lr**: under AdamW, raising the scale is the same as raising the lr of the LoRA's up matrix by that factor. Rank 16 with alpha 90 (scale 5.6) at lr 1e-4 puts the up matrix at ~5.6e-4. That arm matched the default's style but started copying the set's signature: one sample carried the artist's watermark and handle. Alpha 90 at lr 5e-5 gave a softer, partial transfer. That comparison ranked alpha = rank at lr 1e-4 first, and it was the default until the later comparison below.
-- **Rank 32, alpha 128: lr 1e-4 vs 2e-5 (without channel scaling)**: on the caststation set (20 epochs, `weight_svd`, layout_json) with the artist tag injected, the two complex gallery prompts (a ten-character ensemble, a 4:1 banner) behaved differently. Rank 32 / alpha 128 at lr 1e-4 pushed the style hard (white backgrounds, flat pale fills) but lost prompt details (the wrong character held the bag, a plush was missing). At lr 2e-5 the details held (right bag holder, plush present) with a milder style shift, judged much better, and it was the default until channel scaling came in. Under AdamW the effective lr at scale 4 and lr 2e-5 is 8e-5 for the up matrix and 2e-5 for the down matrix.
-- **Channel scaling 0.5 at lr 1e-4** (the default until the next bullet): channel scaling rebalances the LoRA's per-channel updates so that a few very loud input channels (on MOSS, one channel feeding every FFN) stop taking the largest share; the output at the start is unchanged and the saved file is an ordinary LoRA. At lr 1e-4 it kept the strong style while staying on-prompt, where the same run without it added things the prompt never asked for (glasses, garbled-text signs, a street instead of a park). Details: `docs/moss/channel_scaling.md`. Set `channel_scaling_alpha 0` and `lr 2e-5` for the behaviour before it.
-- **Current defaults (lr 5e-5, channel scaling 0.5, DC isolation)**: the same loud channel also feeds a constant offset into the LoRA's `up` matrix on every token, which pulls most of the `up` update toward a global shift. `dc_isolate` gives that offset one LoRA rank row and keeps the other rows clear of it; output at the start is unchanged and the file is still an ordinary LoRA. It learns faster, so lr 1e-4 over-fit (the artist tag appeared as text in 3 of 12 test images); at lr 5e-5 all 12 were clean and on-prompt with the style strength of lr 1e-4. The α 0.5-only run at lr 5e-5 has not been made yet, so the lr and the flag are not separated. `--no-dc_isolate` and `lr 1e-4` give the previous default.
-- **down_init**: `weight_svd` starts the LoRA's down projection on the base weight's top singular vectors; `kaiming` is the random init. `weight_svd` kept the artist's style better by eye. The two inits give different samples at the same seed, about as different as a seed change.
+- **lr, channel scaling, DC isolation**: one input channel is far louder than the rest at the FFN input. Under AdamW two fixes kept the LoRA from spending its updates on a global shift through it (channel scaling and `dc_isolate`). Under the Muon default with a kaiming `down` init neither changed the trained LoRA, so both were removed. The earlier defaults and the comparisons behind each change: `docs/moss/channel_scaling.md`.
+- **optimizer**: Muon (the optimizer MOSS was pretrained with) at the same lr moves the LoRA by the same amount as AdamW, spread over more directions, and looked better on the same seed. It also keeps the LoRA off that global shift on its own. `docs/moss/findings/muon_lora.md`.
+- **down_init**: `kaiming` is the random init; `weight_svd` starts the LoRA's down projection on the base weight's top singular vectors. Those vectors read the input's constant offset strongly, and with Muon a `weight_svd` LoRA shifts every token's output about three times as far as a `kaiming` one. The images are about a seed change apart. `docs/moss/findings/muon_channel_init.md`.
 - **epochs**: at 10 of 20 epochs the results were looser and more varied; at 20 they were cleaner and more uniform, with a mild drift toward frontal, centred upper bodies. Set `save_every_epochs` to compare both from one run.
 - **sigma_\*** (Advanced): the defaults are MOSS's final pretraining noise schedule. Anima's schedule (`sigma_mu 0`, `sigma_s 1`, `sigma_cutoff 1.0`, `sigma_uniform 0`) gave the weakest transfer of every arm.
 
@@ -140,22 +139,24 @@ The measured run: 30 images of one artist (`@channel (caststation)`), Base, LoRA
 | LoKr f8 | `rank 100000`, `factor 8` | 2.26 s/step, 3.6 GB free | Close to the LoRA, slightly less character in the faces |
 | LoHa r16 | `rank 16` | 2.49 s/step, 1.7 GB free | Overshot: grey-teal palette shift, the set's costume on other characters |
 
-- Both need more memory than a LoRA: set `blocks_to_swap 24` and `activation_memory_budget 0.1` (Advanced). The earlier defaults (swap 12, budget 0.15) ran out of memory at 1024².
+- Both need more memory than a LoRA: set `activation_memory_budget 0.1` (Advanced) and keep `blocks_to_swap` at 24 or more. Swap 12 with budget 0.15 ran out of memory at 1024².
 - LoKr with `rank` at or above half the larger factor's side (the `rank 100000` above) uses a full matrix for that factor and ignores alpha (scale 1).
 - LoHa: lr 5e-5 is the next setting to try; it has not been measured.
 
 ### 4.2 Memory plan (16 GB)
 
-Defaults: `grad_checkpointing` off, `compile` on, and under Advanced `blocks_to_swap 12` (DiT blocks kept on the CPU and streamed in) and `activation_memory_budget 0.1` (how much of the forward pass is kept for the backward; the rest is recomputed).
+Defaults: `grad_checkpointing` off, `compile` on, and under Advanced `blocks_to_swap 36` (DiT blocks kept on the CPU and streamed in), `activation_memory_budget 0.5` (how much of the forward pass is kept for the backward; the rest is recomputed) and `expandable_segments` on (keeps the CUDA memory pool from fragmenting when sequence lengths vary).
 
 | Plan | Fields | s/step | Free VRAM |
 |---|---|---|---|
-| Default | swap 12, budget 0.1 (rank 32) | 1.85 | ~1.7 GiB |
-| Earlier default | swap 12, budget 0.15 (rank 16) | 1.77 | ~0.7 GiB |
+| Earlier default | swap 12, budget 0.1 (rank 32) | 1.85 | ~1.7 GiB |
+| Older default | swap 12, budget 0.15 (rank 16) | 1.77 | ~0.7 GiB |
 | More room | swap 24, budget 0.2 | 1.78 | 2.26 GiB |
 | Checkpointing | `grad_checkpointing` on, swap 0 | 2.09 | 1.60 GiB |
 
-Synthetic 1024² image + 300 text tokens (~4.4k tokens in all), LoRA rank 16, RTX 5070 Ti. The current default (rank 32, budget 0.1, swap 12) measured 1.85 s/step with ~1.7 GB free and a peak reserved of ~13.1 GB at ~4.5k joint tokens (image 4096 + text 455); rank 16 at budget 0.1 measured 1.82 s/step with ~2.0 GB free. Real samples ran up to ~4.9k tokens, and longer captions use more memory, which `swap 24` leaves room for at the same speed.
+The current default (swap 36, budget 0.5, `swap_h2d_only`, `expandable_segments`, rank 32) runs 1.9 s/step on the caststation set with 0.85 GB free on its largest sample (4.2k image + 0.4k text tokens). Raising the budget stops helping past ~0.45 (0.3: 2.05 s/step), and swap 28–36 run at the same speed, so a lower swap only gives up free VRAM. i2i samples also carry a reference image, so the i2i task configs use swap 38, budget 0.175: at swap 28, budget 0.2 runs out of memory, and swap 38 makes room for the higher budget, 3.79 s/step against 4.17 for swap 28 / budget 0.15 at ~8.3k joint tokens (sanitize). `swap_h2d_only` keeps a page-locked copy of every swapped block in RAM (up to 8.8 GB) so a swap only copies to the card, never back. The results and VRAM are the same as without it; it is as fast up to swap 38 and 8% faster at swap 40. It is on by default; `--no-swap_h2d_only` turns it off.
+
+Table: synthetic 1024² image + 300 text tokens (~4.4k tokens in all), LoRA rank 16, RTX 5070 Ti. The earlier default (rank 32, budget 0.1, swap 12) measured 1.85 s/step with ~1.7 GB free and a peak reserved of ~13.1 GB at ~4.5k joint tokens (image 4096 + text 455); rank 16 at budget 0.1 measured 1.82 s/step with ~2.0 GB free. Real samples ran up to ~4.9k tokens, and longer captions use more memory, which `swap 24` leaves room for at the same speed.
 
 - Between swap 8 and 36 the speed barely moves (1.75–1.84 s/step), and budgets 0.1–0.3 barely change it either; swap 40 is slower (2.34 s/step) because the PCIe transfers stop hiding behind compute. Below that point, the swap count trades VRAM, not speed.
 - The best pair depends on the PCIe link and the GPU. `scripts/moss/tune_swap.py` (CLI, [Appendix](#appendix-cli), about 4 minutes) times each swap count on the cache's largest sample and prints the fields to train with.
@@ -177,9 +178,11 @@ The sampler defaults come from MOSS's reference pipeline; Anima's sampler habits
 | `sampler` | `er_sde` | `er_sde` or `euler` |
 | `width` / `height` | `1024` | Multiples of 16 |
 | `negative_prompt` | empty | The pipeline default |
+| `dave` | empty | `auto` = DAVE: more variety across seeds for one prompt (framing, pose, layout), with slightly looser hands; `docs/moss/dave.md` |
+| `dave_strength` | `0.3` | How much DAVE removes; `dave_tau` (Advanced, `0.10`) = the share of early steps it runs on |
 
 - **er_sde vs euler**: `euler` is the reference pipeline's sampler. `er_sde` costs the same and gives sharper line work and denser detail; with the LoRA, hands came out cleaner. It also drifts from some prompt details (sunset light, hair colour, "sitting on a bench") and gave up a little of the set's look. The two give different images at the same seed, so compare LoRA against base within one sampler.
-- **Spectrum** (checkbox): most steps forecast the model's output instead of running all 42 blocks. At 50 steps with the default `spectrum_flex_window 0.5` (Advanced) it is 2.6× faster for +0.85 GiB, and hard to tell apart from the full 50 steps at grid scale. `0.25` is 2.2× and more conservative; `1.0` is 3.1× and loses fine detail.
+- **Spectrum** (checkbox, on by default): most steps forecast the model's output instead of running all 42 blocks. At 50 steps with the default `spectrum_flex_window 0.5` (Advanced) it is 2.6× faster for +0.85 GiB, and hard to tell apart from the full 50 steps at grid scale. `0.25` is 2.2× and more conservative; `1.0` is 3.1× and loses fine detail.
 - **compile** (Advanced, on): about 1.37× on top, with or without Spectrum, for a few seconds of compile per job. Composition is the same as uncompiled; fine detail (hair strands, patterns) differs, so compare compiled images with compiled images.
 
 | Base, 1024², 50 steps | Time per image |
@@ -187,6 +190,8 @@ The sampler defaults come from MOSS's reference pipeline; Anima's sampler habits
 | Plain, uncompiled | 72 s |
 | Plain, compiled | 52 s |
 | Spectrum, compiled | 20 s |
+
+- **ComfyUI**: a MOSS LoRA loads through ComfyUI's LoRA loader on a model from the `moss-image` nodes (files saved before 2026-10-17 do not). **KSampler (Spectrum for MOSS)** (Spectrum node pack) carries these sampler defaults and Spectrum, and `ComfyUI-Anima-DAVE` 0.2.0 or later runs DAVE on MOSS.
 
 **Comparing**: the Test button already renders LoRA and no-LoRA at the same seed. To compare two LoRAs or epochs, keep the prompt, seed, sampler and compile setting the same and change only `lora`.
 
@@ -214,7 +219,7 @@ The GUI submits these jobs; they can also be run through the daemon directly. `-
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/cache.py --src 'post_image_dataset/resized/<set>' --out 'post_image_dataset/moss/<set>'"
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --cache 'post_image_dataset/moss/<set>' --epochs 20"
 make daemon-run ARGS="--stall-timeout 900 scripts/moss/train.py --config configs/moss/lora.toml"
-make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors --spectrum"
+make daemon-run ARGS="--stall-timeout 900 scripts/moss/generate.py --lora output/ckpt_moss/moss_lora.safetensors"
 make daemon-run ARGS="scripts/moss/tune_swap.py --cache post_image_dataset/moss/<set>"
 ```
 
@@ -225,4 +230,4 @@ make daemon-run ARGS="scripts/moss/train.py --cache 'post_image_dataset/moss/<se
 make daemon-run ARGS="scripts/moss/train.py --cache 'post_image_dataset/moss/<set>' --epochs 20 --algo loha --rank 16 --lr 5e-5 --blocks_to_swap 24 --activation_memory_budget 0.1"
 ```
 
-More measurements: [`docs/experimental/moss_lora.md`](../experimental/moss_lora.md).
+More measurements: [`docs/moss/README.md`](../moss/README.md).

@@ -8,7 +8,7 @@ question the line asked has a terminal answer. The distillation trainer
 finished; the `distill-prep` / `distill-mod` targets were removed at
 the same time (one-shot surface — the head is re-distilled only when the base
 DiT changes). Ops: [`README.md`](README.md). The feature itself is unaffected
-and its doc stays canonical: [`docs/inference/mod-guidance.md`](../../../docs/inference/mod-guidance.md).
+and its doc stays canonical: [`docs/anima/inference/mod-guidance.md`](../../../docs/anima/inference/mod-guidance.md).
 
 ## Shipped artifacts
 
@@ -29,7 +29,7 @@ and its doc stays canonical: [`docs/inference/mod-guidance.md`](../../../docs/in
 The bench dir was archived 2026-07-12 →
 `_archive/bench/mod_guidance/` because every axis it probed came back
 terminal. Verdicts, with evidence in
-[`docs/findings/mod_guidance_quality_tag_axis.md`](../../../docs/findings/mod_guidance_quality_tag_axis.md):
+[`docs/anima/findings/mod_guidance_quality_tag_axis.md`](../../../docs/anima/findings/mod_guidance_quality_tag_axis.md):
 
 - What the head is: a global tone / contrast / finishing operator — a
   polish knob conditional on a good base, not a content editor and not a

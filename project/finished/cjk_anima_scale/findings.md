@@ -297,19 +297,19 @@ No earlier record contradicts § 1–8; where wording differs, the setup does.
   strokes are resolved in the tail (σ < 0.45)" was read on Korean glyphs the
   base has no identity for — § 4's JA garble, not § 4's EN. Narrowed: strokes
   move late only when the model has no identity for the glyph.
-- **Cross-attn drive** (`docs/findings/crossattn_self_attn_dominance.md`): the
+- **Cross-attn drive** (`docs/anima/findings/crossattn_self_attn_dominance.md`): the
   velocity reads say text only rescales below σ ≈ 0.85, but its Result 5
   measures a glyph-specific drive bump over 0.8 → 0.45 (peak 0.66) — the
   velocity side of § 5 / § 8 (dropping the conditional below 0.8 rewrites
   small text). Result 4 (the `korean text` tag keeps its attention mass, the
   glyph tokens fade) is the attention side of § 3.
 - **Commitment timing**: `_archive/bench/cross_attn_drive/report.md` (bubble
-  84 % committed by σ 0.8), `docs/findings/traj_stats_front_loaded_commitment.md`
+  84 % committed by σ 0.8), `docs/anima/findings/traj_stats_front_loaded_commitment.md`
   (channel profile fixed from σ ≈ 0.92; its commit-CDF counts the last
   change, colour and stroke weight included, hence 18 % at 0.8),
-  `docs/findings/foveated_denoise.md` (composition locks above 0.75) — all
+  `docs/anima/findings/foveated_denoise.md` (composition locks above 0.75) — all
   consistent with layout at ≥ 0.9 and identity by 0.85–0.7.
-  `docs/findings/sigma_signal_where_anima_resolves.md` ("0.95 is mostly a
+  `docs/anima/findings/sigma_signal_where_anima_resolves.md` ("0.95 is mostly a
   blur") is teacher-forced, not the trajectory's x̂0.
 - **Ceiling vs trajectory**: `cf_band_a1` is not the first —
   `../finished/cjk_renderable_anima/reports/cf_sense_gate0_2026_09_22.md`

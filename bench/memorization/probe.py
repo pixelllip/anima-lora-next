@@ -84,6 +84,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 import train as train_mod  # noqa: E402
+from library.config import schema as config_schema  # noqa: E402
 from anima_lora import default_checkpoints, load_vae  # noqa: E402
 from bench._anima import build_anima  # noqa: E402
 from bench._common import make_run_dir, write_result  # noqa: E402
@@ -138,9 +139,7 @@ def build_training_args(
 ) -> argparse.Namespace:
     """The exact args namespace a real run would build, then probe overrides."""
     parser = train_mod.setup_parser()
-    train_mod._config_schema.populate_schema(
-        parser, extras=train_mod.build_network_extras()
-    )
+    config_schema.populate_schema(parser, extras=train_mod.build_network_extras())
     # --no-config-snapshot so the merge doesn't write a stray .snapshot.toml.
     args = parser.parse_args(
         ["--method", method, "--preset", preset, "--no-config-snapshot"]

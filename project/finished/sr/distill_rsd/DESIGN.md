@@ -7,7 +7,7 @@ App. J) on top of the vendored ResShift source (`sr/resshift/`). Proposal contex
 `_archive/proposals/resshift_sr_sidecar.md` §3 Phase 2 (retired — shipped).
 
 RSD = DMD2 distribution-matching distillation ported to ResShift. Same machinery
-as our `turbo` DP-DMD loop (`docs/methods/turbo.md`, `networks/methods/turbo_dmd.py`)
+as our `turbo` DP-DMD loop (`docs/anima/methods/turbo.md`, `networks/methods/turbo_dmd.py`)
 — fake-critic + GAN + two-timescale alternation — over ResShift's residual-shift
 forward (not flow-matching), in the VQ-f4 latent.
 

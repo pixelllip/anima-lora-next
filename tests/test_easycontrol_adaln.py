@@ -1,6 +1,6 @@
 """EasyControl target-stream adaln LoRA (opt-in) — build, gating, round-trip.
 
-Covers the contract from docs/methods/adaln.md §EasyControl:
+Covers the contract from docs/anima/methods/adaln.md §EasyControl:
 - off by default even though base.toml forwards train_adaln=true (the EC method
   TOMLs pin it false; sizing kwargs are inert while off, never a raise),
 - √r-law alpha default from the cond LoRA's rank/alpha,

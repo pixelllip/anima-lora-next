@@ -533,6 +533,48 @@ class OvisReader:
         ).strip()
 
 
+class Ovis3Reader(OvisReader):
+    """`ATH-MaaS/OvisOCR3` (@ 4833d5d; same ``qwen3_5`` 0.8B body as OvisOCR2,
+    no MTP layer). Unlike OvisOCR2 it ships task prompts under ``prompts/``;
+    a crop is read with ``plain_ocr`` (the card's general-OCR prompt, stripped
+    as its ``general_ocr_prompt`` does). ``ANIMA_OVIS_TASK`` picks another
+    prompt file (``document_markdown`` = OvisOCR2's page parse). Decode as
+    the card: greedy, thinking off, 448² / 2880² pixels; the repo now ships
+    a ``generation_config.json`` whose eos pair is the one :attr:`eos` sets.
+    A ``--ckpt`` holding ``adapter_config.json`` (``finetune_ovis3_lora.py``)
+    is merged onto the base weights, then its ``lm.safetensors`` (``--lm_full``)
+    is loaded over them.
+    """
+
+    name = "ovis3"
+    DEFAULT = "models/ovis_ocr3"
+
+    def __init__(self, ckpt: str | None, device: str):
+        import os
+
+        adapter = ckpt and (Path(ckpt) / "adapter_config.json").is_file()
+        super().__init__(None if adapter else ckpt, device)
+        if adapter:
+            from peft import PeftModel
+
+            self.model = (
+                PeftModel.from_pretrained(self.model, ckpt).merge_and_unload().eval()
+            )
+            lm = Path(ckpt) / "lm.safetensors"  # finetune_ovis3_lora.py --lm_full
+            if lm.is_file():
+                from safetensors.torch import load_file
+
+                sd = load_file(str(lm))
+                bad = self.model.load_state_dict(sd, strict=False).unexpected_keys
+                assert not bad, bad[:5]
+                print(f"loaded {lm} ({len(sd)} tensors)")
+        base = Path(m109.REPO / self.DEFAULT if adapter or not ckpt else ckpt)
+        task = os.environ.get("ANIMA_OVIS_TASK", "plain_ocr")
+        self.prompt = (
+            (base / "prompts" / f"{task}.txt").read_text(encoding="utf-8").strip()
+        )
+
+
 READERS = {
     "manga_ocr": MangaOcrReader,
     "ppocr": PpocrReader,
@@ -541,6 +583,7 @@ READERS = {
     "hayai": HayaiReader,
     "hunyuan": HunyuanReader,
     "ovis": OvisReader,
+    "ovis3": Ovis3Reader,
 }
 
 

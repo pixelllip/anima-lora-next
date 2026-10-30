@@ -80,23 +80,23 @@ class TestDemoteBucket:
 
 class TestSigmaRoute:
     def test_default_and_custom(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
-        assert AnimaTrainer._sigma_route(SimpleNamespace()) == (1024, 896)
-        assert AnimaTrainer._sigma_route(SimpleNamespace(sigma_lowres_route=None)) == (
+        assert sr.route(SimpleNamespace()) == (1024, 896)
+        assert sr.route(SimpleNamespace(sigma_lowres_route=None)) == (
             1024,
             896,
         )
-        assert AnimaTrainer._sigma_route(
+        assert sr.route(
             SimpleNamespace(sigma_lowres_route="1024:768")
         ) == (1024, 768)
 
     def test_bad_routes_rejected(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         for bad in ("1024", "896:1024", "1024:0", "a:b", "1024:896:768"):
             with pytest.raises(ValueError):
-                AnimaTrainer._sigma_route(SimpleNamespace(sigma_lowres_route=bad))
+                sr.route(SimpleNamespace(sigma_lowres_route=bad))
 
     def test_unsafe_768_bucket_derivable(self):
         # The E4 negative-control route must derive a 768-band sibling grid
@@ -361,10 +361,10 @@ class TestYarnsigRope:
         assert not torch.allclose(yarn[0], native[0], atol=1e-4)
 
     def test_mu_gate_formula(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = SimpleNamespace(sigma_lowres_yarnsig="1,4,0.35,2")
-        alpha, beta, center, gamma = AnimaTrainer._yarnsig_params(args)
+        alpha, beta, center, gamma = sr.yarnsig_params(args)
         assert (alpha, beta, center, gamma) == (1.0, 4.0, 0.35, 2.0)
 
         def mu(s):
@@ -384,13 +384,13 @@ class TestYarnsigRope:
         assert mu(0.999) > 0.99
 
     def test_bad_params_rejected(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         for bad in ("1,4", "4,1,0.35,2", "1,4,1.5,2", "1,4,0.35,0"):
             with pytest.raises(ValueError):
-                AnimaTrainer._yarnsig_params(SimpleNamespace(sigma_lowres_yarnsig=bad))
+                sr.yarnsig_params(SimpleNamespace(sigma_lowres_yarnsig=bad))
         assert (
-            AnimaTrainer._yarnsig_params(SimpleNamespace(sigma_lowres_yarnsig=None))
+            sr.yarnsig_params(SimpleNamespace(sigma_lowres_yarnsig=None))
             is None
         )
 
@@ -398,38 +398,38 @@ class TestYarnsigRope:
         """yarnsig is part of the shipped recipe, so an unset flag under
         --sigma_lowres resolves to the operating point — a plain --sigma_lowres
         run must not silently be a degraded (no-yarnsig) arm."""
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = SimpleNamespace(sigma_lowres=True, sigma_lowres_yarnsig=None)
-        assert AnimaTrainer._yarnsig_params(args) == (1.0, 4.0, 0.35, 2.0)
+        assert sr.yarnsig_params(args) == (1.0, 4.0, 0.35, 2.0)
         # …and the effective value is written back, so the snapshot records it.
-        assert args.sigma_lowres_yarnsig == AnimaTrainer.YARNSIG_OPERATING_POINT
+        assert args.sigma_lowres_yarnsig == sr.YARNSIG_OPERATING_POINT
 
     def test_default_off_without_sigma_lowres(self):
         """Nothing to demote → nothing to realign; the implicit default must not
-        leak into runs that never enabled sigma_lowres (train.py errors on
+        leak into runs that never enabled sigma_lowres (the trainer errors on
         yarnsig-without-sigma_lowres)."""
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = SimpleNamespace(sigma_lowres=False, sigma_lowres_yarnsig=None)
-        assert AnimaTrainer._yarnsig_params(args) is None
+        assert sr.yarnsig_params(args) is None
         assert args.sigma_lowres_yarnsig is None
 
     def test_explicit_off_words_disable_it(self):
         """The escape hatch from default-on, and the reason a config may carry
         `sigma_lowres_yarnsig = "off"` without tripping the requires-sigma_lowres
         guard."""
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         for off in ("off", "OFF", "none", "false", "0", ""):
             args = SimpleNamespace(sigma_lowres=True, sigma_lowres_yarnsig=off)
-            assert AnimaTrainer._yarnsig_params(args) is None, off
+            assert sr.yarnsig_params(args) is None, off
 
     def test_explicit_value_still_wins(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = SimpleNamespace(sigma_lowres=True, sigma_lowres_yarnsig="2,6,0.4,3")
-        assert AnimaTrainer._yarnsig_params(args) == (2.0, 6.0, 0.4, 3.0)
+        assert sr.yarnsig_params(args) == (2.0, 6.0, 0.4, 3.0)
 
 
 class TestSigmaSpan:
@@ -450,46 +450,46 @@ class TestSigmaSpan:
         )
 
     def test_parse_defaults_and_custom(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
-        assert AnimaTrainer._sigma_span_params(SimpleNamespace()) is None
+        assert sr.span_params(SimpleNamespace()) is None
         assert (
-            AnimaTrainer._sigma_span_params(SimpleNamespace(sigma_lowres_span=None))
+            sr.span_params(SimpleNamespace(sigma_lowres_span=None))
             is None
         )
-        assert AnimaTrainer._sigma_span_params(self._args("early")) == ("early", 0.5)
-        assert AnimaTrainer._sigma_span_params(self._args("late:0.25")) == (
+        assert sr.span_params(self._args("early")) == ("early", 0.5)
+        assert sr.span_params(self._args("late:0.25")) == (
             "late",
             0.25,
         )
-        assert AnimaTrainer._sigma_span_params(self._args("spread:0.5")) == (
+        assert sr.span_params(self._args("spread:0.5")) == (
             "spread",
             0.5,
         )
 
     def test_bad_specs_rejected(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         for bad in ("first", "early:0", "late:1", "spread:x", "early:0.5:0.5"):
             with pytest.raises(ValueError):
-                AnimaTrainer._sigma_span_params(self._args(bad))
+                sr.span_params(self._args(bad))
 
     def test_needs_finalized_total(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         with pytest.raises(ValueError):
-            AnimaTrainer._sigma_span_allows(self._args("early", total=0), 1)
+            sr.span_allows(self._args("early", total=0), 1)
 
     def test_none_allows_all(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = self._args(None)
-        assert all(AnimaTrainer._sigma_span_allows(args, i) for i in range(1, 481))
+        assert all(sr.span_allows(args, i) for i in range(1, 481))
 
     def test_early_late_partition_exact(self):
         """early:0.5 and late:0.5 partition [1, T] exactly — same mass,
         disjoint, exhaustive — for even and odd T."""
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         for total in (480, 481):
             early = self._args("early", total=total)
@@ -497,12 +497,12 @@ class TestSigmaSpan:
             e = {
                 i
                 for i in range(1, total + 1)
-                if AnimaTrainer._sigma_span_allows(early, i)
+                if sr.span_allows(early, i)
             }
             lt = {
                 i
                 for i in range(1, total + 1)
-                if AnimaTrainer._sigma_span_allows(late, i)
+                if sr.span_allows(late, i)
             }
             b = round(0.5 * total)
             assert e == set(range(1, b + 1))
@@ -512,32 +512,32 @@ class TestSigmaSpan:
             assert abs(len(e) - len(lt)) <= 1  # identical mass (±1 at odd T)
 
     def test_grad_accum_scales_total(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = self._args("early", total=480, accum=2)  # 960 forwards
-        assert AnimaTrainer._sigma_span_allows(args, 480)
-        assert not AnimaTrainer._sigma_span_allows(args, 481)
+        assert sr.span_allows(args, 480)
+        assert not sr.span_allows(args, 481)
 
     def test_spread_coin_seed_keyed_and_stream_free(self):
         """Same seed → identical coin sequence regardless of global RNG
         state/consumption (CRN pairing); different seed → different set;
         empirical rate ≈ p."""
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args_a = self._args("spread")
         torch.manual_seed(0)
         random.seed(0)
-        seq_a = [AnimaTrainer._sigma_span_allows(args_a, i) for i in range(1, 481)]
+        seq_a = [sr.span_allows(args_a, i) for i in range(1, 481)]
 
         args_b = self._args("spread")
         torch.manual_seed(7)
         random.seed(999)
         random.random()  # global consumption must not matter
-        seq_b = [AnimaTrainer._sigma_span_allows(args_b, i) for i in range(1, 481)]
+        seq_b = [sr.span_allows(args_b, i) for i in range(1, 481)]
         assert seq_a == seq_b
 
         args_c = self._args("spread", seed=1002)
-        seq_c = [AnimaTrainer._sigma_span_allows(args_c, i) for i in range(1, 481)]
+        seq_c = [sr.span_allows(args_c, i) for i in range(1, 481)]
         assert seq_c != seq_a
 
         rate = sum(seq_a) / len(seq_a)
@@ -550,10 +550,10 @@ class TestSigmaWindow:
 
     @staticmethod
     def _gate(sigmas, lo, hi):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = SimpleNamespace(sigma_lowres_threshold=lo, sigma_lowres_threshold_max=hi)
-        return AnimaTrainer._sigma_gate_allows(args, sigmas)
+        return sr.gate_allows(args, sigmas)
 
     def test_window_gate(self):
         lo, hi = 0.65, 0.95
@@ -588,23 +588,23 @@ class TestSigmaStackedRouter:
         return SimpleNamespace(**base)
 
     def test_route2_parse(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
-        assert AnimaTrainer._sigma_route2(SimpleNamespace()) is None
+        assert sr.route2(SimpleNamespace()) is None
         assert (
-            AnimaTrainer._sigma_route2(SimpleNamespace(sigma_lowres_route2=None))
+            sr.route2(SimpleNamespace(sigma_lowres_route2=None))
             is None
         )
-        assert AnimaTrainer._sigma_route2(
+        assert sr.route2(
             SimpleNamespace(sigma_lowres_route2="1024:768")
         ) == (1024, 768)
         for bad in ("1024", "768:1024", "a:b"):
             with pytest.raises(ValueError):
-                AnimaTrainer._sigma_route2(SimpleNamespace(sigma_lowres_route2=bad))
+                sr.route2(SimpleNamespace(sigma_lowres_route2=bad))
 
     def test_combo_choice_matches_spec(self):
         """768 if sigma in (0.65, 0.95); elif sigma > 0.5 -> 896; else native."""
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = self._combo_args()
         cases = {
@@ -617,25 +617,25 @@ class TestSigmaStackedRouter:
             0.50: None,  # primary gate is strict >
         }
         for sigma, want in cases.items():
-            got = AnimaTrainer._sigma_demote_choice(args, torch.tensor([sigma]), 1)
+            got = sr.demote_choice(args, torch.tensor([sigma]), 1)
             assert got == want, (sigma, got, want)
 
     def test_rule1_only_unchanged(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = self._combo_args(sigma_lowres_route2=None)
-        assert AnimaTrainer._sigma_demote_choice(args, torch.tensor([0.7]), 1) == 1
-        assert AnimaTrainer._sigma_demote_choice(args, torch.tensor([0.3]), 1) is None
+        assert sr.demote_choice(args, torch.tensor([0.7]), 1) == 1
+        assert sr.demote_choice(args, torch.tensor([0.3]), 1) is None
 
     def test_per_rule_spans_independent(self):
         """rule 2 late-gated while rule 1 has no span: an in-window sigma in
         the first half falls back to the primary rule."""
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = self._combo_args(sigma_lowres_span2="late")
         sig = torch.tensor([0.7])
-        assert AnimaTrainer._sigma_demote_choice(args, sig, 100) == 1
-        assert AnimaTrainer._sigma_demote_choice(args, sig, 300) == 2
+        assert sr.demote_choice(args, sig, 100) == 1
+        assert sr.demote_choice(args, sig, 300) == 2
 
 
 class TestSigmaRuleValidation:
@@ -670,10 +670,10 @@ class TestSigmaRuleValidation:
         return SimpleNamespace(**base)
 
     def test_route2_without_window_rejected(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         with pytest.raises(ValueError) as e:
-            AnimaTrainer._validate_sigma_rules(
+            sr.validate_rules(
                 self._args(sigma_lowres_route2="1024:768")
             )
         msg = str(e.value)
@@ -685,10 +685,10 @@ class TestSigmaRuleValidation:
         [(0.65, None), (None, 0.95)],
     )
     def test_route2_with_half_a_window_rejected(self, lo, hi):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         with pytest.raises(ValueError):
-            AnimaTrainer._validate_sigma_rules(
+            sr.validate_rules(
                 self._args(
                     sigma_lowres_route2="1024:768",
                     sigma_lowres_threshold2=lo,
@@ -698,10 +698,10 @@ class TestSigmaRuleValidation:
 
     @pytest.mark.parametrize("lo,hi", [(0.95, 0.65), (0.7, 0.7), (-0.1, 0.9)])
     def test_route2_inverted_window_rejected(self, lo, hi):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         with pytest.raises(ValueError):
-            AnimaTrainer._validate_sigma_rules(
+            sr.validate_rules(
                 self._args(
                     sigma_lowres_route2="1024:768",
                     sigma_lowres_threshold2=lo,
@@ -710,9 +710,9 @@ class TestSigmaRuleValidation:
             )
 
     def test_shipped_combo_recipe_validates(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
-        route, route2 = AnimaTrainer._validate_sigma_rules(
+        route, route2 = sr.validate_rules(
             self._args(
                 sigma_lowres_route2="1024:768",
                 sigma_lowres_threshold2=0.65,
@@ -723,23 +723,23 @@ class TestSigmaRuleValidation:
         assert route == (1024, 896) and route2 == (1024, 768)
 
     def test_rule1_alone_needs_no_window(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
-        assert AnimaTrainer._validate_sigma_rules(self._args()) == ((1024, 896), None)
+        assert sr.validate_rules(self._args()) == ((1024, 896), None)
 
     def test_primary_inverted_window_rejected(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         with pytest.raises(ValueError):
-            AnimaTrainer._validate_sigma_rules(
+            sr.validate_rules(
                 self._args(sigma_lowres_threshold=0.8, sigma_lowres_threshold_max=0.6)
             )
 
     @pytest.mark.parametrize("attr", ["sigma_lowres_span", "sigma_lowres_span2"])
     def test_bad_span_raises_at_setup_not_first_step(self, attr):
-        """A typo'd span used to raise inside _maybe_sigma_demote, i.e. after
+        """A typo'd span used to raise inside the per-step demote, i.e. after
         model load, adapter attach and caching."""
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         kw = {attr: "latte"}
         if attr == "sigma_lowres_span2":
@@ -749,10 +749,10 @@ class TestSigmaRuleValidation:
                 sigma_lowres_threshold2_max=0.95,
             )
         with pytest.raises(ValueError, match="early|late|spread"):
-            AnimaTrainer._validate_sigma_rules(self._args(**kw))
+            sr.validate_rules(self._args(**kw))
 
     def test_rule_cfg_reads_each_rules_own_flags(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = self._args(
             sigma_lowres_threshold=0.5,
@@ -762,10 +762,10 @@ class TestSigmaRuleValidation:
             sigma_lowres_threshold2_max=0.95,
             sigma_lowres_span2="early:0.3",
         )
-        assert AnimaTrainer._sigma_rule_cfg(args, 1) == (0.5, None, "late")
-        assert AnimaTrainer._sigma_rule_cfg(args, 2) == (0.65, 0.95, "early:0.3")
+        assert sr.rule_cfg(args, 1) == (0.5, None, "late")
+        assert sr.rule_cfg(args, 2) == (0.65, 0.95, "early:0.3")
         with pytest.raises(ValueError):
-            AnimaTrainer._sigma_rule_cfg(args, 3)
+            sr.rule_cfg(args, 3)
 
 
 class TestSigmaSpanResumeOffset:
@@ -774,7 +774,7 @@ class TestSigmaSpanResumeOffset:
     point against an absolute T and demotes over a shrunken tail."""
 
     def test_late_span_boundary_is_absolute_after_resume(self):
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = SimpleNamespace(
             sigma_lowres_span="late:0.5",
@@ -783,8 +783,8 @@ class TestSigmaSpanResumeOffset:
             seed=0,
         )
         # T=480, late:0.5 -> demote for step_idx > 240, whatever the offset.
-        assert AnimaTrainer._sigma_span_allows(args, 240) is False
-        assert AnimaTrainer._sigma_span_allows(args, 241) is True
+        assert sr.span_allows(args, 240) is False
+        assert sr.span_allows(args, 241) is True
 
     @pytest.mark.parametrize("resume_at", [0, 120, 300])
     def test_resumed_run_demotes_the_same_absolute_tail(self, resume_at):
@@ -793,7 +793,7 @@ class TestSigmaSpanResumeOffset:
         run would produce. With a 0-based counter, resume_at=300 under
         late:0.5 demoted from global 540 (past the end) instead of 241.
         """
-        from train import AnimaTrainer
+        from library.anima.trainer import sigma_route as sr
 
         args = SimpleNamespace(
             sigma_lowres_span="late:0.5",
@@ -806,7 +806,7 @@ class TestSigmaSpanResumeOffset:
         demoted = []
         for _ in range(480 - resume_at):
             counter += 1
-            if AnimaTrainer._sigma_span_allows(args, counter):
+            if sr.span_allows(args, counter):
                 demoted.append(counter)
 
         expected = [i for i in range(resume_at + 1, 481) if i > 240]

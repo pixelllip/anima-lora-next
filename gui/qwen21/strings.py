@@ -125,3 +125,7 @@ FIELDS_CN_GENERATE: dict[str, tuple[str, str]] = {
         "交换到内存的 transformer 块数（默认按可用显存计算）",
     ),
 }
+
+
+FIELDS: dict[str, dict[str, tuple[str, str]]] = {"cn": FIELDS_CN}
+FIELDS_GENERATE: dict[str, dict[str, tuple[str, str]]] = {"cn": FIELDS_CN_GENERATE}

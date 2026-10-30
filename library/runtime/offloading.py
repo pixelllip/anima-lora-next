@@ -68,6 +68,139 @@ def swap_weight_devices_cuda(
     torch.cuda.current_stream().synchronize()  # this prevents the illegal loss value
 
 
+class HostMasters:
+    """Page-locked CPU copies of frozen block weights, one flat buffer per block.
+
+    With the base frozen (LoRA training, inference) the CPU copy of an evicted
+    block never goes stale, so :func:`swap_weight_devices_cuda_h2d` repoints the
+    outgoing weights at their master instead of copying them back. A block's
+    master is built the first time it is needed: from its CPU weights (a host
+    memcpy) or, for a block that starts resident, from the device (one D2H).
+
+    The buffers are ordinary allocations registered with ``cudaHostRegister``,
+    exact-size: the caching host allocator behind ``pin_memory()`` rounds each
+    request up to a power of two (a 0.21 GB MOSS block takes 0.25 GB). Once a
+    registration fails, that buffer and every later one fall back (see
+    :meth:`_alloc`).
+    """
+
+    _ALIGN = 256
+
+    def __init__(self):
+        self._views: dict[int, dict[str, torch.Tensor]] = {}
+        self._flats: list[torch.Tensor] = []
+        self._mode = "register"
+
+    def get(self, block: nn.Module) -> dict[str, torch.Tensor]:
+        views = self._views.get(id(block))
+        if views is None:
+            views = self._views[id(block)] = self._build(block)
+        return views
+
+    def _build(self, block: nn.Module) -> dict[str, torch.Tensor]:
+        weights = {
+            name: m.weight.data
+            for name, m in block.named_modules()
+            if getattr(m, "weight", None) is not None
+        }
+        offsets, total = {}, 0
+        for name, w in weights.items():
+            total = -(-total // self._ALIGN) * self._ALIGN
+            offsets[name] = total
+            total += w.numel() * w.element_size()
+        flat = self._alloc(total)
+        views = {}
+        for name, w in weights.items():
+            off = offsets[name]
+            nbytes = w.numel() * w.element_size()
+            view = flat[off : off + nbytes].view(w.dtype).view(w.shape)
+            view.copy_(w)
+            views[name] = view
+        return views
+
+    def _alloc(self, total: int) -> torch.Tensor:
+        """Exact-size registered buffer; on failure (Windows/WDDM refuses
+        ``cudaHostRegister`` on some drivers and caps page-locked memory) fall
+        back to the caching host allocator, then to pageable memory — slower
+        H2D copies, same results."""
+        if self._mode == "register":
+            flat = torch.empty(total, dtype=torch.uint8)
+            cudart = torch.cuda.cudart()
+            err = cudart.cudaHostRegister(flat.data_ptr(), total, 0)
+            if int(err) == 0:
+                self._flats.append(flat)
+                return flat
+            # torch's cudart enum names only success; print the code and string.
+            self._fallback(
+                f"cudaHostRegister failed (error {int(err)}: "
+                f"{cudart.cudaGetErrorString(err)}) for {total} bytes "
+                f"after {len(self._flats)} pinned blocks"
+            )
+        if self._mode == "pin":
+            try:
+                return torch.empty(total, dtype=torch.uint8, pin_memory=True)
+            except RuntimeError as e:
+                self._fallback(f"pin_memory failed for {total} bytes: {e}")
+        return torch.empty(total, dtype=torch.uint8)
+
+    def _fallback(self, reason: str) -> None:
+        self._mode = "pin" if self._mode == "register" else "pageable"
+        print(
+            f"HostMasters: {reason}; falling back to {self._mode} host memory",
+            flush=True,
+        )
+
+    def release(self) -> None:
+        """Unregister the buffers; tensors still viewing them stay valid (pageable)."""
+        for flat in self._flats:
+            torch.cuda.cudart().cudaHostUnregister(flat.data_ptr())
+        self._flats.clear()
+        self._views.clear()
+
+
+def swap_weight_devices_cuda_h2d(
+    device: torch.device,
+    layer_to_cpu: nn.Module,
+    layer_to_cuda: nn.Module,
+    masters: HostMasters,
+):
+    """:func:`swap_weight_devices_cuda` without the device-to-host half: the
+    outgoing block's weights are repointed at their :class:`HostMasters` copy and
+    its device storage takes the incoming block's master. Frozen weights only."""
+    assert layer_to_cpu.__class__ == layer_to_cuda.__class__
+
+    weight_swap_jobs: list[Tuple[str, nn.Module, nn.Module]] = []
+    modules_to_cpu = {k: v for k, v in layer_to_cpu.named_modules()}
+    for name, module_to_cuda in layer_to_cuda.named_modules():
+        if hasattr(module_to_cuda, "weight") and module_to_cuda.weight is not None:
+            module_to_cpu = modules_to_cpu.get(name, None)
+            if (
+                module_to_cpu is not None
+                and module_to_cpu.weight.shape == module_to_cuda.weight.shape
+            ):
+                weight_swap_jobs.append((name, module_to_cpu, module_to_cuda))
+            else:
+                if module_to_cuda.weight.data.device.type != device.type:
+                    module_to_cuda.weight.data = module_to_cuda.weight.data.to(device)
+
+    torch.cuda.current_stream().synchronize()  # this prevents the illegal loss value
+
+    # After the sync: building the outgoing master reads its device weights.
+    out_master = masters.get(layer_to_cpu)
+    in_master = masters.get(layer_to_cuda)
+
+    stream = torch.Stream(device="cuda")
+    with torch.cuda.stream(stream):
+        for name, module_to_cpu, module_to_cuda in weight_swap_jobs:
+            cuda_data_view = module_to_cpu.weight.data
+            cuda_data_view.copy_(in_master[name], non_blocking=True)
+            module_to_cuda.weight.data = cuda_data_view
+            module_to_cpu.weight.data = out_master[name]
+
+    stream.synchronize()
+    torch.cuda.current_stream().synchronize()  # this prevents the illegal loss value
+
+
 def swap_weight_devices_no_cuda(
     device: torch.device, layer_to_cpu: nn.Module, layer_to_cuda: nn.Module
 ):
@@ -125,6 +258,7 @@ class Offloader:
         blocks_to_swap: int,
         device: torch.device,
         debug: bool = False,
+        h2d_only: bool = False,
     ):
         self.num_blocks = num_blocks
         self.blocks_to_swap = blocks_to_swap
@@ -134,9 +268,16 @@ class Offloader:
         self.thread_pool = ThreadPoolExecutor(max_workers=1)
         self.futures = {}
         self.cuda_available = device.type == "cuda"
+        if h2d_only and not self.cuda_available:
+            raise ValueError("h2d_only block swap needs a CUDA device")
+        self.masters = HostMasters() if h2d_only else None
 
     def swap_weight_devices(self, block_to_cpu: nn.Module, block_to_cuda: nn.Module):
-        if self.cuda_available:
+        if self.masters is not None:
+            swap_weight_devices_cuda_h2d(
+                self.device, block_to_cpu, block_to_cuda, self.masters
+            )
+        elif self.cuda_available:
             swap_weight_devices_cuda(self.device, block_to_cpu, block_to_cuda)
         else:
             swap_weight_devices_no_cuda(self.device, block_to_cpu, block_to_cuda)
@@ -216,8 +357,9 @@ class ModelOffloader(Offloader):
         device: torch.device,
         supports_backward: bool = True,
         debug: bool = False,
+        h2d_only: bool = False,
     ):
-        super().__init__(len(blocks), blocks_to_swap, device, debug)
+        super().__init__(len(blocks), blocks_to_swap, device, debug, h2d_only)
 
         self.supports_backward = supports_backward
         self.forward_only = (

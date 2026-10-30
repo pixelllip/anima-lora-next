@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Small post-install check for the supported Windows ROCm path.
 
-Two entry points on purpose: ``install.ps1`` / ``docs/guidelines/rocm.md`` run
+Two entry points on purpose: ``install.ps1`` / ``docs/installation/rocm.md`` run
 this as a script (``python tests/rocm_smoke_test.py``) right after installing
 the ROCm wheels, and pytest picks up ``test_rocm_smoke`` so ``make test-unit``
 exercises the same body on real AMD hardware. Everywhere else (CUDA, CPU) the
@@ -25,11 +25,11 @@ def _validate_runtime() -> None:
         raise RuntimeError("ROCm PyTorch cannot access an AMD GPU")
     if torch.version.hip is None:
         raise RuntimeError("installed PyTorch is not a ROCm build")
-    if not str(torch.__version__).startswith("2.13.0+rocm10.0.0"):
-        raise RuntimeError(f"expected torch 2.13.0+rocm10.0.0, got {torch.__version__}")
-    if not str(torchvision.__version__).startswith("0.28.0+rocm10.0.0"):
+    if not str(torch.__version__).startswith("2.14.0+rocm10.1.0"):
+        raise RuntimeError(f"expected torch 2.14.0+rocm10.1.0, got {torch.__version__}")
+    if not str(torchvision.__version__).startswith("0.29.0a0+rocm10.1.0"):
         raise RuntimeError(
-            f"expected torchvision 0.28.0+rocm10.0.0, got {torchvision.__version__}"
+            f"expected torchvision 0.29.0a0+rocm10.1.0, got {torchvision.__version__}"
         )
 
 

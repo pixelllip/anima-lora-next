@@ -4,7 +4,7 @@ A training run compiled for the buckets the dataset populates (e.g. the 1024
 tier's 4032/4200 range) crashed mid-training when a sample prompt requested
 1024x1536 — 6144 tokens, outside the dynamic-seq mark_dynamic range. The fix
 folds the sample prompts' token counts into the compile budget
-(train.py::_sample_prompt_token_counts → token_counts_for_sample_prompts);
+(library/anima/trainer/data.py::sample_prompt_token_counts → token_counts_for_sample_prompts);
 these tests lock the pure count/snap math.
 """
 

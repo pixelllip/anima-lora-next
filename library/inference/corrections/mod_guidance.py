@@ -53,7 +53,7 @@ def build_mod_schedule(args: argparse.Namespace, num_blocks: int) -> List[float]
     tonal-DC blocks 0-7 and the final compensation block, applying full w in
     between. The end layer is depth-relative (num_blocks-1) so a deeper
     checkpoint skips its own last block, not block 27.
-    See docs/inference/mod-guidance.md for rationale.
+    See docs/anima/inference/mod-guidance.md for rationale.
     """
     end_layer = getattr(args, "mod_end_layer", None)
     return build_block_schedule(
@@ -79,7 +79,7 @@ def setup_mod_guidance(
     final_w     = --mod_final_w (applied at the final_layer only)
 
     At inference each block l receives `t_emb + schedule[l] * delta_unit`;
-    `final_layer` receives `t_emb + final_w * delta_unit`. See docs/inference/mod-guidance.md.
+    `final_layer` receives `t_emb + final_w * delta_unit`. See docs/anima/inference/mod-guidance.md.
     """
     mod_w = args.mod_w
     mod_pos = args.mod_pos_prompt

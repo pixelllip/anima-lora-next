@@ -1,4 +1,4 @@
-"""Feature-tap + early-exit invariants (idea 3.1 of docs/proposal/turbo_gan).
+"""Feature-tap + early-exit invariants (idea 3.1 of docs/anima/proposal/turbo_gan).
 
 ``forward_mini_train_dit`` gained an opt-in ``return_block_features`` /
 ``return_features_early`` path so the Turbo GAN can read a frozen-teacher block

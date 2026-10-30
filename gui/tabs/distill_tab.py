@@ -400,7 +400,7 @@ class _DistillConfigTab(DaemonJobMixin, DirtyTrackingMixin, LazyTabMixin, QWidge
 
 
 class TurboTrainTab(_DistillConfigTab):
-    # Turbo few-step LoRA student via DP-DMD through the bespoke loop `make turbo` (NOT train.py). See docs/methods/turbo.md.
+    # Turbo few-step LoRA student via DP-DMD through the bespoke loop `make turbo` (NOT train.py). See docs/anima/methods/turbo.md.
     CONFIG_PATH = "configs/methods/turbo.toml"
     TRAIN_TASK = "turbo"
     METHOD_LABEL = "Turbo"

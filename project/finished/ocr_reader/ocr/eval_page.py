@@ -41,7 +41,7 @@ def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--reader", choices=["ovis"], default="ovis")
+    ap.add_argument("--reader", choices=["ovis", "ovis3"], default="ovis")
     ap.add_argument("--ckpt")
     ap.add_argument("--name")
     ap.add_argument("--labels", type=Path, default=eval_sfx.LABELS)

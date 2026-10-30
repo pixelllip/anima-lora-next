@@ -57,8 +57,13 @@ pwsh -File scripts\downstream\upstream-sync.ps1 -Merge -Push   # 合完推回 or
 ### 2.3 为什么合并能一直是"小冲突"
 
 因为我们的改动**几乎全是新增文件**（`downstream/**`、`gui/i18n/cn_overlay.json`、
-`gui/i18n/overlay.py`、计划中的 `library/krea2/**` …），只有 **5 个上游文件被改过**
-（§3 的"补丁文件"）。上游改到这 5 个文件时才会有冲突，`upstream-sync` 会把它们点名。
+`gui/i18n/overlay.py`、`library/krea2/**`、`anima_lora_webui/**` …），只有 **16 个上游文件被改过**
+（§3 的"补丁文件"，机器可读版是 `downstream/owned-paths.txt` 的 `patched` 段）。
+上游改到这 16 个文件时才会有冲突，`upstream-sync` 会把它们点名。
+
+> 2026-10-30 跟到上游 `v2.3.2`（`upstream/main` 3c579c2）时的实测：合并 147 个上游提交，
+> 冲突只有 6 个（`README.md` / `docs/README.md` / `docs/methods/**` 的目录搬迁 /
+> `library/lines/adapters.py` / `library/moss/{loader,model}.py`），其余全部自动合入。
 
 ### 2.4 守卫测试在守什么
 
@@ -77,10 +82,17 @@ pwsh -File scripts\downstream\upstream-sync.ps1 -Merge -Push   # 合完推回 or
 * `DOWNSTREAM.md`、`NOTICE` 里我们那一节
 * `gui/i18n/cn_overlay.json`、`gui/i18n/overlay.py`
 * `gui/explanations/guides/cn/_fields.json` 的两个补充键（见下）
-* `library/krea2/**`、`scripts/krea2/**`、`configs/krea2/**`（计划中，当前只有 README 占位）
+* `library/krea2/**`、`scripts/krea2/**`、`configs/krea2/**`、`library/models/krea2_raw/**`
+  （Krea-2 line，按上游 line 风格实现）
+* `anima_daemon/studio.py`、`anima_daemon/easycontrol.py`、`anima_daemon/toolkits.py`
+  （训练工作台 / EasyControl / 合并·TensorBoard·实验·队列 的 REST；挂载点在 `server.py`）
 * `anima_lora_webui/**`、`tests/test_webui_server.py`（自有 Web 界面，见「界面策略」）
+* `library/moss/single_file.py`、`scripts/moss/probe_single_file.py`
+  （用 ComfyUI 单文件 int8 convrot / w4a8 权重训练 MOSS，不必下 27 GB bf16）
+* `docs/anima/methods/krea2-style-in-the-loop.md`
 * `scripts/downstream/**`、`.github/workflows/upstream-sync.yml`、`downstream/**`
-* `tests/test_downstream_guards.py`
+* `tests/test_downstream_guards.py`、`tests/test_krea2_line.py`、`tests/test_krea2_stack_lora.py`、
+  `tests/test_studio.py`、`tests/test_toolkits.py`
 
 **补丁（改了上游文件，合并时可能在冲突清单里）**
 
@@ -89,6 +101,13 @@ pwsh -File scripts\downstream\upstream-sync.ps1 -Merge -Push   # 合完推回 or
 * `gui/tabs/methods_tab.py`、`gui/tabs/preprocess/tab.py`（`Method` 标签走 `t("method")`）
 * `gui/i18n/{en,ko,ja,cn}.py`（补 3 个上游漏掉的键：`refresh` / `method` / `path_scope`）
 * `gui/explanations/guides/cn/_fields.json`（补 `path_scope` / `preprocess_path_pattern` 两条帮助）
+* `README.md`、`NOTICE`、`anima_daemon/README.md`（下游说明与来源声明）
+* `anima_daemon/server.py`（挂 studio / easycontrol / toolkits 三组路由）、`anima_daemon/mcp.py`
+  （把 `anima_studio_*` 暴露给 AI 工具）
+* `scripts/tasks/preprocess.py`（Krea-2 预处理钩子）
+* `library/lines/adapters.py`（SVD 初始化走 `dequantized_weight()`，量化底模才有意义）
+* `library/moss/loader.py`（`ANIMA_MOSS_{DIT,TE,VAE}_FILE` 单文件分支）、
+  `library/moss/model.py`（量化底模的 compute dtype 取 norm，不取 `proj.weight.dtype`）
 
 **界面策略（2026-10-18 决定，2026-10-19 落地）**：自带 PySide6 GUI **继续保留、但不作为主要界面**。
 它的功能面很全，但存在 bug；主要界面是仓库内的 [`anima_lora_webui/`](anima_lora_webui/README.md)

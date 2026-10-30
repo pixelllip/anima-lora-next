@@ -8,11 +8,12 @@ right). The tab hosts two *kinds* of variant:
     (e.g. ``easycontrol``). The variant stem *is* the train.py method; the form
     edits gui-methods/<stem>.toml and training rides ConfigTab's daemon path.
 
-  • Descriptor variants — control-task projects described by a single
-    ``configs/easycontrol/<stem>.toml`` (top-level ``name`` + ``[staging]`` /
-    ``[preprocess]`` / ``[training]`` tables + blueprint, plus a ``[variant]``
-    metadata block). The form renders the descriptor's scalar tables (Save writes
-    them back through tomlkit; blueprint and ``[variant]`` are preserved), and the
+  • Descriptor variants — i2i tasks with an EasyControl descriptor
+    ``configs/easycontrol/<stem>.toml`` (``[preprocess]`` / ``[training]`` tables
+    + blueprint, plus a ``[variant]`` metadata block) beside the task file
+    ``i2i_tasks/configs/<stem>.toml`` (``name``, ``stage``, ``[staging]``). The
+    form renders both files' scalar tables (Save writes them back through tomlkit;
+    blueprint and ``[variant]`` are preserved), and the
     Preprocess / Train buttons drive the staging → preprocess → descriptor-folded
     train flow (always training the base
     ``easycontrol`` method with the descriptor's ``[training]`` table folded in as
@@ -22,7 +23,7 @@ The selected variant implies an ``EASYADAPTER`` value for the preprocess route:
 
   • EasyControl (ref == target) — EASYADAPTER unset → reads easycontrol-dataset/.
   • Colorize (B&W manga → color) — EASYADAPTER=colorize → mangafy + cond/text
-    caching (easycontrol_adapters/colorization/prep.py via the descriptor).
+    caching (i2i_tasks/colorization/prep.py via the descriptor).
 
 Custom variants don't map onto the easycontrol method selection, so the "+ New"
 button and custom entries are suppressed here.
@@ -62,6 +63,7 @@ from gui.theme import tok
 from gui.widgets import action_button, apply_variant, make_field_label
 
 _DESCRIPTOR_DIR = ROOT / "configs" / "easycontrol"
+_TASK_DIR = ROOT / "i2i_tasks" / "configs"
 
 
 def _descriptor_variants() -> list[tuple[int, str, str]]:
@@ -91,8 +93,8 @@ class EasyControlTab(ConfigTab):
     _VARIANT_ENV = {"colorize": "colorize"}
     # variant stem → cache dir the preprocess-reuse prompt inspects.
     _CACHE_DIRS = {
-        "easycontrol": "post_image_dataset/easycontrol",
-        "colorize": "post_image_dataset/easycontrol/colorize/cond",
+        "easycontrol": "post_image_dataset/i2i",
+        "colorize": "post_image_dataset/i2i/colorize/cond",
     }
 
     def __init__(self):
@@ -137,7 +139,7 @@ class EasyControlTab(ConfigTab):
         from gui.i18n import current_language
 
         # Localized guide: ADAPTER_GUIDE.<lang>.md, English (ADAPTER_GUIDE.md) fallback.
-        base = ROOT / "easycontrol_adapters"
+        base = ROOT / "i2i_tasks"
         path = base / f"ADAPTER_GUIDE.{current_language()}.md"
         if not path.exists():
             path = base / "ADAPTER_GUIDE.md"
@@ -186,7 +188,7 @@ class EasyControlTab(ConfigTab):
         if self._is_descriptor_variant(self._current_variant()):
             self._show_descriptor_form(self._current_variant())
             return
-        self._desc_doc = None
+        self._desc_docs = None
         self._desc_widgets = []
         super()._reload()
 
@@ -207,64 +209,84 @@ class EasyControlTab(ConfigTab):
             return [EasyControlTab._plain(x) for x in v]
         return v
 
+    def _desc_paths(self, variant: str) -> dict[str, Path]:
+        """The files a descriptor variant edits: its i2i task file (``name``,
+        ``stage``, [staging]) when there is one, then the EasyControl descriptor."""
+        task = _TASK_DIR / f"{variant}.toml"
+        paths = {"task": task} if task.is_file() else {}
+        paths["ec"] = _DESCRIPTOR_DIR / f"{variant}.toml"
+        return paths
+
     def _show_descriptor_form(self, variant: str) -> None:
         """Render the descriptor's scalar knob tables as grouped form fields.
 
         Mirrors ConfigTab._reload's teardown (``_clear_form``, reset explain, clear
-        dirty), then builds one QGroupBox per editable table (top-level scalars like
-        ``name`` first, then [staging]/[preprocess]/[training]) reusing ConfigTab's
-        _widget / ClickableLabel / dirty wiring. The parsed tomlkit doc is stashed
+        dirty), then builds one QGroupBox per editable table — the i2i task file's
+        top-level scalars (``name``, ``stage``) and [staging] first, then the
+        EasyControl descriptor's [preprocess]/[training] — reusing ConfigTab's
+        _widget / ClickableLabel / dirty wiring. The parsed tomlkit docs are stashed
         on self so Save can write changed values back in place — comments and the
         [[datasets]] blueprint survive untouched."""
         self._origin = {}
         self._clear_form()
-        # (table-or-None, key, widget, original-plain-value) so Save can route each
-        # value back into the right tomlkit table.
-        self._desc_widgets: list[tuple[str | None, str, QWidget, object]] = []
+        # (doc, table-or-None, key, widget, original-plain-value) so Save can route
+        # each value back into the right file and tomlkit table.
+        self._desc_widgets: list[tuple[str, str | None, str, QWidget, object]] = []
 
-        path = _DESCRIPTOR_DIR / f"{variant}.toml"
-        rel = path.relative_to(ROOT)
-        self._desc_doc = tomlkit.parse(path.read_text(encoding="utf-8"))
-        self._explain.show_guide(t("easycontrol_descriptor_note", path=str(rel)))
+        paths = self._desc_paths(variant)
+        rels = " + ".join(str(path.relative_to(ROOT)) for path in paths.values())
+        self._desc_docs = {
+            doc: tomlkit.parse(path.read_text(encoding="utf-8"))
+            for doc, path in paths.items()
+        }
+        self._explain.show_guide(t("easycontrol_descriptor_note", path=rels))
 
-        header = QLabel(t("easycontrol_descriptor_form_header", path=str(rel)))
+        header = QLabel(t("easycontrol_descriptor_form_header", path=rels))
         header.setWordWrap(True)
         header.setTextFormat(Qt.RichText)
         header.setStyleSheet(f"color:{tok('text')}; padding:4px 2px 8px 2px;")
         self._fl.addWidget(header)
 
-        top = {
-            k: v
-            for k, v in self._desc_doc.items()
-            if not isinstance(v, (dict, list)) and k not in self._DESC_SKIP_TABLES
-        }
-        if top:
-            self._fl.addWidget(self._desc_group(t("ec_desc_group_top"), top, None))
-
-        tables = [k for k in self._desc_doc if isinstance(self._desc_doc[k], dict)]
-        ordered = [k for k in self._DESC_TABLE_ORDER if k in tables] + [
-            k
-            for k in tables
-            if k not in self._DESC_TABLE_ORDER and k not in self._DESC_SKIP_TABLES
-        ]
-        for tbl in ordered:
-            items = {
+        for doc_key, doc in self._desc_docs.items():
+            top = {
                 k: v
-                for k, v in self._desc_doc[tbl].items()
-                if not isinstance(v, (dict, list))
-                or (isinstance(v, list) and not any(isinstance(x, dict) for x in v))
+                for k, v in doc.items()
+                if not isinstance(v, (dict, list)) and k not in self._DESC_SKIP_TABLES
             }
-            if items:
-                self._fl.addWidget(self._desc_group(f"[{tbl}]", items, tbl))
+            if top:
+                self._fl.addWidget(
+                    self._desc_group(t("ec_desc_group_top"), top, doc_key, None)
+                )
+
+            tables = [k for k in doc if isinstance(doc[k], dict)]
+            ordered = [k for k in self._DESC_TABLE_ORDER if k in tables] + [
+                k
+                for k in tables
+                if k not in self._DESC_TABLE_ORDER and k not in self._DESC_SKIP_TABLES
+            ]
+            for tbl in ordered:
+                items = {
+                    k: v
+                    for k, v in doc[tbl].items()
+                    if not isinstance(v, (dict, list))
+                    or (isinstance(v, list) and not any(isinstance(x, dict) for x in v))
+                }
+                if items:
+                    self._fl.addWidget(
+                        self._desc_group(f"[{tbl}]", items, doc_key, tbl)
+                    )
 
         self._fl.addStretch()
         self._clear_dirty()
 
-    def _desc_group(self, title: str, items: dict, table: str | None) -> QGroupBox:
+    def _desc_group(
+        self, title: str, items: dict, doc: str, table: str | None
+    ) -> QGroupBox:
         """One form group for a descriptor table (or the top-level scalars when
-        ``table is None``). Registers each field in self._desc_widgets and wires its
-        change signal to the dirty flag; clickable labels show field help where the
-        key is a known method knob (mostly [training])."""
+        ``table is None``) of ``self._desc_docs[doc]``. Registers each field in
+        self._desc_widgets and wires its change signal to the dirty flag; clickable
+        labels show field help where the key is a known method knob (mostly
+        [training])."""
         box = QGroupBox(title)
         form = QFormLayout()
         for k, raw in items.items():  # tomlkit preserves file order
@@ -276,7 +298,7 @@ class EasyControlTab(ConfigTab):
                 on_click=lambda _k=k, _h=help_text: self._show_explain(_k, _h, ()),
             )
             form.addRow(lbl, w)
-            self._desc_widgets.append((table, k, w, plain))
+            self._desc_widgets.append((doc, table, k, w, plain))
             self._connect_dirty_signal(w)
         box.setLayout(form)
         return box
@@ -291,23 +313,30 @@ class EasyControlTab(ConfigTab):
         super()._save_preset(silent=silent)
 
     def _save_descriptor(self, variant: str, *, silent: bool) -> None:
-        doc = getattr(self, "_desc_doc", None)
-        if doc is None:
+        docs = getattr(self, "_desc_docs", None)
+        if not docs:
             return
-        for table, key, w, orig in self._desc_widgets:
+        changed: set[str] = set()
+        for doc_key, table, key, w, orig in self._desc_widgets:
             val = _read(w, orig)
             # Sparse writeback: only touch changed fields so unedited ones keep their
             # original tomlkit formatting (quote style, arrays, float notation).
             if val == orig:
                 continue
+            doc = docs[doc_key]
             target = doc if table is None else doc.get(table)
             if target is not None:
                 target[key] = val
-        path = _DESCRIPTOR_DIR / f"{variant}.toml"
-        path.write_text(tomlkit.dumps(doc), encoding="utf-8")
+                changed.add(doc_key)
+        paths = self._desc_paths(variant)
+        for doc_key in changed:
+            paths[doc_key].write_text(tomlkit.dumps(docs[doc_key]), encoding="utf-8")
         self._clear_dirty()
         if not silent:
-            QMessageBox.information(self, t("saved"), f"Saved {path.relative_to(ROOT)}")
+            saved = ", ".join(str(paths[d].relative_to(ROOT)) for d in sorted(changed))
+            QMessageBox.information(
+                self, t("saved"), f"Saved {saved or '(no changes)'}"
+            )
 
     def _ec_adapter(self) -> str | None:
         # A descriptor variant's stem IS its EASYADAPTER value (task dispatch loads
@@ -318,20 +347,20 @@ class EasyControlTab(ConfigTab):
         return self._VARIANT_ENV.get(variant)
 
     def _ec_cache_dir(self) -> Path:
-        # Descriptor variants cache under their `name` slug, which can differ from
-        # the dropdown stem (e.g. near_twins.toml ships name = "sanitize").
+        # Descriptor variants cache under their i2i task's `name` slug, which can
+        # differ from the dropdown stem (e.g. near_twins ships name = "sanitize").
         variant = self._current_variant()
         if self._is_descriptor_variant(variant):
             slug = variant
             try:
                 doc = tomllib.loads(
-                    (_DESCRIPTOR_DIR / f"{variant}.toml").read_text(encoding="utf-8")
+                    (_TASK_DIR / f"{variant}.toml").read_text(encoding="utf-8")
                 )
                 slug = str(doc.get("name") or variant).strip()
             except (OSError, tomllib.TOMLDecodeError):
                 pass
-            return ROOT / "post_image_dataset" / "easycontrol" / slug / "cond"
-        rel = self._CACHE_DIRS.get(variant, "post_image_dataset/easycontrol")
+            return ROOT / "post_image_dataset" / "i2i" / slug / "cond"
+        rel = self._CACHE_DIRS.get(variant, "post_image_dataset/i2i")
         return ROOT / rel
 
     def _ec_launch(self, argv: list[str], mode: str) -> None:

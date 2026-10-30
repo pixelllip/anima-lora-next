@@ -39,7 +39,7 @@ from anime_tools.captions.position_clauses import parse_caption
 from anime_tools.captions.tag_groups import load_groups
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-TAGGER = REPO / "models" / "captioners" / "anima-tagger-dbv4"
+TAGGER = REPO / "models" / "captioners" / "anima-tagger-pixai"
 SPEC_PATH = REPO / "workflows" / "randoms_build.yaml"
 
 HEADER = """\

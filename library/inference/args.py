@@ -424,7 +424,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # SPD (arXiv:2605.18736): forces Euler, mutually exclusive with --spectrum.
-    # See networks/spd.py + docs/inference/spd.md (bench: _archive/spd/bench/).
+    # See networks/spd.py + docs/anima/inference/spd.md (bench: _archive/spd/bench/).
     parser.add_argument(
         "--spd",
         action="store_true",
@@ -450,7 +450,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Deferred-foveated merge (archived line — _archive/bench/foveated/):
     # training-free, forces Euler, mutually exclusive with --spectrum / --spd.
-    # See networks/foveated.py + docs/inference/foveated.md.
+    # See networks/foveated.py + docs/anima/inference/foveated.md.
     parser.add_argument(
         "--fovea_sigma_c",
         type=float,
@@ -481,12 +481,12 @@ def build_parser() -> argparse.ArgumentParser:
     # Front-loaded cross-attn boost: scale the cross-attn residual of every
     # block by λ on the CONDITIONAL forward only, gated to σ ≥ band — the
     # window where cross-attn text drive exists at all
-    # (docs/findings/crossattn_self_attn_dominance.md). Amplifies ALL caption
+    # (docs/anima/findings/crossattn_self_attn_dominance.md). Amplifies ALL caption
     # tags (framing priors ride along). Composes with --spectrum (real forwards
     # boosted, forecast steps extrapolate from boosted features) and with
     # --smc_cfg / --cfgpp / --mod_guidance (they touch the combine or the
     # modulation pathway, not the cond forward). Under CFG 1.0 (turbo) the
-    # single forward is boosted. See docs/inference/xattn_boost.md.
+    # single forward is boosted. See docs/anima/inference/xattn_boost.md.
     parser.add_argument(
         "--xattn_boost",
         type=float,
@@ -524,7 +524,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # SMC-CFG (library/inference/corrections/smc_cfg.py). Composes with
     # --spectrum / --mod_guidance (operates strictly on the velocity-space CFG
-    # combine). See docs/inference/smc_cfg.md.
+    # combine). See docs/anima/inference/smc_cfg.md.
     parser.add_argument(
         "--smc_cfg",
         action="store_true",
@@ -574,7 +574,7 @@ def build_parser() -> argparse.ArgumentParser:
     # ~3·K extra forwards per scheduled step. Composes with --mod_guidance / --dave / --cns / --smc_cfg (FSG's
     # calibration uses plain γ-combine; the outer step keeps the configured CFG
     # variant). Ignored under --spectrum / --spd (they replace the loop). See
-    # docs/inference/fsg.md.
+    # docs/anima/inference/fsg.md.
     parser.add_argument(
         "--fsg",
         action="store_true",
@@ -644,7 +644,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # CNS: Colored Noise Sampling (library/inference/corrections/cns_core.py).
-    # er_sde-only (no-op on euler). See docs/inference/cns.md.
+    # er_sde-only (no-op on euler). See docs/cns.md.
     parser.add_argument(
         "--cns",
         type=str,

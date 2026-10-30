@@ -15,7 +15,7 @@ behind a live train run instead of OOM-colliding, and survive the terminal.
 
 ## Targets
 
-`make daemon | daemon-run ARGS="<script.py> …" | daemon-wait [JOB=<id>] | daemon-attach [JOB=<id>] | daemon-jobs | daemon-log [JOB=<id>] | daemon-pause [JOB=<id>] | daemon-resume [JOB=<id>] | daemon-kill | daemon-terminate | daemon-prune`
+`make daemon | daemon-run ARGS="<script.py> …" | daemon-wait [JOB=<id>] | daemon-attach [JOB=<id>] | daemon-status [JOB=<id>] | daemon-jobs | daemon-log [JOB=<id>] | daemon-pause [JOB=<id>] | daemon-resume [JOB=<id>] | daemon-kill | daemon-terminate | daemon-prune`
 
 - Front door: **`make daemon-run ARGS="<script.py> [flags]"`** — attach-by-default, exits
   with the job's code; `--queue` detaches, `--inline` bypasses the daemon;
@@ -82,7 +82,7 @@ shell does **not** set — comes from the shell that booted the daemon, possibly
 
 | question | command | what comes back |
 |---|---|---|
-| Is a job running / is the queue busy? | `make daemon-jobs ARGS="--state queued,running,paused"` | one line per unfinished job, then `N of M jobs` — a bare `0 of M` **is** the "nothing running" answer (exit 1 = daemon down) |
+| Is a job running / is the queue busy? | `make daemon-status` (health line + unfinished jobs), or `make daemon-jobs ARGS="--state queued,running,paused"` | one line per unfinished job, then `N of M jobs` — a bare `0 of M` **is** the "nothing running" answer (exit 1 = daemon down) |
 | How far along is the current run? | `make run-status` | `step N/total`, it/s, ETA, last losses, last ckpt (§ Run status below) |
 | Did job `<id>` finish, and with what exit code? | `make daemon-jobs ARGS="--all" \| grep <id>` | one line: when · id · state · `rc=` · duration · target · first error line |
 | …and block until it does? | `make daemon-wait JOB=<id>` | exits with the job's own code (record + envelope on stdout) |
@@ -125,14 +125,15 @@ unaffected).
 `step N/total`, it/s, ETA, last losses, last ckpt, and `RUNNING`/`OK`/`ERROR`/`DEAD` (no
 `run_end` + dead pid), digested from the run's `progress.jsonl`
 (`library/training/progress.py::read_status` — importable; `scripts/run_status.py` is the
-CLI). Covers train.py methods **and** `make turbo`; a bespoke loop that writes no
+CLI). Covers train.py methods, `make turbo` **and** moss train (`scripts/moss/train.py`); a bespoke loop that writes no
 `progress.jsonl` (e.g. `project/cjk_anima_reseed/run.py`) shows nothing here — read the
 step off `make daemon-log JOB=<id>`.
 
 **Both launch paths are scanned**: an inline run's `output/logs/<name>.progress.jsonl`
 *and* a daemon job's `output/daemon/jobs/<id>/progress.jsonl` (the daemon overrides
 `--progress_jsonl` with a per-job path, so the run dir under `output/logs/` holds the
-snapshot + TB events but no stream). Defaults to the newest stream from either;
+snapshot + TB events but no stream). Defaults to the newest stream from either — or, while the daemon's running job has
+no stream yet (a train loop still loading), names that job instead;
 `RUN=<output_name|job id|path>` selects — a daemon stream's filename is bare, so a run
 name there is matched against the `run_start` event inside it, and the header prints
 `(job <id>)`. `ARGS="--list"` for all, `ARGS="--json"` for the dict, `ARGS="--jobs-dir

@@ -34,11 +34,13 @@ def test_build_panel_maps_language_and_leaves_main_i18n(qapp, settings_file):
     i18n.set_language("ko")
     try:
         panel = window.build_panel(SPEC, "ko")
-        assert window._lang == "en"
+        assert window._lang == "ko"
         assert i18n.current_language() == "ko"
         assert not hasattr(panel, "lang_combo")
         window.build_panel(SPEC, "cn")
         assert window._lang == "cn"
+        window.build_panel(SPEC, "xx")
+        assert window._lang == "en"
     finally:
         i18n.set_language("en")
 
@@ -56,9 +58,10 @@ def test_mode_switch_is_lazy_persisted_and_restored(qapp, settings_file, monkeyp
     assert win._mode == "moss"
     assert win.tab_stack.currentWidget() is win._moss_panel
     assert win._mode_bar.property("mode") == "moss"
-    # Preprocess / Train and the anime_tools view share one tab row, as in Anima.
-    assert win._moss_panel.tabs.count() == 3
-    win._moss_panel.tabs.setCurrentIndex(2)
+    # Preprocess / Train / the two i2i tabs and the anime_tools view share one tab
+    # row, as in Anima.
+    assert win._moss_panel.tabs.count() == 5
+    win._moss_panel.tabs.setCurrentIndex(4)
     assert win._moss_panel._bottom.isHidden()  # no line log under anime_tools
     win._moss_panel.tabs.setCurrentIndex(0)
     # The menu stays whole in MOSS mode.

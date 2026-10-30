@@ -27,36 +27,19 @@ A complete guide to the Anima LoRA training/inference pipeline: install → data
 
 ## 1. System Requirements
 
-| Item | Minimum | Recommended |
-|---|---|---|
-| GPU | RTX 3060 or better (20xx series and below unsupported) | 16 GB VRAM or more |
-| System RAM | 16 GB | 32 GB or more |
-| Disk | 60 GB free | 200 GB or more (caches + accumulated outputs) |
-| OS | Windows 11 / Ubuntu 22.04+ | Ubuntu 24.04 |
-| Python | 3.13 required | - |
-| NVIDIA driver | 595 or newer (CUDA 13.x requirement) | - |
+> Moved to the shared [installation guide](../installation/README.md#1-system-requirements).
 
 ---
 
 ## 2. Installation
 
-Paste this one line into PowerShell. It installs `uv`, the CUDA 13.2 toolkit, Python 3.13, and all dependencies automatically, then opens the GUI for you when it's done.
-
-```powershell
-irm https://raw.githubusercontent.com/sorryhyun/anima_lora/main/install.ps1 | iex
-```
+> Moved to the shared [installation guide](../installation/README.md#2-installation).
 
 > **New feature:** Try caption with Japanese text in the image — e.g. `1girl, solo, speech bubble. Japanese text reads as "何言ってるの?".` ([§4.1](#41-caption-writing-tips))
 >
-> **v2.0.0** — Anima with the [CJK vocab pack](../methods/cjk_vocab_pack.md): it renders Japanese text natively, and you can train LoRAs on it. The pack is on by default and installed with the models in §3; English prompts are unchanged.
-
-- Installs into `.\anima_lora\` (change with `$env:ANIMA_DIR`, pin a version with `$env:ANIMA_VERSION='v2.0.0'`).
-- If it asks for a reboot (common after the CUDA step), reboot and re-run the same one-liner — it picks up where it left off.
-- To reopen it later, use the "Anima LoRA GUI" desktop shortcut.
+> **v2.0.0** — Anima with the [CJK vocab pack](../anima/methods/cjk_vocab_pack.md): it renders Japanese text natively, and you can train LoRAs on it. The pack is on by default and installed with the models in §3; English prompts are unchanged.
 
 Once installed, continue in the GUI with §3 → §4 → §5.
-
-> Prefer to `git clone` yourself, or the automatic install failed? See [Appendix B](#appendix-b-manual-install-uv--git) / [Appendix C](#appendix-c-manual-cuda-install).
 
 ---
 
@@ -64,10 +47,7 @@ Once installed, continue in the GUI with §3 → §4 → §5.
 
 ### 3.1 Sign in
 
-1. Create a read token at <https://huggingface.co/settings/tokens>.
-2. Paste it into the Hugging Face sign-in field in the GUI.
-
-The token is stored in the standard Hugging Face cache, so the GUI and the CLI share the same credentials.
+> Moved to the shared [installation guide](../installation/README.md#3-hugging-face-sign-in).
 
 ### 3.2 Download models
 
@@ -115,7 +95,7 @@ absurdres, safe, 1girl, chitanda eru, hyouka, @channel (caststation), full body,
 
 - Omit quality tags such as `absurdres`, `highres`, and `masterpiece`, or keep them to a minimum. (Once the officially released mod guidance is available, you can skip them entirely.)
 - Don't want to caption by hand? Open the anime_tools panel (the **anime_tools** tab) and run Autotag — the built-in Anima Tagger fills captions in the correct order ([§6.3](#63-curation-the-anime_tools-panel)). Treat the result as a starting point: review the tags, especially character/series/artist names, before training.
-- Want Japanese text drawn in the image? Keep the tags in English and put the text in double quotes inside an English clause: `1girl, solo, speech bubble. Japanese text reads as "はい".` LoRA captions use the same form, so a LoRA can learn to render that text. Write Japanese as text to draw, not as tags (`猫耳` → `cat ears`). Details: [CJK vocab pack](../methods/cjk_vocab_pack.md#intended-use).
+- Want Japanese text drawn in the image? Keep the tags in English and put the text in double quotes inside an English clause: `1girl, solo, speech bubble. Japanese text reads as "はい".` LoRA captions use the same form, so a LoRA can learn to render that text. Write Japanese as text to draw, not as tags (`猫耳` → `cat ears`). Details: [CJK vocab pack](../anima/methods/cjk_vocab_pack.md#intended-use).
 
 ---
 
@@ -232,7 +212,7 @@ For manga/comic-style data, excluding speech bubbles and text regions from the l
 1. Download SAM3 ([§3.2](#32-download-models)) and generate masks with `make mask` ([Appendix A](#appendix-a-cli-reference)). The PNGs are black-and-white: white (255) = trained on, black (0) = excluded.
 2. Turn on `masked_loss` in the training config (`--masked_loss` from the CLI). Without it, masks on disk are ignored.
 
-Images without a mask are trained on in full. Mask lookup details are in [`training.md`](training.md#masked-loss-sam3).
+Images without a mask are trained on in full. Mask lookup details are in [`training.md`](../anima/guidelines/training.md#masked-loss-sam3).
 
 ---
 
@@ -252,7 +232,7 @@ For 8–12 GB VRAM, don't switch variants — pick Low VRAM in the Hardware drop
 > - Adapter variants such as HydraLoRA require `cache_llm_adapter_outputs = true` (on by default).
 > - `tlora` can be baked into the base DiT with `make merge` to produce a standalone ComfyUI checkpoint.
 
-For per-variant options see [`docs/guidelines/training.md`](training.md) and the individual documents under `docs/methods/`.
+For per-variant options see [`docs/anima/guidelines/training.md`](../anima/guidelines/training.md) and the individual documents under `docs/anima/methods/`.
 
 ---
 
@@ -274,7 +254,7 @@ Commonly used options:
 | `--spectrum` | Enable Spectrum acceleration |
 | `--pgraft` | P-GRAFT (LoRA cutoff late in denoising) — the base model handles late detail |
 
-The full option list is in [`docs/guidelines/inference.md`](inference.md).
+The full option list is in [`docs/anima/guidelines/inference.md`](../anima/guidelines/inference.md).
 
 ---
 
@@ -299,14 +279,7 @@ These carry routing and token insertion rather than a plain weight delta, so the
 
 ## 11. Updating
 
-Run this inside the install folder to pull the latest GitHub release and sync dependencies (no git required).
-
-```bash
-python tasks.py update              # Apply
-python tasks.py update -- --dry-run # Preview which files change
-```
-
-Updating never touches `image_dataset/`, `post_image_dataset/`, `output/`, or `models/`, and asks before overwriting config files you have modified.
+> Moved to the shared [installation guide](../installation/README.md#4-updating).
 
 ---
 
@@ -314,7 +287,7 @@ Updating never touches `image_dataset/`, `post_image_dataset/`, `output/`, or `m
 
 Everything the GUI does is also available from the CLI. `make <target>` and `python tasks.py <target>` are equivalent, and since the one-line install does not install `make`, use `python tasks.py` if `make` is missing (or `winget install ezwinports.make`).
 
-> Getting `ModuleNotFoundError`? Prefix commands with `uv run` or activate the venv — see [Appendix B](#appendix-b-manual-install-uv--git).
+> Getting `ModuleNotFoundError`? Prefix commands with `uv run` or activate the venv — see [installation guide, Appendix A](../installation/README.md#appendix-a-manual-install-uv--git).
 
 Model download
 
@@ -404,54 +377,13 @@ make update                                        # = python tasks.py update
 
 ## Appendix B. Manual Install (uv · git)
 
-Only needed if you want to set things up yourself instead of the one-liner in [§2](#2-installation).
-
-```powershell
-irm https://astral.sh/uv/install.ps1 | iex   # 1) Install uv (check `uv --version` in a new shell)
-```
-
-```bash
-git clone https://github.com/sorryhyun/anima_lora.git   # 2) Clone
-cd anima_lora
-winget install ezwinports.make                          # 3) (Optional) make
-uv sync                                                 # 4) Install dependencies
-```
-
-`uv sync` installs everything into `.venv/` inside `anima_lora/`; you don't need `pip install`.
-
-Running `python tasks.py ...` in a fresh terminal uses the *system* Python and fails with `ModuleNotFoundError`. Fix it either way:
-
-- Prefix with `uv run` (no activation needed, works anywhere): `uv run python tasks.py lora`
-- Activate the venv (once per terminal window):
-
-  ```powershell
-  .venv\Scripts\activate        # Windows
-  ```
-  ```bash
-  source .venv/bin/activate     # Linux / macOS / WSL
-  ```
-
-  A `(anima_lora)` or `(.venv)` prefix in the prompt means it worked; `deactivate` to exit. In VSCode, pick the `.venv` interpreter once (Command Palette → Python: Select Interpreter) and the integrated terminal activates it automatically.
+> Moved to the shared [installation guide](../installation/README.md#appendix-a-manual-install-uv--git).
 
 ---
 
 ## Appendix C. Manual CUDA Install
 
-The one-liner in [§2](#2-installation) handles CUDA 13.2 automatically and skips the step if it's already installed. This appendix is only for when that fails.
-
-- CUDA 13.x requires NVIDIA driver 595 or newer. If you already have a newer driver, keep it (deselect the bundled driver in the Linux `.run` installer menu).
-- To manage CUDA yourself, set `$env:ANIMA_SKIP_CUDA='1'` (PowerShell) / `ANIMA_SKIP_CUDA=1` (shell) to skip the automatic CUDA step.
-
-Manual install: get 13.2 from the NVIDIA archive at <https://developer.nvidia.com/cuda-13-2-0-download-archive>
-
-1. Windows: choose Operating System: Windows → Architecture: x86_64 → Version: 11/10 → Installer Type: exe (local), run it, and pick "Express (Recommended)".
-2. Verify with `nvidia-smi` and `nvcc --version` (expect `release 13.2`).
-3. If `nvcc` isn't found, add these to the system `Path`, reboot, and check again:
-
-   ```
-   C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2\bin
-   C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2\libnvvp
-   ```
+> Moved to the shared [installation guide](../installation/README.md#appendix-b-manual-cuda-install).
 
 ---
 
@@ -469,14 +401,14 @@ A kohya-ss style option in `configs/base.toml`'s `[[datasets.subsets]]`: how man
 
 ## Further Reading
 
-- [`docs/guidelines/base-config.md`](base-config.md) — per-key reference for `base.toml` (model paths, noise schedule, caching, compile, memory knobs, dataset blueprint)
-- [`docs/guidelines/training.md`](training.md) — adapter variants, caption shuffling, masked loss, dataset config details
-- [`docs/guidelines/inference.md`](inference.md) — inference workflow, flags, Spectrum, prompt file format
-- [`docs/guidelines/difference_between_comfy.md`](difference_between_comfy.md) — anima_lora ↔ ComfyUI core implementation differences
-- [`docs/methods/timestep_mask.md`](../methods/timestep_mask.md) — T-LoRA timestep mask
-- [`docs/methods/svd-down-lora.md`](../methods/svd-down-lora.md) — SVD-Down LoRA (weight-seeded down-projection init)
-- [`docs/inference/spectrum.md`](../inference/spectrum.md) — how Spectrum acceleration works and its options
-- [`docs/inference/mod-guidance.md`](../inference/mod-guidance.md) — modulation guidance
-- [`docs/methods/hydra-lora.md`](../methods/hydra-lora.md) — HydraLoRA multi-head routing
+- [`docs/anima/guidelines/base-config.md`](../anima/guidelines/base-config.md) — per-key reference for `base.toml` (model paths, noise schedule, caching, compile, memory knobs, dataset blueprint)
+- [`docs/anima/guidelines/training.md`](../anima/guidelines/training.md) — adapter variants, caption shuffling, masked loss, dataset config details
+- [`docs/anima/guidelines/inference.md`](../anima/guidelines/inference.md) — inference workflow, flags, Spectrum, prompt file format
+- [`docs/anima/guidelines/difference_between_comfy.md`](../anima/guidelines/difference_between_comfy.md) — anima_lora ↔ ComfyUI core implementation differences
+- [`docs/anima/methods/timestep_mask.md`](../anima/methods/timestep_mask.md) — T-LoRA timestep mask
+- [`docs/anima/methods/svd-down-lora.md`](../anima/methods/svd-down-lora.md) — SVD-Down LoRA (weight-seeded down-projection init)
+- [`docs/anima/inference/spectrum.md`](../anima/inference/spectrum.md) — how Spectrum acceleration works and its options
+- [`docs/anima/inference/mod-guidance.md`](../anima/inference/mod-guidance.md) — modulation guidance
+- [`docs/anima/methods/hydra-lora.md`](../anima/methods/hydra-lora.md) — HydraLoRA multi-head routing
 
 Questions and bug reports are welcome on GitHub Issues. Happy training!

@@ -20,3 +20,13 @@ gui/explanations/guides/cn/_fields.json
 # 这两处上游偶尔也会改（README 尤其频繁），冲突时保留两边即可。
 README.md
 NOTICE
+
+# 训练工作台 / Krea-2 / MOSS 单文件权重：这三组都必须在守护进程里挂路由或改加载路径，
+# 只能落在上游文件上（新增文件挂不进去）。上游改到它们时按"两边都要"解。
+anima_daemon/README.md
+anima_daemon/server.py
+anima_daemon/mcp.py
+scripts/tasks/preprocess.py
+library/lines/adapters.py
+library/moss/loader.py
+library/moss/model.py

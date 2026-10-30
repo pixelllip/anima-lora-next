@@ -35,7 +35,7 @@ re-integration doesn't require commit archaeology.
 | `impl/methods_ip_adapter.toml` | `configs/methods/ip_adapter.toml` | Shipped training config (rank/encoder/resampler/gate_lr/distinct-pair/PE-LoRA knobs). |
 | `impl/gui-methods_ip_adapter.toml` | `configs/gui-methods/ip_adapter.toml` | Clean GUI variant (`[variant]` family="ip_adapter" order=10). |
 | `impl/datasets_ip_adapter.toml` | `configs/datasets/ip_adapter.toml` | Self/distinct-pair dataset blueprint. |
-| `impl/docs_experimental_ip-adapter.md` | `docs/experimental/ip-adapter.md` | Method deep-dive. |
+| `impl/docs_experimental_ip-adapter.md` | `docs/anima/experimental/ip-adapter.md` | Method deep-dive. |
 
 ## Live-code hook points removed (re-apply in this order)
 
@@ -106,9 +106,9 @@ rewrite. Restoring is mechanical.
 - `tests/test_smoke.py`: the IP-Adapter smoke reference.
 
 ### 10. Docs
-- Restore `docs/experimental/ip-adapter.md` from `impl/`.
+- Restore `docs/anima/experimental/ip-adapter.md` from `impl/`.
 - Re-thread the mentions in `CLAUDE.md` (methods table row + §Methods), `networks/CLAUDE.md`
-  (layout table), `docs/guidelines/{inference,training}.md`, `docs/multi_model_support.md`,
+  (layout table), `docs/guidelines/{inference,training}.md`,
   `../anime_tools/docs/anima_tagger.md` cross-ref.
 
 ## Key facts the bench must honor (from removal-time state)

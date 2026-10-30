@@ -1,0 +1,11 @@
+name = "sanitize"
+stage = "near_twins"     # the near-twin miner (i2i_tasks/tools/near_twins)
+
+[staging]
+tag_any = ["speech bubble", "thought bubble", "blank speech bubble", "spoken text", "english text", "japanese text", "sound effects", "text focus"]
+
+image_dirs = ["{CAPTION_CORPUS_DIR}/retrieved"]
+sim_min = 0.85
+match_frac_min = 0.3
+cell_match_min = 0.9
+max_extra_diff = 25

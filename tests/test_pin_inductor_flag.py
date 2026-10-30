@@ -5,7 +5,7 @@ a plain ``config.triton.mix_order_reduction = False`` only exists in the thread
 that ran it, and the grad-enabled step-0 compile schedules in a context where
 the read falls back to the entry's env-derived default (True) — the v1.14.0
 adaln crash (ConstraintViolationError on the dynamic-seq marks; see
-docs/optimizations/for_compile.md §2.6). The fixture threads here stand in for
+docs/anima/optimizations/for_compile.md §2.6). The fixture threads here stand in for
 that compile context: a fresh thread has no override, so it reads whatever the
 pin left in ``.default``.
 """

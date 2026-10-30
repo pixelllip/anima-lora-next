@@ -1,4 +1,4 @@
-"""AGSM Eq. 51 renoise probe (Phase 3b gate of docs/proposal/soft_tokens_agsm.md).
+"""AGSM Eq. 51 renoise probe (Phase 3b gate of docs/anima/proposal/soft_tokens_agsm.md).
 
 THE QUESTION. Phase 2 (and Algorithm 1 as we shipped it) evaluates the AGSM
 guidance preds at the anchor's own ``(x_t, t)``. The flow derivation (Appendix D,

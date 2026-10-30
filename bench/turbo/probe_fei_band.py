@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Turbo FEI band-gap probe (Phase 0 of docs/proposal/turbo_fei_band_on_trajectory.md).
+"""Turbo FEI band-gap probe (Phase 0 of docs/anima/proposal/turbo_fei_band_on_trajectory.md).
 
 THE QUESTION. Does the trained DP-DMD student over-blur *on its own rollout*
 relative to the teacher — i.e. is there a HF deficit at the distribution the
 loss now visits (the student's trajectory + the renoise-of-student DMD point)?
 The 2026-05 item-2 lever falsified because it measured the band gap at renoised
 *real* data, where the only gap is the trivial "one-shot x0 is noisier than the
-teacher's" (docs/findings/turbo_fei_band_deficit_falsified.md). This probe
+teacher's" (docs/anima/findings/turbo_fei_band_deficit_falsified.md). This probe
 re-measures at the right distribution, on an ALREADY-TRAINED checkpoint — the
 fast way to read the gate without burning a training run (a fresh short run is
 useless: the zero-init student ≈ teacher for the first thousands of steps, so
@@ -51,35 +51,34 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
 
-import numpy as np  # noqa: E402
-import torch  # noqa: E402
+import numpy as np
+import torch
 
-from bench._anima import (  # noqa: E402
+from bench._anima import (
     add_common_args,
     add_model_args,
     build_anima,
 )
-from bench._common import make_run_dir, write_result  # noqa: E402
-from bench.soft_tokens_contrastive.reward_premise_probe import (  # noqa: E402
+from bench._common import make_run_dir, write_result
+from bench.soft_tokens_contrastive.reward_premise_probe import (
     EmbCache,
     _fmt,
     discover_pairs,
 )
-from library.inference.sampling import get_timesteps_sigmas  # noqa: E402
-from library.anima.uncond import (  # noqa: E402
+from library.anima.uncond import (
     default_uncond_path,
     load_uncond_crossattn,
     uncond_for_batch,
 )
-from library.io.cache import load_cached_latents  # noqa: E402
-from library.runtime.fei import compute_fei_2band, fei_sigma_low  # noqa: E402
-from library.training.forward.renoise import renoise  # noqa: E402
+from library.inference.sampling import get_timesteps_sigmas
+from library.io.cache import load_cached_latents
+from library.runtime.fei import compute_fei_2band, fei_sigma_low
+from library.training.forward.renoise import renoise
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 log = logging.getLogger("bench.turbo.fei_band")
 logging.basicConfig(level=logging.INFO, format="%(message)s")

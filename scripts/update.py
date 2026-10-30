@@ -276,6 +276,8 @@ CONFLICT_GLOBS: tuple[str, ...] = (
     "configs/datasets/*",
     # Self-contained per-method dirs (EasyControl).
     "configs/easycontrol/*.toml",
+    # i2i task files (name + stage + [staging]).
+    "i2i_tasks/configs/*.toml",
 )
 
 

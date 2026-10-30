@@ -18,15 +18,15 @@ Five areas where outside contributions would have the biggest impact right now. 
 
 ### 1. EasyControl adapters
 
-Per-block cond LoRA on self-attn + FFN with a logit-bias gate. DiT frozen; trains a handful of cond LoRA blocks plus a scalar gate. The architecture is naturally contribution-friendly: each control type is one independent adapter, no method changes required. See [`docs/experimental/easycontrol.md`](docs/experimental/easycontrol.md). The wall right now is the **adapter zoo** around it.
+Per-block cond LoRA on self-attn + FFN with a logit-bias gate. DiT frozen; trains a handful of cond LoRA blocks plus a scalar gate. The architecture is naturally contribution-friendly: each control type is one independent adapter, no method changes required. See [`docs/anima/experimental/easycontrol.md`](docs/anima/experimental/easycontrol.md). The wall right now is the **adapter zoo** around it.
 
-**There is already one shipped control task to copy: colorize** (`easycontrol_adapters/colorization/`). It's the worked template for everything below — a per-task project that builds its own *condition* (mangafied B&W → color) while reusing the shipped network unchanged. A new control type follows the same mold rather than inventing structure:
+**There is already one shipped control task to copy: colorize** (`i2i_tasks/colorization/`). It's the worked template for everything below — a per-task project that builds its own *condition* (mangafied B&W → color) while reusing the shipped network unchanged. A new control type follows the same mold rather than inventing structure:
 
-- a **project dir** under `easycontrol_adapters/<task>/` (the condition builder + `prep.py` + a README), exactly like `easycontrol_adapters/colorization/`;
+- a **project dir** under `i2i_tasks/<task>/` (the condition builder + `prep.py` + a README), exactly like `i2i_tasks/colorization/`;
 - a **method config** `configs/methods/<task>.toml` (+ a `configs/gui-methods/<task>.toml` GUI variant), selected at runtime by the **`EASYADAPTER=<task>`** env var — *not* a `make easycontrol-<task>` target. The existing `make easycontrol[-preprocess] EASYADAPTER=<task>` and `make test-easycontrol EASYADAPTER=<task>` targets already dispatch on it;
 - a **dataset blueprint** `configs/datasets/<task>.toml` wiring the `cond_cache_dir` (and `text_cache_dir` if the task reshapes the text channel, as colorize does).
 
-Read colorize's [README](easycontrol_adapters/colorization/README.md) before starting a new one — its caption policy, cond-noise, and inference-settings notes generalize. Concretely, the zoo still needs:
+Read colorize's [README](i2i_tasks/colorization/README.md) before starting a new one — its caption policy, cond-noise, and inference-settings notes generalize. Concretely, the zoo still needs:
 
 - **Trained adapters** — canny, depth, pose, lineart, scribble, segmentation, … each one a self-contained PR in colorize's shape (project dir + `configs/methods/<task>.toml` + model card + samples). Hosted under a HuggingFace collection (planned: `anima-easycontrol`). *[Tier 1.5 — bench numbers and side-by-side samples carry the PR; no new method code]*
 - **Per-task dataset spec** — one doc per control type covering pair format, recommended size (~2k pairs), where to source signal images. colorize's README is the only one written so far. *[Tier 1]*
@@ -35,11 +35,11 @@ Read colorize's [README](easycontrol_adapters/colorization/README.md) before sta
 
 ### 2. Turbo LoRA (Decoupled DMD distillation)
 
-Distill 28-step Anima @ CFG=4 into a 4–8 step generator using **co-LoRA** (LoRA for both the student and the fake score model on the same frozen DiT). The deployment story is that `turbo_anima_lora.safetensors` stacks on top of any existing concept LoRA at inference, the same way LCM-LoRA composes with style LoRAs. See [`docs/methods/turbo.md`](docs/methods/turbo.md) (ops) and [`docs/structure/turbo.md`](docs/structure/turbo.md) (structure/math) — the shipped method is DP-DMD (Wu et al., arXiv:2602.03139); the CA-decoupled DMD2 it replaced is Liu et al., arXiv:2511.22677.
+Distill 28-step Anima @ CFG=4 into a 4–8 step generator using **co-LoRA** (LoRA for both the student and the fake score model on the same frozen DiT). The deployment story is that `turbo_anima_lora.safetensors` stacks on top of any existing concept LoRA at inference, the same way LCM-LoRA composes with style LoRAs. See [`docs/anima/methods/turbo.md`](docs/anima/methods/turbo.md) (ops) and [`docs/anima/structure/turbo.md`](docs/anima/structure/turbo.md) (structure/math) — the shipped method is DP-DMD (Wu et al., arXiv:2602.03139); the CA-decoupled DMD2 it replaced is Liu et al., arXiv:2511.22677.
 
 Status: **shipped** — `make turbo` / `make test-turbo`, with a published 4-step student at [huggingface.co/sorryhyun/anima-turbo-4step](https://huggingface.co/sorryhyun/anima-turbo-4step). The phased plan below is retained as a worked example of how a Tier 2 method PR is scoped and gated.
 
-The shape of the Tier 2 PR (new method + paper + a turbo bench + docs/methods entry + `make turbo` / `make test-turbo`), split along phase boundaries:
+The shape of the Tier 2 PR (new method + paper + a turbo bench + docs/anima/methods entry + `make turbo` / `make test-turbo`), split along phase boundaries:
 
 - **Phase 0: single-prompt overfit (~1 day).** Implement `networks/methods/turbo_dmd.py` (two LoRA networks, attachment toggle), `scripts/distill_turbo/` (CA + DM gradient assembly, two optimizer states, the renoise primitive), `configs/methods/turbo.toml`, `make turbo`. Prove the loop converges on one prompt at batch 1, 2k iterations. *[Tier 2 — drop a `bench/turbo/results/<ts>-phase0/` with teacher@28 vs student@4 side-by-side on a fixed seed]*
 - **Phase 1: 100-prompt sweep (~3 days).** Image Reward + HPS v2.1 + per-aspect breakdown (1024², 832×1248, 1248×832). Pass = student IR ≥ 80% of teacher, no aspect below 60%. *[Tier 2 continuation]*
@@ -75,8 +75,8 @@ Translatable content lives in four places, each with its own contribution shape 
 
 **(d) Docs and structure images — `docs/`.**
 - `docs/guidelines/가이드북.md` is the end-to-end onboarding doc and only exists in Korean. An English translation (or any other language) would significantly widen the audience. The `guidebook_tooltip` string in `gui/i18n/en.py` currently points users at the Korean file — once a translation lands, wire the Guidebook button (in `gui/app.py`) to pick the right file based on `current_language()`.
-- `docs/structure_images_korean/` holds Korean-labeled versions of the architecture diagrams under `docs/structure_images/` (e.g. `animakor.png` ↔ `anima.png`). English/other-language equivalents are welcome under the natural sibling tree (`docs/structure_images/` is the English baseline; e.g. the existing `docs/structure_images_korean/`). Mention which markdown files reference the diagram so the reviewer can update the embed paths.
-- Method docs under `docs/methods/`, `docs/experimental/`, `docs/proposal/`, and `docs/optimizations/` are **English-only by convention** — translations are welcome as `<name>.<code>.md` siblings, but nothing reads them at runtime yet. If you contribute one, also propose how it should surface (e.g. a language switcher in the README's docs table, or wiring it into a GUI "Open method doc" button). Don't translate `CLAUDE.md` — that file is consumed by Claude Code and is single-source-of-truth for project conventions.
+- `docs/anima/structure_images_korean/` holds Korean-labeled versions of the architecture diagrams under `docs/anima/structure_images/` (e.g. `animakor.png` ↔ `anima.png`). English/other-language equivalents are welcome under the natural sibling tree (`docs/anima/structure_images/` is the English baseline; e.g. the existing `docs/anima/structure_images_korean/`). Mention which markdown files reference the diagram so the reviewer can update the embed paths.
+- Method docs under `docs/anima/methods/`, `docs/anima/experimental/`, `docs/anima/proposal/`, and `docs/anima/optimizations/` are **English-only by convention** — translations are welcome as `<name>.<code>.md` siblings, but nothing reads them at runtime yet. If you contribute one, also propose how it should surface (e.g. a language switcher in the README's docs table, or wiring it into a GUI "Open method doc" button). Don't translate `CLAUDE.md` — that file is consumed by Claude Code and is single-source-of-truth for project conventions.
 
 **(e) Tag knowledge-base descriptions — `models/danbooru_tags_classified.csv` (KR) + `.en.csv` (EN).** The anime_tools panel's tag-explanation view (a KB tooltip with a tag's category and a written description) is powered by these CSVs (`name,category,post_count,description`; loaded by `anime_tools.captions.correction.load_tag_knowledge_base`). The base CSV's `description` column is **Korean** (from `Localsmile/danbooru_KR_wiki_tag_search`); `download-danbooru-tags` also builds an **English** sibling `danbooru_tags_classified.en.csv` (`anime_tools.tagger.cli.build_english_tag_csv`, joining tag names against the `isek-ai/danbooru-wiki-2024` wiki mirror). `find_tag_csv(root, lang)` resolves per UI language: `ko` → Korean base; any other language → same-language sibling `danbooru_tags_classified.<code>.csv` if present, else the English `.en.csv`. To add a fully-translated language, ship `danbooru_tags_classified.<code>.csv` and it's picked up automatically. ~114k rows, so partial coverage is fine — untranslated rows fall back to the name+category head with no description line. *[Tier 1]*
 
@@ -137,7 +137,7 @@ These sit between Tier 1 and Tier 2: no new paper or new docs page is required, 
 
    Add the test to `tests/`, following the patterns in `test_network_registry.py` and `test_lora_dtype_policy.py`. If exact equivalence is impossible (e.g. a deliberately different algorithm), state the tolerance and what would constitute a regression.
 
-3. **Documentation update.** Update the relevant `docs/methods/<name>.md`, `docs/optimizations/<name>.md`, or section of `CLAUDE.md` to reflect the new behavior. No new top-level doc unless the change introduces a user-visible flag that warrants one.
+3. **Documentation update.** Update the relevant `docs/anima/methods/<name>.md`, `docs/anima/optimizations/<name>.md`, or section of `CLAUDE.md` to reflect the new behavior. No new top-level doc unless the change introduces a user-visible flag that warrants one.
 
 4. **Result in the PR description.** Paste the bench output (before/after) and the test results into the PR description. Link to the bench script that produced them. Reviewers should be able to reproduce the claim with one command.
 
@@ -151,7 +151,7 @@ A new entry in `networks/lora_modules/` or `networks/methods/`, or a new variant
 
 **Requirements:**
 
-1. **Paper reference.** New methods exist because someone published a result that justifies the complexity. The PR description must cite the paper (title, authors, venue, arXiv id) and the upstream code if any. Method docs follow the same format as the existing ones — see `docs/methods/hydra-lora.md` (shipped) and `docs/experimental/easycontrol.md` (experimental) for the shape. Stable methods land in `docs/methods/<name>.md`; unstable / unmerged-into-shipped methods land in `docs/experimental/<name>.md`.
+1. **Paper reference.** New methods exist because someone published a result that justifies the complexity. The PR description must cite the paper (title, authors, venue, arXiv id) and the upstream code if any. Method docs follow the same format as the existing ones — see `docs/anima/methods/hydra-lora.md` (shipped) and `docs/anima/experimental/easycontrol.md` (experimental) for the shape. Stable methods land in `docs/anima/methods/<name>.md`; unstable / unmerged-into-shipped methods land in `docs/anima/experimental/<name>.md`.
 
    Hand-rolled methods without prior art are not categorically rejected, but the bar is higher: in the absence of a paper, the bench results have to carry the argument alone, and reviewers will be skeptical. If you are confident, propose the method in an issue first.
 
@@ -203,7 +203,7 @@ A new entry in `networks/lora_modules/` or `networks/methods/`, or a new variant
 
    `_archive/spd/bench/README.md` is a good template (the SPD bench itself is retired — the README shape is what to copy): it documents the measurement, has an "Observed on Anima" section with a dated baseline, and a "Next actions" section. Aim for that.
 
-3. **Documentation.** A method doc at `docs/methods/<name>.md` covering the algorithm, config knobs, training/inference flow, and known failure modes. Cross-link from the README's "Experimental features" table.
+3. **Documentation.** A method doc at `docs/anima/methods/<name>.md` covering the algorithm, config knobs, training/inference flow, and known failure modes. Cross-link from the README's "Experimental features" table.
 
 4. **Tests.** At least a smoke test that constructs the network and runs one forward pass on CPU/CUDA. Existing tests in `tests/` show the shape (`test_network_registry.py`, `test_loss_registry.py`, `test_smoke.py`).
 
@@ -217,24 +217,21 @@ A new entry in `networks/lora_modules/` or `networks/methods/`, or a new variant
 
 **Currently not accepted.**
 
-This repo is Anima-specific by design. Adding a second base model is a multi-week project that touches the trainer forward path, every adapter monkey-patch, the cache filename convention, and every `configs/methods/*.toml` LoRA target list. The blocker is `train.py::get_noise_pred_and_target` and the per-adapter Anima coupling, not the DiT class itself. See [`docs/multi_model_support.md`](docs/multi_model_support.md) for the full terrain map and effort estimate.
+Each base model is a *line* with its own code, caches and configs: Anima (`train.py`, `library/anima/`, `networks/`), MOSS-Image (`library/moss/`) and Qwen-Image-2.1 (`library/qwen21/`). Lines share `library/lines/` (request base, LoRA / LoKr / LoHa adapters) and `library/runtime/` (offloading, block swap, compile). Adding a line is a maintainer decision.
 
 What is in scope:
-- **Improving `docs/multi_model_support.md`** — sharper coupling map, more accurate effort estimates, concrete protocol sketches, a worked example of what a `ModelFamily` port would look like for a specific candidate model. Pure-doc PRs of this kind are welcome.
-- **Decoupling work that has standalone value on Anima** — e.g. parameterizing cache suffixes, lifting the LoRA target regex into a `lora_target_spec()`, moving strategy base classes up. If a refactor makes the Anima code cleaner *and* incidentally reduces the multi-model blocker, propose it as its own PR with the Anima-side justification leading.
+- **Decoupling work that has standalone value on an existing line** — e.g. lifting a duplicated piece into `library/lines/` or `library/runtime/`. Propose it as its own PR with the existing-line justification leading.
 
 What is not in scope:
-- A second `library/models/<family>/` namespace populated for a real second model.
-- A new `forward_for_loss` slot on a hypothetical `ModelFamily` protocol that nothing else uses yet.
-- Caches, configs, or test fixtures for a second model.
+- A new line subpackage, or caches, configs or test fixtures for one.
 
-If you want to fork the repo to support a different base model, that's fine and encouraged — but the upstream stays Anima-only until a maintainer decides otherwise.
+If you want to fork the repo to support a different base model, that's fine and encouraged.
 
 ## PR checklist
 
 Copy this into your PR description and tick what applies:
 
-- [ ] Tier identified (1 / 1.5 / 2 / 3-eligible doc work).
+- [ ] Tier identified (1 / 1.5 / 2 / 3-eligible decoupling work).
 - [ ] `make test-unit` passes locally.
 - [ ] `ruff check` and `ruff format` clean.
 - [ ] (Tier 1.5) Bench script added or extended; before/after numbers in the PR description.
@@ -242,7 +239,7 @@ Copy this into your PR description and tick what applies:
 - [ ] (Tier 1.5) Backwards-compat statement: numerics-equivalent or behavior-changing.
 - [ ] (Tier 2) Bench subdirectory present with README, runnable script, and a timestamped baseline run.
 - [ ] (Tier 2) Paper citation in the PR description and method doc.
-- [ ] (Tier 2) `docs/methods/<name>.md` added and cross-linked from `README.md`.
+- [ ] (Tier 2) `docs/anima/methods/<name>.md` added and cross-linked from `README.md`.
 - [ ] (Tier 2) `make <name>` and `make test-<name>` work.
 - [ ] (Tier 2) Merge story documented (folds into DiT? if not, why not?).
 - [ ] No commented-out code, no `print(...)` debug leftovers, no unrelated formatting churn.

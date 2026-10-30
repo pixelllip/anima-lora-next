@@ -123,14 +123,13 @@ def cmd_download_tagger(extra):
 
 
 def cmd_download_tagger_model(extra):
-    """The whole tagger — the checkpoint above plus the gated backbone.
+    """The whole tagger — the checkpoint above plus its backbone.
 
-    The backbone (``animetimm/caformer_b36.dbv4-full`` by default) is GPL-3.0
-    and gated, so it is never vendored: the user's own token downloads it, which
-    is also the record of them accepting the repo terms. Auto-approve gate —
-    ``hf auth login`` (or the GUI's token field), then click through once on the
-    repo page. It lands in the **hub cache**, not under ``models/``, because
-    that is where the loader looks.
+    The backbone is ``pixai-labs/pixai-tagger-v1.0`` (Apache-2.0, public, at
+    the commit the checkpoint pins). A dbv4-backed checkpoint names the gated
+    GPL-3.0 caformer instead, which the user's own token downloads after
+    accepting the repo terms. Either lands in the **hub cache**, not under
+    ``models/``, because that is where the loader looks.
     """
     _fetch("tagger-model", extra=extra)
 

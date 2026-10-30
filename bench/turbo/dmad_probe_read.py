@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read a DMAD Phase −1 probe run (docs/proposal/turbo_dmad.md § Phase −1).
+"""Read a DMAD Phase −1 probe run (docs/anima/proposal/turbo_dmad.md § Phase −1).
 
 Input is the ``dmad_probe.jsonl`` a ``--dmad_probe`` turbo run writes into its log
 dir (one row per step, ``scripts/distill_turbo/dmad_probe.py``). CPU-only.
@@ -31,13 +31,12 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
 
-from bench._common import make_run_dir, write_result  # noqa: E402
+from bench._common import make_run_dir, write_result
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 N_TAU_BINS = 8
 ACC_FLOOR = 0.75

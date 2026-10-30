@@ -1,10 +1,10 @@
 """LSE-decomposed extended self-attention for EasyControl's two-stream forward.
 
-Self-contained attention math shared by the EasyControl network
-(``networks/methods/easycontrol.py``) and BYG (``networks/methods/byg.py``):
-the target stream attends over the concatenation ``[target_k ; cond_k]`` with a
-per-block scalar logit bias (``b_cond``) on the cond rows, without ever
-materializing the ``[B, H, S_t, S_t + S_c]`` attention matrix.
+Self-contained attention math for the EasyControl network
+(``networks/methods/easycontrol.py``): the target stream attends over the
+concatenation ``[target_k ; cond_k]`` with a per-block scalar logit bias
+(``b_cond``) on the cond rows, without ever materializing the
+``[B, H, S_t, S_t + S_c]`` attention matrix.
 """
 
 from __future__ import annotations

@@ -12,7 +12,6 @@ from library.training.forward.text_conds import PreparedTextConds, prepare_text_
 from library.training.forward.router_conditioning import apply_router_conditioning
 from library.training.forward.inversion_forward import compute_inversion_func_loss
 from library.training.forward.vr_forward import run_vr_reference_forward
-from library.training.forward.ste import ste_clean_blend
 from library.training.forward.renoise import (
     PadCache,
     from_dit_5d,
@@ -33,7 +32,6 @@ __all__ = [
     "apply_router_conditioning",
     "compute_inversion_func_loss",
     "run_vr_reference_forward",
-    "ste_clean_blend",
     "PadCache",
     "from_dit_5d",
     "make_padding_mask",

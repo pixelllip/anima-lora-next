@@ -146,7 +146,7 @@ New-Item -ItemType Directory -Force -Path $Tmp | Out-Null
 try {
   # Use the zipball + .NET unzip, NOT the bundled tar.exe: Windows' bsdtar
   # decodes archive entry names with the active ANSI code page and chokes on
-  # the non-ASCII guidebook filenames under docs/guidelines/ (가이드북.md,
+  # the non-ASCII doc filenames under docs/guidelines/ and docs/installation/ (가이드북.md,
   # ガイドブック.md, 指南书.md) with "Invalid empty pathname". GitHub's zipball
   # flags entry names as UTF-8 and .NET's ZipFile honors that.
   $Zipball = "https://github.com/$Repo/archive/refs/tags/$Version.zip"

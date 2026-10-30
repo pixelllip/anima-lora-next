@@ -11,7 +11,7 @@ passes G1+G2. Arm (a) — σ-gated CFG — fails G2 at every strength that does
 anything, and is CLOSED.** The self-attn-dominance prior predicted arm (b)
 inert; it is decisively not. This is the first *causal, exploitable*
 confirmation of the front-loading finding
-(`docs/findings/crossattn_self_attn_dominance.md`): amplify the text voice
+(`docs/anima/findings/crossattn_self_attn_dominance.md`): amplify the text voice
 only in the plan-writing window and the plan actually changes; self/MLP then
 render the corrected plan in the normal style.
 
@@ -245,7 +245,7 @@ whole text pathway's vote including global assembly.
 - **Arm (b) ships** — production flag `--xattn_boost` / `--xattn_boost_band`
   landed with this phase (inline + tiled loops, spectrum/SPD/foveated
   runners via `SamplerSideChannels`, `XATTN_BOOST=` env lever,
-  `docs/inference/xattn_boost.md`, invariant tests). It remains the
+  `docs/anima/inference/xattn_boost.md`, invariant tests). It remains the
   zero-annotation lever and the only one that helps weak-item assembly.
 - **Arm (c) validated at bench level** — strictly better aimed for
   binding/relation work and for prompts carrying artist/style/framing tags.
@@ -266,7 +266,7 @@ red-haired drummer with the binding largely fixed — the bench effect
 reproduces through production plumbing. `--xattn_boost 2.0 --smc_cfg` and
 `--xattn_boost 2.0 --spectrum` both complete cleanly with sane, distinct
 outputs (no burn, no artifacts) — the compose matrix in
-`docs/inference/xattn_boost.md` is smoke-validated. One observed side
+`docs/anima/inference/xattn_boost.md` is smoke-validated. One observed side
 effect: the boosted render drew 4 girls on a `3girls` prompt (count drift —
 consistent with the amplify-everything law; the count tag rides too).
 
@@ -337,7 +337,7 @@ touched attention allocation — (c) is architecturally a pure token-selective
 `--xattn_boost_renorm_frac` (default 0.5) — i.e. `xattn_boost 2` now runs
 renormI 2@0.5. Runner entry point `adapters.set_xattn_boost_state`; wired in
 generation inline+tiled, spectrum, spd, foveated. Docs:
-`docs/inference/xattn_boost.md`.
+`docs/anima/inference/xattn_boost.md`.
 
 **Method caveats**: (1) the mean-HSV-sat burn detector misleads in the desat
 direction — boosted arms replace flat saturated washes with detailed scenes,
@@ -378,4 +378,4 @@ band-localized gain multiplies into existence. Weakens, not strengthens, the cas
 building the localized arm.
 
 Full read + the caveats (probe is direction-blind *between* arms; `E` is a
-conservative control): `docs/findings/crossattn_self_attn_dominance.md` Result 5.
+conservative control): `docs/anima/findings/crossattn_self_attn_dominance.md` Result 5.

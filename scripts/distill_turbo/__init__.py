@@ -4,7 +4,7 @@ Trains an N-step LoRA student against the CFG=4 Anima teacher using
 Diversity-Preserved DMD (Wu et al., arXiv:2602.03139) on top of a co-LoRA fake
 score model. One frozen DiT serves the teacher / student / fake views
 (``TurboDMDNetwork.set_view``). The per-step algorithm, config keys and ops live in
-``docs/methods/turbo.md``; module structure in ``docs/structure/turbo.md``.
+``docs/anima/methods/turbo.md``; module structure in ``docs/anima/structure/turbo.md``.
 
 Config:   ``configs/methods/turbo.toml`` (CLI flags override TOML values).
 Entry:    ``python -m scripts.distill_turbo.distill`` (``make turbo``).

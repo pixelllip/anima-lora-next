@@ -3,7 +3,7 @@
 # One ReFTModule per selected DiT block adds R^T · (ΔW·h + b) · scale to the
 # block's output. Composes with any LoRA variant; this file keeps ReFT on and
 # LoRA at rank 16 so the file produces a standard `.safetensors` with both
-# LoRA and ReFT tensors. See docs/methods/reft.md.
+# LoRA and ReFT tensors. See docs/anima/methods/reft.md.
 
 network_dim = 16
 network_alpha = 16

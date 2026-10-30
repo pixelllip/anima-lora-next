@@ -24,7 +24,7 @@ dependencies = [
     # Optimizers
     "pytorch-optimizer>=3.9.0",
     "prodigyopt>=1.1.2",
-    # CJK glossary (scripts/distill_cjk/corpus, --lang zh): pure-python OpenCC
+    # CJK glossary (_archive/scripts/distill_cjk/corpus, --lang zh): pure-python OpenCC
     "opencc-python-reimplemented>=0.1.7",
     # Data & Config
     "toml>=0.10.2",
@@ -69,12 +69,22 @@ dependencies = [
     "sqlalchemy>=2.1.0b2",
     "aiohttp>=3.13.5",
     "comfy-cli>=1.10.3",
-    "comfy-aimdo>=0.5.6",
+    # ComfyUI (../comfy) runs on this venv, and `uv sync` prunes anything off the
+    # lock, so its requirements.txt rows live here. Pins and floors track the
+    # checked-out ComfyUI tag (v0.43.0); move them when it moves. `comfy update`
+    # cannot install into this venv (no pip) — check out the tag and re-lock.
+    # The comfyui-* rows are exact: prerelease = "allow" would take dev builds.
+    "comfyui-frontend-package==1.57.4",
+    "comfyui-workflow-templates==0.11.97",
+    "comfyui-embedded-docs==0.5.15",
+    "pyopengl>=3.1.8,<4",
+    "comfy-angle",
+    "comfy-aimdo>=0.6.0",
     "av>=17.0.1",
     "alembic>=1.18.4",
     "pydantic-settings>=2.14.0",
     "kornia>=0.8.2",
-    "comfy-kitchen>=0.2.38",
+    "comfy-kitchen>=0.2.40",
     "simpleeval>=1.0.7",
     "pytest>=9.0.3",
     "blake3>=1.0.8",
@@ -86,6 +96,9 @@ dependencies = [
     "anime-tools",
     # LyCORIS LoKr / LoHa weight math for the MOSS adapters (library/moss/lora.py).
     "lycoris-lora==4.0.0",
+    "flash-linear-attention>=0.5.2 ; sys_platform == 'linux'",
+    # OCR reader train / eval / gate scripts (project/finished/ocr_reader/).
+    "pandas>=3.0.3",
 ]
 
 [project.optional-dependencies]
@@ -141,13 +154,13 @@ override-dependencies = [
 
 # uv resolves every wheel of a version from one wheel's metadata, and for the
 # ROCm torch it reads the linux_x86_64 wheel's, which pins a Linux-only
-# `triton==…+rocm10.0.0` that has no Windows wheel. This is the win_amd64
+# `triton==…+rocm10.1.0` that has no Windows wheel. This is the win_amd64
 # wheel's own METADATA (no triton; triton-windows comes from rocm-windows),
 # trimmed to the device extras rocm-windows selects. It replaces a blanket
 # `triton` override that also erased each cu132 torch's own triton pin.
 [[tool.uv.dependency-metadata]]
 name = "torch"
-version = "2.13.0+rocm10.0.0"
+version = "2.14.0+rocm10.1.0"
 requires-dist = [
     "filelock",
     "typing-extensions>=4.10.0",
@@ -156,12 +169,12 @@ requires-dist = [
     "networkx>=2.5.1",
     "jinja2",
     "fsspec>=0.8.5",
-    "rocm[libraries]==10.0.0",
+    "rocm[libraries]~=10.1.0",
     "rocm-bootstrap",
-    "amd-torch-device-gfx1200==2.13.0+rocm10.0.0 ; extra == 'device-gfx1200'",
-    "amd-torch-device-gfx12-0==2.13.0+rocm10.0.0 ; extra == 'device-gfx1200'",
-    "amd-torch-device-gfx1201==2.13.0+rocm10.0.0 ; extra == 'device-gfx1201'",
-    "amd-torch-device-gfx12-0==2.13.0+rocm10.0.0 ; extra == 'device-gfx1201'",
+    "amd-torch-device-gfx1200==2.14.0+rocm10.1.0 ; extra == 'device-gfx1200'",
+    "amd-torch-device-gfx12-0==2.14.0+rocm10.1.0 ; extra == 'device-gfx1200'",
+    "amd-torch-device-gfx1201==2.14.0+rocm10.1.0 ; extra == 'device-gfx1201'",
+    "amd-torch-device-gfx12-0==2.14.0+rocm10.1.0 ; extra == 'device-gfx1201'",
 ]
 provides-extras = ["device-gfx1200", "device-gfx1201"]
 
@@ -177,23 +190,23 @@ diffusers = { git = "https://github.com/huggingface/diffusers", rev = "80c7ed262
 # lock would then reference ../anime_tools, and a flagless `uv sync` fails on
 # every machine without one. Test an unreleased change with
 # PYTHONPATH=../anime_tools instead.
-anime-tools = { git = "https://github.com/sorryhyun/anime_tools", tag = "v0.8.0" }
+anime-tools = { git = "https://github.com/sorryhyun/anime_tools", tag = "v0.9.1" }
 torch = [
     { index = "pytorch-cu132", marker = "sys_platform != 'darwin' and sys_platform != 'win32'" },
     { index = "pytorch-cu132", group = "cuda-windows" },
     { index = "pytorch-cu132", group = "torch-213" },
     { index = "pytorch-cu132", group = "torch-212" },
-    { index = "amd-rocm-100", group = "rocm-windows" },
+    { index = "amd-rocm-101", group = "rocm-windows" },
 ]
 torchvision = [
     { index = "pytorch-cu132", marker = "sys_platform != 'darwin' and sys_platform != 'win32'" },
     { index = "pytorch-cu132", group = "cuda-windows" },
     { index = "pytorch-cu132", group = "torch-213" },
     { index = "pytorch-cu132", group = "torch-212" },
-    { index = "amd-rocm-100", group = "rocm-windows" },
+    { index = "amd-rocm-101", group = "rocm-windows" },
 ]
 
-# PyPI triton only: amd-rocm-100 is not explicit, and torch's `triton==3.8.0`
+# PyPI triton only: amd-rocm-101 is not explicit, and torch's `triton==3.8.0`
 # also matches its local `3.8.0+git….rocm…` builds.
 triton = { index = "pypi" }
 
@@ -210,7 +223,7 @@ explicit = true
 # This index also hosts the ROCm runtime/device packages pulled by the device
 # extras, so it cannot be explicit-only.
 [[tool.uv.index]]
-name = "amd-rocm-100"
+name = "amd-rocm-101"
 url = "https://stable.repo.amd.com/rocm/whl-next/"
 
 [tool.ruff.lint.per-file-ignores]
@@ -262,6 +275,11 @@ torch-214 = [
     "torchvision>=0.29.0,<0.30 ; sys_platform != 'win32'",
     "flash-attn @ https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.10.0/flash_attn-2.8.3+cu132torch2.14-cp313-cp313-linux_x86_64.whl ; sys_platform == 'linux' and platform_machine == 'x86_64'",
     "flash-attn @ https://github.com/mjun0812/flash-attention-prebuild-wheels/releases/download/v0.10.1/flash_attn-2.8.3+cu132torch2.14-cp313-cp313-linux_aarch64.whl ; sys_platform == 'linux' and platform_machine == 'aarch64'",
+    # Qwen3.5 GDN short conv (MOSS TE, OvisOCR3); transformers falls back to
+    # F.conv1d without it. Upstream ships no torch-2.14 wheel and PyPI only the
+    # sdist (~8 min nvcc build), so this is our own build of 1.7.0 — the
+    # pre-release `deps-causal-conv1d-1.7.0`. Rebuild on a torch minor bump.
+    "causal-conv1d @ https://github.com/sorryhyun/anima_lora/releases/download/deps-causal-conv1d-1.7.0/causal_conv1d-1.7.0+cu132torch2.14-cp313-cp313-linux_x86_64.whl ; sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
 torch-213 = [
     "torch>=2.13.0,<2.14 ; sys_platform != 'win32'",
@@ -295,12 +313,15 @@ cuda-windows = [
 rocm-windows = [
     # Initial RDNA 4 path. AMD's device-all extra currently includes Linux-only
     # Instinct packages and cannot resolve on Windows, so select gfx120X only.
-    "torch[device-gfx1200,device-gfx1201]==2.13.0+rocm10.0.0 ; sys_platform == 'win32'",
-    "torchvision[device-gfx1200,device-gfx1201]==0.28.0+rocm10.0.0 ; sys_platform == 'win32'",
+    "torch[device-gfx1200,device-gfx1201]==2.14.0+rocm10.1.0 ; sys_platform == 'win32'",
+    # AMD's stable 10.1 index publishes this torchvision build with an a0 suffix.
+    "torchvision[device-gfx1200,device-gfx1201]==0.29.0a0+rocm10.1.0 ; sys_platform == 'win32'",
+    # Windows Triton needs the SDK headers/tools as well as the runtime libraries.
+    "rocm[devel]==10.1.0 ; sys_platform == 'win32'",
     # AMD's Windows wheel metadata currently points at a Linux-only `triton`
     # distribution. The Windows package provides the same import/runtime used
     # by torch.compile in the working ROCm environment.
-    "triton-windows>=3.7.0,<3.8.0 ; sys_platform == 'win32'",
+    "triton-windows>=3.8.0,<3.9.0 ; sys_platform == 'win32'",
 ]
 # ResShift super-resolution sidecar (finished line — project/finished/sr/). Kept as
 # an OPT-IN group rather than core `dependencies` so the heavy metrics closure

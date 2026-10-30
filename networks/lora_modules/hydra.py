@@ -25,7 +25,7 @@ __all__ = [
 
 class HydraLoRAModule(RouterStateMixin, BaseLoRAModule):
     """HydraLoRA: shared lora_down + per-expert lora_up, layer-local routing.
-    See docs/methods/hydra-lora.md and networks/CLAUDE.md §Three-axis routing surface.
+    See docs/anima/methods/hydra-lora.md and networks/CLAUDE.md §Three-axis routing surface.
 
     Router input concatenates pooled rank-R signal + optional sinusoidal(σ) /
     FEI(z_t) features, as router *input* (not additive bias) so gradient
@@ -89,7 +89,7 @@ class HydraLoRAModule(RouterStateMixin, BaseLoRAModule):
         # 80-96x DC-bias outliers + 4096 tokens, mean-pool collapses to DC and
         # the router gets no gradient. lora_down is trained jointly, so
         # signal-carrying directions accumulate in rank-R space instead. See
-        # docs/methods/hydra-lora.md §Router gate.
+        # docs/anima/methods/hydra-lora.md §Router gate.
         if self.use_global_router:
             self.sigma_feature_dim = 0
             self.fei_feature_dim = 0
@@ -138,7 +138,7 @@ class HydraLoRAModule(RouterStateMixin, BaseLoRAModule):
 
         RMS (not mean) pool: zero-mean activations don't cancel by √N over the
         L≈4096 sequence; safe in rank-R space since lora_down strips the raw
-        DiT DC-bias outliers that break RMS in bf16 (docs/methods/hydra-lora.md
+        DiT DC-bias outliers that break RMS in bf16 (docs/anima/methods/hydra-lora.md
         §Router gate). ``use_global_router`` bypasses this — gate is the broadcast
         ``_routing_weights`` buffer, ``lx`` ignored.
         """

@@ -345,8 +345,8 @@ STRINGS: dict[str, str] = {
     "guidebook_close": "关闭",
     # EasyControl 适配器指南（自建控制任务）
     "adapter_guide": "📘 适配器指南",
-    "adapter_guide_tooltip": "如何构建你自己的 EasyControl 适配器 (easycontrol_adapters/ADAPTER_GUIDE.md)",
-    "easycontrol_descriptor_note": "此控制任务是一个具有多表结构的独立描述符，在左侧以原始 TOML 形式编辑:<br><br>• <b>name</b> — 输出标识符；重路由所有衍生的缓存/输出路径。<br>• <code>[staging]</code> — 用于生成条件树的数据生成阶段。<br>• <code>[preprocess]</code> — 针对已暂存树的 VAE/TE 缓存参数。<br>• <code>[training]</code> — 叠加到基础 EasyControl 方法的覆盖项。<br>• <code>[general]</code> / <code>[[datasets]]</code> — train.py 读取的数据集蓝图。<br>• <code>[variant]</code> — 此下拉项的 GUI 元数据。<br><br><b>预处理</b>按钮会合成条件树并缓存；<b>训练</b>会将此描述符的 <code>[training]</code> 覆盖项叠加后训练基础 EasyControl 方法。两个操作在 GUI 关闭后仍会继续执行。",
+    "adapter_guide_tooltip": "如何构建你自己的 EasyControl 适配器 (i2i_tasks/ADAPTER_GUIDE.md)",
+    "easycontrol_descriptor_note": "此控制任务由一个 i2i 任务文件（<code>i2i_tasks/configs/</code>）和一个 EasyControl 描述符（<code>configs/easycontrol/</code>）组成，在左侧以表单形式编辑:<br><br>• <b>name</b> — 输出标识符；重路由所有衍生的缓存/输出路径（任务文件）。<br>• <b>stage</b> — 由哪个暂存工具构建条件树（任务文件）。<br>• <code>[staging]</code> — 用于生成条件树的数据生成阶段（任务文件）。<br>• <code>[preprocess]</code> — 针对已暂存树的 VAE/TE 缓存参数。<br>• <code>[training]</code> — 叠加到基础 EasyControl 方法的覆盖项。<br>• <code>[general]</code> / <code>[[datasets]]</code> — train.py 读取的数据集蓝图。<br>• <code>[variant]</code> — 此下拉项的 GUI 元数据。<br><br><b>预处理</b>按钮会合成条件树并缓存；<b>训练</b>会将此描述符的 <code>[training]</code> 覆盖项叠加后训练基础 EasyControl 方法。两个操作在 GUI 关闭后仍会继续执行。",
     "easycontrol_descriptor_form_header": "正在编辑描述符 <b>{path}</b>。下方的参数表以表单形式编辑；保存时将变更值写回，同时保留注释和 <code>[[datasets]]</code> 蓝图。蓝图与 <code>[variant]</code> 元数据不在此处显示 —— 如需编辑请直接修改文件。点击字段名称可查看帮助。",
     "ec_desc_group_top": "描述符",
     # Top-bar buttons (models / update / report issue)
@@ -393,8 +393,12 @@ STRINGS: dict[str, str] = {
     "models_pack_moss_base_desc": "MOSS-Image-Base（不是 Anima）: 5B DiT、Qwen3.5-9B 文本编码器、FLUX.2 VAE 与分词器 — 约 27 GB。MOSS 线 LoRA 训练的基础模型。",
     "models_pack_moss_sft": "MOSS-Image SFT",
     "models_pack_moss_sft_desc": "仅含 MOSS-Image-SFT 的 DiT（约 10 GB）; 文本编码器、VAE 与分词器沿用 Base 包。",
+    "models_pack_moss_te_int8": "MOSS-Image INT8 文本编码器",
+    "models_pack_moss_te_int8_desc": "INT8 W8A8 的 Qwen3.5-9B 文本编码器（约 9.2 GB，而非 16.8 GB），即默认的 text_encoder=int8: 全部 32 层可放入 16 GB 显卡。分词器仍来自 Base 包。",
+    "models_pack_moss_te_fp8": "MOSS-Image fp8 文本编码器",
+    "models_pack_moss_te_fp8_desc": "用于 text_encoder=fp8 的 fp8 Qwen3.5-9B 文本编码器（约 9.2 GB，而非 16.8 GB）: 全部 32 层可放入 16 GB 显卡。分词器仍来自 Base 包。",
     "models_pack_tagger": "标注器",
-    "models_pack_tagger_desc": "Anima Tagger: 其检查点、受限的 dbv4 主干, 以及由其追踪导出的 ONNX 图。",
+    "models_pack_tagger_desc": "Anima Tagger: 其检查点与 pixai-tagger-v1.0 主干 (Apache-2.0, 约 2 GB)。",
     "models_pack_tags": "Danbooru 标签 DB",
     "models_pack_tags_desc": "标注修正所参照的约 114k 行标签表及其英文说明。",
     "models_pack_masking": "遮罩",
@@ -404,7 +408,7 @@ STRINGS: dict[str, str] = {
     "models_pack_grouping": "分组",
     "models_pack_grouping_desc": "PE-Spatial-B16-512: REPA 特征缓存 (preprocess-pe) 与近似图像分组塔。",
     "model_danbooru_tags": "Danbooru 标签 DB — 标注顺序校正",
-    "model_tagger": "Anima Tagger — caformer_b36 主干 (受限)",
+    "model_tagger": "Anima Tagger — pixai-tagger-v1.0 主干",
     # HuggingFace 认证（模型对话框）
     "models_hf_token_placeholder": "粘贴你的 HuggingFace 令牌 (hf_…)",
     "models_hf_authenticate": "认证",
@@ -412,8 +416,7 @@ STRINGS: dict[str, str] = {
     '请在 <a href="https://huggingface.co/settings/tokens">'
     "huggingface.co/settings/tokens</a> 创建令牌，并在 "
     '<a href="https://huggingface.co/facebook/sam3">huggingface.co/facebook/sam3</a> 申请 SAM3 访问权限。'
-    "Anima Tagger 主干同样受限，"
-    '请在 <a href="https://huggingface.co/animetimm/caformer_b36.dbv4-full">animetimm/caformer_b36.dbv4-full</a> 同意其条款。',
+    "Anima Tagger 主干是公开的，无需令牌。",
     "models_hf_token_present": "✓ 已保存 HuggingFace 令牌。",
     "models_hf_not_authenticated": "未认证 — 粘贴令牌以启用受限下载。",
     "models_hf_token_empty": "请先粘贴令牌。",

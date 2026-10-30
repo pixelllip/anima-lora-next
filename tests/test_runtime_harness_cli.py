@@ -1,5 +1,5 @@
 """Tests for the run-harness promotion (Phase 3 / item B) and the shared CLI
-flag groups (item C) of ``docs/proposal/tooling_architecture.md``.
+flag groups (item C) of ``docs/anima/proposal/tooling_architecture.md``.
 
 All model-free: ``build_anima`` is only exercised on its no-DiT-path guard, and
 ``discover_bucketed_samples`` runs against tiny fixture sidecars. The harness +

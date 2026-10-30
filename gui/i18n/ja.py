@@ -356,8 +356,8 @@ STRINGS: dict[str, str] = {
     "guidebook_close": "閉じる",
     # EasyControl アダプターガイド (自作コントロールタスク)
     "adapter_guide": "📘 アダプターガイド",
-    "adapter_guide_tooltip": "独自の EasyControl アダプターの作り方 (easycontrol_adapters/ADAPTER_GUIDE.md)",
-    "easycontrol_descriptor_note": "このコントロールタスクは、複数テーブル構造を持つ独立したディスクリプターで、左側で生の TOML として編集します:<br><br>• <b>name</b> — 出力スラッグ; 派生するすべてのキャッシュ/出力パスを再ルーティングします。<br>• <code>[staging]</code> — 条件ツリーを実体化するデータ生成ステップ。<br>• <code>[preprocess]</code> — ステージング済みツリーへの VAE/TE キャッシュ設定。<br>• <code>[training]</code> — ベース EasyControl 手法にマージされるオーバーライド。<br>• <code>[general]</code> / <code>[[datasets]]</code> — train.py が読み込むデータセット設計図。<br>• <code>[variant]</code> — このドロップダウン項目の GUI メタデータ。<br><br><b>前処理</b>ボタンは条件ツリーを合成してキャッシュします; <b>学習</b>はこのディスクリプターの <code>[training]</code> オーバーライドをマージしてベース EasyControl 手法を学習します。どちらも GUI を閉じても続行されます。",
+    "adapter_guide_tooltip": "独自の EasyControl アダプターの作り方 (i2i_tasks/ADAPTER_GUIDE.md)",
+    "easycontrol_descriptor_note": "このコントロールタスクは、i2i タスクファイル(<code>i2i_tasks/configs/</code>)と EasyControl ディスクリプター(<code>configs/easycontrol/</code>)で構成され、左側でフォームとして編集します:<br><br>• <b>name</b> — 出力スラッグ; 派生するすべてのキャッシュ/出力パスを再ルーティングします(タスクファイル)。<br>• <b>stage</b> — 条件ツリーを構築するステージングツール(タスクファイル)。<br>• <code>[staging]</code> — 条件ツリーを実体化するデータ生成ステップ(タスクファイル)。<br>• <code>[preprocess]</code> — ステージング済みツリーへの VAE/TE キャッシュ設定。<br>• <code>[training]</code> — ベース EasyControl 手法にマージされるオーバーライド。<br>• <code>[general]</code> / <code>[[datasets]]</code> — train.py が読み込むデータセット設計図。<br>• <code>[variant]</code> — このドロップダウン項目の GUI メタデータ。<br><br><b>前処理</b>ボタンは条件ツリーを合成してキャッシュします; <b>学習</b>はこのディスクリプターの <code>[training]</code> オーバーライドをマージしてベース EasyControl 手法を学習します。どちらも GUI を閉じても続行されます。",
     "easycontrol_descriptor_form_header": "ディスクリプター <b>{path}</b> を編集中。以下の設定テーブルはフォームとして編集します; 保存時に変更された値を書き戻し、コメントと <code>[[datasets]]</code> 設計図は保持されます。設計図と <code>[variant]</code> メタデータはここには表示されません — それらはファイルを直接編集してください。フィールド名をクリックするとヘルプが表示されます。",
     "ec_desc_group_top": "ディスクリプター",
     # Top-bar buttons (models / update / report issue)
@@ -404,8 +404,12 @@ STRINGS: dict[str, str] = {
     "models_pack_moss_base_desc": "MOSS-Image-Base（Anima ではありません）: 5B DiT、Qwen3.5-9B テキストエンコーダー、FLUX.2 VAE とトークナイザー — 約 27 GB。MOSS ラインの LoRA 学習のベースです。",
     "models_pack_moss_sft": "MOSS-Image SFT",
     "models_pack_moss_sft_desc": "MOSS-Image-SFT の DiT のみ（約 10 GB）。テキストエンコーダー・VAE・トークナイザーは Base パックのものを使います。",
+    "models_pack_moss_te_int8": "MOSS-Image INT8 テキストエンコーダー",
+    "models_pack_moss_te_int8_desc": "INT8 W8A8 の Qwen3.5-9B テキストエンコーダー（16.8 GB ではなく約 9.2 GB）。既定の text_encoder=int8 で、32 層すべてが 16 GB のカードに載ります。トークナイザーは引き続き Base パックのものを使います。",
+    "models_pack_moss_te_fp8": "MOSS-Image fp8 テキストエンコーダー",
+    "models_pack_moss_te_fp8_desc": "text_encoder=fp8 用の fp8 Qwen3.5-9B テキストエンコーダー（16.8 GB ではなく約 9.2 GB）。32 層すべてが 16 GB のカードに載ります。トークナイザーは引き続き Base パックのものを使います。",
     "models_pack_tagger": "タガー",
-    "models_pack_tagger_desc": "Anima Tagger: チェックポイント、ゲート付きの dbv4 バックボーン、そこからトレースした ONNX グラフ。",
+    "models_pack_tagger_desc": "Anima Tagger: チェックポイントと pixai-tagger-v1.0 バックボーン (Apache-2.0、約 2 GB)。",
     "models_pack_tags": "Danbooru タグ DB",
     "models_pack_tags_desc": "キャプション補正が照合する約 114k 行のタグ表と、その英語説明。",
     "models_pack_masking": "マスキング",
@@ -415,7 +419,7 @@ STRINGS: dict[str, str] = {
     "models_pack_grouping": "グルーピング",
     "models_pack_grouping_desc": "PE-Spatial-B16-512: REPA の特徴キャッシュ (preprocess-pe) と類似画像グルーピング用タワー。",
     "model_danbooru_tags": "Danbooru タグ DB — キャプション順序補正",
-    "model_tagger": "Anima Tagger — caformer_b36 バックボーン (ゲート付き)",
+    "model_tagger": "Anima Tagger — pixai-tagger-v1.0 バックボーン",
     # HuggingFace 認証 (モデルダイアログ)
     "models_hf_token_placeholder": "HuggingFace トークンを貼り付けてください (hf_…)",
     "models_hf_authenticate": "認証",
@@ -423,8 +427,7 @@ STRINGS: dict[str, str] = {
     '<a href="https://huggingface.co/settings/tokens">'
     "huggingface.co/settings/tokens</a> でトークンを作成し、"
     '<a href="https://huggingface.co/facebook/sam3">huggingface.co/facebook/sam3</a> で SAM3 のアクセスを申請してください。'
-    "Anima Tagger のバックボーンもゲート付きです。"
-    '<a href="https://huggingface.co/animetimm/caformer_b36.dbv4-full">animetimm/caformer_b36.dbv4-full</a> で利用規約に同意してください。',
+    "Anima Tagger のバックボーンは公開されており、トークンは不要です。",
     "models_hf_token_present": "✓ HuggingFace トークンは既に保存されています。",
     "models_hf_not_authenticated": "未認証 — トークンを貼り付けてゲート付きダウンロードを有効にしてください。",
     "models_hf_token_empty": "先にトークンを貼り付けてください。",

@@ -88,15 +88,26 @@ COMMANDS = {
         "EasyControl training (extended self-attn KV with VAE-encoded reference). "
         "EASYADAPTER=<task> (e.g. colorize) selects a control-task project.",
     ),
+    "i2i-stage": (
+        training.cmd_i2i_stage,
+        "Generate an i2i task's staging tree (i2i_tasks/<task>, no VAE/TE "
+        "caching) under post_image_dataset/i2i/. TASK=<task> (colorize, inpaint, "
+        "region, near_twins, …); read by easycontrol-preprocess and the MOSS i2i cache.",
+    ),
+    "i2i-preprocess": (
+        training.cmd_i2i_preprocess,
+        "Cache a staged i2i task for one model: TASK=<task> MODEL=anima (EasyControl "
+        "encode, = easycontrol-preprocess) | moss (configs/moss/i2i/<task>/cache.toml "
+        "→ target latents + TE + reference latents, daemon job).",
+    ),
     "easycontrol-staging": (
         training.cmd_easycontrol_staging,
-        "Generate an EasyControl adapter's staging dataset (no VAE/TE caching). "
-        "EASYADAPTER=near_twin → mine the in-artist near-twin pair tree.",
+        "Alias of i2i-stage with EASYADAPTER=<task>.",
     ),
     "easycontrol-preprocess": (
         training.cmd_easycontrol_preprocess,
         "Full EasyControl preprocess: latents + text emb. "
-        "Source: easycontrol-dataset/  Cache: post_image_dataset/easycontrol/.",
+        "Source: easycontrol-dataset/ (or TASK staging)  Cache: post_image_dataset/i2i/.",
     ),
     # ── Training daemon ───────────────────────────────────────────────
     "daemon": (
@@ -110,6 +121,12 @@ COMMANDS = {
         "--limit N/--all/--running/--failed/--done/--state s; reads the "
         "on-disk records when the daemon is down. One job's full record + its "
         "result envelope: python -m anima_daemon status <id>.",
+    ),
+    "daemon-status": (
+        daemon.cmd_daemon_status,
+        "Daemon health in one line, then the running / paused / queued jobs "
+        "(exit 1 = daemon down). JOB=<id>: that job's full record + result "
+        "envelope as JSON.",
     ),
     "daemon-log": (
         daemon.cmd_daemon_log,
@@ -302,10 +319,10 @@ COMMANDS = {
         "Predict tags for a single image (--image <path>) or sample a random "
         "val-split stem. Pass --show_scores for rating + top-K kept tags.",
     ),
-    "tagger-dbv4": (
-        tagger.cmd_tagger_dbv4,
-        "Build the dbv4-backed (external caformer_b36) tagger checkpoint dir "
-        "from the archived anima-tagger-v5's vocab; sidecar training runs via "
+    "tagger-build": (
+        tagger.cmd_tagger_build,
+        "Build a backbone-backed tagger checkpoint dir (--backend pixai|dbv4, "
+        "pixai by default); sidecar training + threshold refit run via "
         "daemon-run -m anime_tools.tagger.cli.train_sidecar.",
     ),
     "autotag": (
@@ -347,12 +364,12 @@ COMMANDS = {
     "download-tagger": (
         downloads.cmd_download_tagger,
         "Download the Anima Tagger checkpoint (vocab/rules/thresholds/sidecar; "
-        "not the gated backbone — see download-tagger-model)",
+        "not the backbone — see download-tagger-model)",
     ),
     "download-tagger-model": (
         downloads.cmd_download_tagger_model,
-        "Download the full Anima Tagger (our head + the gated GPL-3.0 caformer_b36 "
-        "dbv4 backbone); needs `hf auth login` and accepting the upstream repo terms",
+        "Download the full Anima Tagger (our head + its backbone: "
+        "pixai-tagger-v1.0, Apache-2.0, ~2 GB)",
     ),
     "download-danbooru-tags": (
         downloads.cmd_download_danbooru_tags,
@@ -424,24 +441,6 @@ COMMANDS = {
     "exp-soft-tokens": (
         exp_training.cmd_soft_tokens,
         "[experimental] SoftREPA-style per-layer × per-t soft tokens (training-only v1)",
-    ),
-    "exp-byg-data": (
-        exp_training.cmd_byg_data,
-        "[experimental] Build BYG edit-tuple sidecars (tag-swap) into "
-        "post_image_dataset/byg/. Usage: exp-byg-data [--limit N --overwrite].",
-    ),
-    "exp-distill-cjk": (
-        exp_training.cmd_distill_cjk,
-        "[experimental] Distill the extended CJK T5-vocab rows against the "
-        "en-translation teacher. Gates in order: ARGS='--mode oracle' → "
-        "'--mode capacity' → '--mode train'. Emits a vocab pack, not a LoRA.",
-    ),
-    "exp-cjk-corpus": (
-        exp_training.cmd_cjk_corpus,
-        "[experimental] Run one CJK distillation corpus-builder stage "
-        "(scripts/distill_cjk/corpus/). Usage: exp-cjk-corpus ARGS='<stage> [flags]' "
-        "— stages: wikidata_lexicon, tag_glossary, tag_pairs, build_pairs, synth_names, "
-        "synth_tags, desc_pairs, build_pairs_sym, mt. Recipes: docs/methods/cjk_vocab_pack.md.",
     ),
     "exp-test-soft": (
         exp_inference.cmd_test_soft,

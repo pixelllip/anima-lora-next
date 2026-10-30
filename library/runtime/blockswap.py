@@ -238,6 +238,8 @@ class Attached:
             block.to(cpu)
             weighs_to_device(block, cpu)
         self.model.to(cpu)
+        if self.offloader.masters is not None:
+            self.offloader.masters.release()
         self.offloader = None
         self.blocks = None
         self.model = None
@@ -254,6 +256,7 @@ def attach(
     supports_backward: bool,
     debug: bool = False,
     minimal_schedule: bool = True,
+    h2d_only: bool = False,
 ) -> tuple[Attached | None, nn.ModuleList]:
     """Hook ``ModelOffloader`` onto ``model``'s block list.
 
@@ -265,10 +268,19 @@ def attach(
     for comparing against it. It is ignored under ``supports_backward``, where
     the forward only half-swaps (:func:`swap_schedule` ``restore=False``) and the
     offloader's own backward hooks walk the tail back.
+
+    ``h2d_only`` keeps a page-locked CPU master of every swapped block and drops
+    the device-to-host copy of each swap (``offloading.HostMasters``); the block
+    weights must be frozen.
     """
     blocks = find_blocks(model, blocks_path)
     if blocks_to_swap <= 0:
         return None, blocks
+    if h2d_only and any(p.requires_grad for p in blocks.parameters()):
+        raise ValueError(
+            "h2d_only block swap needs frozen block weights: the CPU master of a "
+            "trained weight goes stale"
+        )
 
     offloader = ModelOffloader(
         blocks,
@@ -276,6 +288,7 @@ def attach(
         device,
         supports_backward=supports_backward,
         debug=debug,
+        h2d_only=h2d_only,
     )
     attached = Attached(offloader, blocks, model)
 
@@ -300,7 +313,7 @@ def attach(
     if debug or minimal_schedule:
         print(
             f"blockswap: {len(schedule)} moves/forward for {blocks_to_swap} "
-            f"swapped of {len(blocks)} blocks",
+            f"swapped of {len(blocks)} blocks" + (", H2D only" if h2d_only else ""),
             flush=True,
         )
 
@@ -317,6 +330,7 @@ def place(
     activation_reserve_gb: float = 2.5,
     label: str = "model",
     minimal_schedule: bool = True,
+    h2d_only: bool = False,
 ):
     """Move ``model`` onto ``device``, block-swapping as little as fits.
 
@@ -349,6 +363,7 @@ def place(
         device,
         supports_backward=supports_backward,
         minimal_schedule=minimal_schedule,
+        h2d_only=h2d_only,
     )
     if attached is None:
         model.to(device)

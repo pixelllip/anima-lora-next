@@ -523,7 +523,7 @@ def _run_validation_baselines(
     args = ctx.args
     accelerator = ctx.accelerator
 
-    adapters = getattr(trainer, "_adapters", None) or []
+    adapters = trainer.step.adapters
     pairs = []  # (baseline,)
     for adapter in adapters:
         for baseline in adapter.validation_baselines():

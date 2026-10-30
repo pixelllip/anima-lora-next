@@ -397,8 +397,8 @@ STRINGS: dict[str, str] = {
     "guidebook_close": "닫기",
     # EasyControl 어댑터 가이드 (직접 컨트롤 태스크 만들기)
     "adapter_guide": "📘 어댑터 가이드",
-    "adapter_guide_tooltip": "나만의 EasyControl 어댑터 만들기 (easycontrol_adapters/ADAPTER_GUIDE.md)",
-    "easycontrol_descriptor_note": "이 컨트롤 태스크는 다중 테이블 구조를 가진 독립형 디스크립터로, 왼쪽에서 원시 TOML로 편집합니다:<br><br>• <b>name</b> — 출력 슬러그; 파생되는 모든 캐시/출력 경로를 재지정합니다.<br>• <code>[staging]</code> — 조건 트리를 구체화하는 데이터 생성 단계.<br>• <code>[preprocess]</code> — 스테이징된 트리에 대한 VAE/TE 캐싱 설정.<br>• <code>[training]</code> — 기본 EasyControl 메소드에 병합될 오버라이드.<br>• <code>[general]</code> / <code>[[datasets]]</code> — train.py가 읽는 데이터셋 청사진.<br>• <code>[variant]</code> — 이 드롭다운 항목의 GUI 메타데이터.<br><br><b>전처리</b> 버튼은 조건 트리를 합성하고 캐싱합니다; <b>학습</b>은 이 디스크립터의 <code>[training]</code> 오버라이드를 병합하여 기본 EasyControl 메소드를 학습합니다. 두 작업 모두 GUI를 닫아도 계속 실행됩니다.",
+    "adapter_guide_tooltip": "나만의 EasyControl 어댑터 만들기 (i2i_tasks/ADAPTER_GUIDE.md)",
+    "easycontrol_descriptor_note": "이 컨트롤 태스크는 i2i 태스크 파일(<code>i2i_tasks/configs/</code>)과 EasyControl 디스크립터(<code>configs/easycontrol/</code>)로 구성되며, 왼쪽에서 폼으로 편집합니다:<br><br>• <b>name</b> — 출력 슬러그; 파생되는 모든 캐시/출력 경로를 재지정합니다(태스크 파일).<br>• <b>stage</b> — 조건 트리를 만드는 스테이징 도구(태스크 파일).<br>• <code>[staging]</code> — 조건 트리를 구체화하는 데이터 생성 단계(태스크 파일).<br>• <code>[preprocess]</code> — 스테이징된 트리에 대한 VAE/TE 캐싱 설정.<br>• <code>[training]</code> — 기본 EasyControl 메소드에 병합될 오버라이드.<br>• <code>[general]</code> / <code>[[datasets]]</code> — train.py가 읽는 데이터셋 청사진.<br>• <code>[variant]</code> — 이 드롭다운 항목의 GUI 메타데이터.<br><br><b>전처리</b> 버튼은 조건 트리를 합성하고 캐싱합니다; <b>학습</b>은 이 디스크립터의 <code>[training]</code> 오버라이드를 병합하여 기본 EasyControl 메소드를 학습합니다. 두 작업 모두 GUI를 닫아도 계속 실행됩니다.",
     "easycontrol_descriptor_form_header": "디스크립터 <b>{path}</b> 편집 중. 아래 설정 테이블은 폼으로 편집합니다; 저장 시 변경된 값을 기록하되 주석과 <code>[[datasets]]</code> 청사진은 유지됩니다. 청사진과 <code>[variant]</code> 메타데이터는 여기에 표시되지 않으므로 해당 항목은 파일을 직접 편집하세요. 필드 이름을 클릭하면 도움말이 표시됩니다.",
     "ec_desc_group_top": "디스크립터",
     # Top-bar buttons (models / update / report issue)
@@ -445,8 +445,12 @@ STRINGS: dict[str, str] = {
     "models_pack_moss_base_desc": "MOSS-Image-Base (Anima 아님): 5B DiT, Qwen3.5-9B 텍스트 인코더, FLUX.2 VAE와 토크나이저 — 약 27 GB. MOSS 라인의 LoRA 학습 기반 모델입니다.",
     "models_pack_moss_sft": "MOSS-Image SFT",
     "models_pack_moss_sft_desc": "MOSS-Image-SFT의 DiT만 포함 (약 10 GB). 텍스트 인코더·VAE·토크나이저는 Base 팩의 것을 사용합니다.",
+    "models_pack_moss_te_int8": "MOSS-Image INT8 텍스트 인코더",
+    "models_pack_moss_te_int8_desc": "INT8 W8A8 Qwen3.5-9B 텍스트 인코더 (16.8 GB 대신 약 9.2 GB). 기본값 text_encoder=int8이며 32개 레이어 전부가 16 GB 카드에 올라갑니다. 토크나이저는 여전히 Base 팩의 것을 사용합니다.",
+    "models_pack_moss_te_fp8": "MOSS-Image fp8 텍스트 인코더",
+    "models_pack_moss_te_fp8_desc": "text_encoder=fp8용 fp8 Qwen3.5-9B 텍스트 인코더 (16.8 GB 대신 약 9.2 GB). 32개 레이어 전부가 16 GB 카드에 올라갑니다. 토크나이저는 여전히 Base 팩의 것을 사용합니다.",
     "models_pack_tagger": "태거",
-    "models_pack_tagger_desc": "Anima Tagger: 체크포인트, 접근 승인이 필요한 dbv4 백본, 그리고 그로부터 추출한 ONNX 그래프.",
+    "models_pack_tagger_desc": "Anima Tagger: 체크포인트와 pixai-tagger-v1.0 백본 (Apache-2.0, 약 2 GB).",
     "models_pack_tags": "Danbooru 태그 DB",
     "models_pack_tags_desc": "캡션 교정이 참조하는 약 114k행 태그 테이블과 그 영어 설명.",
     "models_pack_masking": "마스킹",
@@ -456,7 +460,7 @@ STRINGS: dict[str, str] = {
     "models_pack_grouping": "그룹화",
     "models_pack_grouping_desc": "PE-Spatial-B16-512: REPA 특징 캐시 (preprocess-pe)와 유사 이미지 그룹화 타워.",
     "model_danbooru_tags": "Danbooru 태그 DB — 캡션 순서 교정",
-    "model_tagger": "Anima Tagger — caformer_b36 백본 (접근 승인 필요)",
+    "model_tagger": "Anima Tagger — pixai-tagger-v1.0 백본",
     # HuggingFace 인증 (모델 다이얼로그)
     "models_hf_token_placeholder": "HuggingFace 토큰을 붙여넣으세요 (hf_…)",
     "models_hf_authenticate": "인증",
@@ -464,8 +468,7 @@ STRINGS: dict[str, str] = {
     '<a href="https://huggingface.co/settings/tokens">'
     "huggingface.co/settings/tokens</a> 에서 토큰을 생성하고 "
     '<a href="https://huggingface.co/facebook/sam3">huggingface.co/facebook/sam3</a> 에서 SAM3 접근을 요청하세요. '
-    "Anima Tagger 백본도 게이트되어 있으므로 "
-    '<a href="https://huggingface.co/animetimm/caformer_b36.dbv4-full">animetimm/caformer_b36.dbv4-full</a> 에서 약관에 동의해야 합니다.',
+    "Anima Tagger 백본은 공개되어 있어 토큰이 필요 없습니다.",
     "models_hf_token_present": "✓ HuggingFace 토큰이 이미 저장되어 있습니다.",
     "models_hf_not_authenticated": "인증되지 않음 — 토큰을 붙여넣어 게이트 다운로드를 활성화하세요.",
     "models_hf_token_empty": "먼저 토큰을 붙여넣으세요.",

@@ -17,7 +17,7 @@ except ImportError:
     _wrapped_flash_attn_forward = None
     _wrapped_flash_attn_backward = None
 
-# Flash Attention 4 (flash-attention-sm120) is disabled; see docs/optimizations/fa4.md.
+# Flash Attention 4 (flash-attention-sm120) is disabled; see docs/anima/optimizations/fa4.md.
 _flash_attn_4_func_raw = None
 flash_attn_4_func = None
 flash_attn_4_varlen_func = None
@@ -307,7 +307,7 @@ def dispatch_attention(
     elif attn_params.attn_mode == "flash4":
         raise NotImplementedError(
             "attn_mode='flash4' is disabled in this build "
-            "(see docs/optimizations/fa4.md). "
+            "(see docs/anima/optimizations/fa4.md). "
             "Use 'flash', 'torch', 'flex', or 'sageattn'."
         )
 

@@ -148,14 +148,14 @@ def test_train_adaln_defaults_on_and_reaches_the_network():
     """``train_adaln`` is a base.toml default (2026-07-16) that must survive the
     merge AND be forwarded to the network. It rides the top-level allowlist, not
     ``network_args``, so a regression in either half silently un-trains adaln.
-    See docs/methods/adaln.md.
+    See docs/anima/methods/adaln.md.
     """
     from networks import all_network_kwargs
 
     merged, provenance = load_method_preset("lora", "default", return_provenance=True)
     assert merged["train_adaln"] is True
     assert provenance["train_adaln"] == "configs/base.toml"
-    # train.py::resolve_network_kwargs only forwards allowlisted top-level keys.
+    # cli.resolve_network_kwargs (library/anima/trainer) only forwards allowlisted top-level keys.
     assert {"train_adaln", "adaln_rank", "adaln_alpha"} <= set(all_network_kwargs())
 
 

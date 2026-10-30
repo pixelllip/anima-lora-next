@@ -9,6 +9,7 @@ from library.moss.generate import denoise
 from library.moss.model import (
     MOSSImageScheduler,
     MOSSImageTransformer,
+    RefCache,
     pack_latents,
     snapped_sigmas,
     unpack_latents,
@@ -59,6 +60,168 @@ def test_features_then_head_is_forward(tiny):
         [tiny.head(feats[b : b + 1], head[b : b + 1], 4, 6) for b in range(2)]
     )
     assert torch.equal(out, tiny(x, 250.0, e, mask).sample)
+
+
+def _ref(batch=2):
+    return torch.randn(batch, 8, 2, 3, generator=torch.Generator().manual_seed(2))
+
+
+@pytest.fixture
+def ref_t(tiny):
+    """Sets ``tiny.ref_timestep`` for one test and restores the shared default."""
+
+    def set_(value):
+        tiny.ref_timestep = value
+
+    yield set_
+    tiny.ref_timestep = None
+
+
+@torch.no_grad()
+def test_ref_timestep_at_image_t_is_shared(tiny, ref_t):
+    x, e, mask = _inputs()
+    shared = tiny(x, 500.0, e, mask, ref=_ref()).sample
+    ref_t(500.0)
+    assert torch.allclose(tiny(x, 500.0, e, mask, ref=_ref()).sample, shared, atol=1e-6)
+
+
+@torch.no_grad()
+def test_ref_timestep_zero_batched_matches_reference(tiny, ref_t):
+    x, e, mask = _inputs()
+    shared = tiny(x, 500.0, e, mask, ref=_ref()).sample
+    ref_t(0.0)
+    single = tiny(x, 500.0, e, mask, ref=_ref()).sample
+    assert not torch.allclose(single, shared, atol=1e-3)
+    batched = tiny.forward_batched(x, 500.0, e, mask, ref=_ref())
+    assert torch.allclose(batched, single, atol=1e-5)
+    r1 = tiny(x[1:], 500.0, e[1:], mask[1:], skip_layers=[2], ref=_ref()[1:]).sample
+    out = tiny.forward_batched(x, 500.0, e, mask, skip_layers=[(), (2,)], ref=_ref())
+    assert torch.allclose(out, torch.cat([single[:1], r1]), atol=1e-5)
+
+
+@pytest.fixture
+def ref_iso(tiny):
+    tiny.ref_isolate = True
+    yield
+    tiny.ref_isolate = False
+
+
+@torch.no_grad()
+def test_ref_isolate_batched_matches_reference(tiny, ref_t, ref_iso):
+    x, e, mask = _inputs()
+    ref_t(0.0)
+    single = tiny(x, 500.0, e, mask, ref=_ref()).sample
+    tiny.ref_isolate = False
+    assert not torch.allclose(tiny(x, 500.0, e, mask, ref=_ref()).sample, single)
+    tiny.ref_isolate = True
+    batched = tiny.forward_batched(x, 500.0, e, mask, ref=_ref())
+    assert torch.allclose(batched, single, atol=1e-5)
+    r1 = tiny(x[1:], 500.0, e[1:], mask[1:], skip_layers=[2], ref=_ref()[1:]).sample
+    out = tiny.forward_batched(x, 500.0, e, mask, skip_layers=[(), (2,)], ref=_ref())
+    assert torch.allclose(out, torch.cat([single[:1], r1]), atol=1e-5)
+
+
+@torch.no_grad()
+def test_ref_isolate_at_t0_reference_stream_is_step_free(tiny, ref_t, ref_iso):
+    """Isolated and clean, the reference tokens' per-block state depends on the
+    reference alone: not on the noisy latent, the text or the timestep."""
+    ref_t(0.0)
+    streams = []
+
+    def hook(index, x, n_img):
+        streams[-1].append(x[:, -6:].clone())  # the 2×3 reference, last
+        return x
+
+    tiny.layer_hook = hook
+    try:
+        for seed, t in ((1, 500.0), (5, 900.0)):
+            g = torch.Generator().manual_seed(seed)
+            x = torch.randn(1, 8, 4, 6, generator=g)
+            e = torch.randn(1, 5 + seed, 32, generator=g)
+            streams.append([])
+            tiny(x, t, e, ref=_ref(1))
+    finally:
+        tiny.layer_hook = None
+    for a, b in zip(*streams):
+        assert torch.allclose(a, b, atol=1e-6)
+
+
+@torch.no_grad()
+def test_ref_isolate_skip_spares_the_reference(tiny, ref_t, ref_iso):
+    """A skipped block still runs the isolated reference, so the skip-22 uncond
+    reads the cond branch's reference; ``ref_follows_skip`` skips it too."""
+    ref_t(0.0)
+    x, e, _ = _inputs(batch=1)
+    tokens, rope = tiny.embed_sample(x, e, _ref(1))
+    mod, _ = tiny.time_conditioning(500.0, 1)
+    mod, n_ref = tiny.ref_modulation(mod, (2, 3))
+
+    def stream(skip):
+        out = tiny.run_layers(tokens, rope, mod, skip, n_img=24, n_ref=n_ref)
+        return out[:, -n_ref:]
+
+    full = stream(frozenset())
+    assert torch.allclose(stream(frozenset({2})), full, atol=1e-6)
+    assert torch.allclose(stream([frozenset({2})]), full, atol=1e-6)
+    tiny.ref_follows_skip = True
+    try:
+        assert not torch.allclose(stream(frozenset({2})), full, atol=1e-3)
+    finally:
+        tiny.ref_follows_skip = False
+
+
+@torch.no_grad()
+def test_ref_cache_matches_uncached(tiny, ref_t, ref_iso):
+    """One reference build serves cond, the skip uncond and later steps, per-sample
+    and batched, and gives what the full sequence gives."""
+    ref_t(0.0)
+    ref = _ref(1)
+    calls = []
+    for seed, t, s in ((1, 500.0, 7), (5, 900.0, 4)):
+        g = torch.Generator().manual_seed(seed)
+        x = torch.randn(1, 8, 4, 6, generator=g)
+        e = torch.randn(1, s, 32, generator=g)
+        calls += [(x, t, e, None), (x, t, e, [2])]
+    full = [tiny(x, t, e, skip_layers=k, ref=ref).sample for x, t, e, k in calls]
+    tiny.ref_cache = cache = RefCache()
+    try:
+        cached = [tiny(x, t, e, skip_layers=k, ref=ref).sample for x, t, e, k in calls]
+        x, t, e, _ = calls[0]
+        batched = tiny.forward_batched(
+            x.repeat(2, 1, 1, 1),
+            t,
+            e.repeat(2, 1, 1),
+            skip_layers=[(), (2,)],
+            ref=ref.repeat(2, 1, 1, 1),
+        )
+    finally:
+        tiny.ref_cache = None
+    for a, b in zip(cached, full):
+        assert torch.allclose(a, b, atol=1e-5)
+    assert torch.allclose(batched, torch.cat(full[:2]), atol=1e-5)
+    assert cache.builds == 2  # the per-sample reference, then the batch of two
+
+
+@torch.no_grad()
+def test_ref_cache_off_when_ref_follows_skip(tiny, ref_t, ref_iso):
+    ref_t(0.0)
+    x, e, _ = _inputs(batch=1)
+    tiny.ref_follows_skip = True
+    tiny.ref_cache = cache = RefCache()
+    try:
+        tiny(x, 500.0, e, skip_layers=[2], ref=_ref(1))
+    finally:
+        tiny.ref_cache = None
+        tiny.ref_follows_skip = False
+    assert cache.builds == 0
+
+
+@torch.no_grad()
+def test_ref_timestep_ignored_without_ref(tiny, ref_t):
+    x, e, mask = _inputs()
+    plain = tiny(x, 500.0, e, mask).sample
+    ref_t(0.0)
+    assert torch.equal(tiny(x, 500.0, e, mask).sample, plain)
 
 
 def test_pack_unpack_roundtrip():

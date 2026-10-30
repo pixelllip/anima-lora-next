@@ -1,14 +1,3 @@
-name = "sanitize"
-
-[staging]
-tag_any = ["speech bubble", "thought bubble", "blank speech bubble", "spoken text", "english text", "japanese text", "sound effects", "text focus"]
-
-image_dirs = ["{CAPTION_CORPUS_DIR}/retrieved"]
-sim_min = 0.85
-match_frac_min = 0.3
-cell_match_min = 0.9
-max_extra_diff = 25
-
 [preprocess]
 recursive = true
 vae = 'models/vae/qwen_image_vae.safetensors'
@@ -57,9 +46,9 @@ caption_extension = '.txt'
 batch_size = 1
 
   [[datasets.subsets]]
-  image_dir = 'post_image_dataset/easycontrol/{name}/resized'
-  cache_dir = 'post_image_dataset/easycontrol/{name}/cache'
-  cond_cache_dir = 'post_image_dataset/easycontrol/{name}/cond'
+  image_dir = 'post_image_dataset/i2i/{name}/resized'
+  cache_dir = 'post_image_dataset/i2i/{name}/cache'
+  cond_cache_dir = 'post_image_dataset/i2i/{name}/cond'
   path_pattern = '*_no_tags.*'
   recursive = true
   flip_aug = false

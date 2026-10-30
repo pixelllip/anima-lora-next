@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 from gui.lines.window import LineSpec, run
-from gui.qwen21.strings import FIELDS_CN, FIELDS_CN_GENERATE, UI
+from gui.qwen21.strings import FIELDS, FIELDS_GENERATE, UI
 from library.qwen21.requests import (
     CacheRequest,
     GenerateRequest,
@@ -42,8 +42,8 @@ SPEC = LineSpec(
     test_runs=lambda req: [req],
     test_images=_test_images,
     ui=UI,
-    fields_cn=FIELDS_CN,
-    fields_cn_test=FIELDS_CN_GENERATE,
+    fields=FIELDS,
+    fields_test=FIELDS_GENERATE,
 )
 
 

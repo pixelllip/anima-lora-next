@@ -33,7 +33,7 @@ What to expect: danbooru-style tags in JA worked like their English spelling
 in same-seed grids on the pre-render pack (the shipped ``_preview`` pack
 retrains 503 JA rows for quoted-text rendering, not re-verified); KO / ZH tag rows are trained but were not grid-validated
 the same way; full-CJK rare-kanji character names do not compose (type
-names in latin, ``hakurei reimu``). See ``docs/methods/cjk_vocab_pack.md``.
+names in latin, ``hakurei reimu``). See ``docs/anima/methods/cjk_vocab_pack.md``.
 """
 
 from __future__ import annotations

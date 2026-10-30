@@ -410,8 +410,8 @@ STRINGS: dict[str, str] = {
     "guidebook_close": "Close",
     # EasyControl adapter guide (build-your-own control task)
     "adapter_guide": "📘 Adapter Guide",
-    "adapter_guide_tooltip": "How to build your own EasyControl adapter (easycontrol_adapters/ADAPTER_GUIDE.md)",
-    "easycontrol_descriptor_note": "This control task is a self-contained descriptor with a multi-table shape, edited as raw TOML on the left:<br><br>• <b>name</b> — output slug; reroutes every derived cache/output path.<br>• <code>[staging]</code> — data generation that materializes the condition tree.<br>• <code>[preprocess]</code> — VAE/TE caching knobs over the staged tree.<br>• <code>[training]</code> — overrides folded onto the base EasyControl method.<br>• <code>[general]</code> / <code>[[datasets]]</code> — the dataset blueprint train.py reads.<br>• <code>[variant]</code> — this dropdown entry's GUI metadata.<br><br>The <b>Preprocess</b> button synthesizes the condition tree + caches it; <b>Train</b> trains the base EasyControl method with this descriptor's <code>[training]</code> overrides folded in. Both survive the GUI closing.",
+    "adapter_guide_tooltip": "How to build your own EasyControl adapter (i2i_tasks/ADAPTER_GUIDE.md)",
+    "easycontrol_descriptor_note": "This control task is an i2i task file (<code>i2i_tasks/configs/</code>) plus an EasyControl descriptor (<code>configs/easycontrol/</code>), edited as a form on the left:<br><br>• <b>name</b> — output slug; reroutes every derived cache/output path (task file).<br>• <b>stage</b> — which staging tool builds the tree (task file).<br>• <code>[staging]</code> — data generation that materializes the condition tree (task file).<br>• <code>[preprocess]</code> — VAE/TE caching knobs over the staged tree.<br>• <code>[training]</code> — overrides folded onto the base EasyControl method.<br>• <code>[general]</code> / <code>[[datasets]]</code> — the dataset blueprint train.py reads.<br>• <code>[variant]</code> — this dropdown entry's GUI metadata.<br><br>The <b>Preprocess</b> button synthesizes the condition tree + caches it; <b>Train</b> trains the base EasyControl method with this descriptor's <code>[training]</code> overrides folded in. Both survive the GUI closing.",
     "easycontrol_descriptor_form_header": "Editing descriptor <b>{path}</b>. The knob tables below edit as a form; Save writes changed values back, preserving comments and the <code>[[datasets]]</code> blueprint. The blueprint and <code>[variant]</code> metadata aren't shown here — edit the file directly for those. Click a field name for help.",
     "ec_desc_group_top": "descriptor",
     # Top-bar buttons (models / update / report issue)
@@ -462,8 +462,12 @@ STRINGS: dict[str, str] = {
     "models_pack_moss_base_desc": "MOSS-Image-Base (not Anima): the 5B DiT, the Qwen3.5-9B text encoder, the FLUX.2 VAE and tokenizer — ~27 GB. The MOSS line's LoRA substrate.",
     "models_pack_moss_sft": "MOSS-Image SFT",
     "models_pack_moss_sft_desc": "MOSS-Image-SFT's DiT alone (~10 GB); it reuses the Base pack's text encoder, VAE and tokenizer.",
+    "models_pack_moss_te_int8": "MOSS-Image INT8 text encoder",
+    "models_pack_moss_te_int8_desc": "The Qwen3.5-9B text encoder in INT8 W8A8 (~9.2 GB instead of 16.8 GB), the default text_encoder=int8: all 32 layers fit on a 16 GB card. The tokenizer still comes from the Base pack.",
+    "models_pack_moss_te_fp8": "MOSS-Image fp8 text encoder",
+    "models_pack_moss_te_fp8_desc": "The Qwen3.5-9B text encoder in fp8 (~9.2 GB instead of 16.8 GB) for text_encoder=fp8: all 32 layers fit on a 16 GB card. The tokenizer still comes from the Base pack.",
     "models_pack_tagger": "Tagger",
-    "models_pack_tagger_desc": "The Anima Tagger: its checkpoint, the gated dbv4 backbone, and the ONNX graph traced from it.",
+    "models_pack_tagger_desc": "The Anima Tagger: its checkpoint and the pixai-tagger-v1.0 backbone (Apache-2.0, ~2 GB).",
     "models_pack_tags": "Danbooru tag DB",
     "models_pack_tags_desc": "The ~114k-row tag table caption correction types against, and its English descriptions.",
     "models_pack_masking": "Masking",
@@ -473,7 +477,7 @@ STRINGS: dict[str, str] = {
     "models_pack_grouping": "Grouping",
     "models_pack_grouping_desc": "PE-Spatial-B16-512: the REPA feature cache (preprocess-pe) and the near-twin grouping tower.",
     "model_danbooru_tags": "Danbooru tag DB — caption order correction",
-    "model_tagger": "Anima Tagger — caformer_b36 backbone (gated)",
+    "model_tagger": "Anima Tagger — pixai-tagger-v1.0 backbone",
     # HuggingFace authentication (Models dialog)
     "models_hf_token_placeholder": "Paste your HuggingFace token (hf_…)",
     "models_hf_authenticate": "Authenticate",
@@ -481,8 +485,7 @@ STRINGS: dict[str, str] = {
     'Create a token at <a href="https://huggingface.co/settings/tokens">'
     "huggingface.co/settings/tokens</a> · request SAM3 access at "
     '<a href="https://huggingface.co/facebook/sam3">huggingface.co/facebook/sam3</a>. '
-    "The Anima Tagger backbone is gated too — accept its terms at "
-    '<a href="https://huggingface.co/animetimm/caformer_b36.dbv4-full">animetimm/caformer_b36.dbv4-full</a>.',
+    "The Anima Tagger backbone is public and needs no token.",
     "models_hf_token_present": "✓ A HuggingFace token is already saved.",
     "models_hf_not_authenticated": "Not authenticated — paste a token to enable gated downloads.",
     "models_hf_token_empty": "Paste a token first.",

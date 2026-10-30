@@ -4,7 +4,7 @@
 Consumes the method-agnostic typed-tag index
 (``post_image_dataset/captions/caption_index.json``, built by
 ``make caption-index``) and answers the one question Phase 0 of
-``docs/proposal/soft_tokens_contrastive.md`` exists to answer:
+``docs/anima/proposal/soft_tokens_contrastive.md`` exists to answer:
 
   *Per training stem, does a **same-artist / different-character** sibling
   exist?* — the "option (c)" hard-negative pool that ``hard_negative()`` would

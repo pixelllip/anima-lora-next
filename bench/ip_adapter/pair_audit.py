@@ -5,7 +5,7 @@ Consumes the method-agnostic typed-tag index
 (``post_image_dataset/captions/caption_index.json``, built by
 ``make caption-index``) and reports whether the dataset can supply enough
 *distinct* same-identity references for the identity-pair training contract in
-``docs/proposal/ip-adapter-identity-pairs.md``.
+``docs/anima/proposal/ip-adapter-identity-pairs.md``.
 
 This script owns the IP-Adapter *sampling policy* — the character → copyright →
 artist tiered backoff — which is deliberately NOT baked into the shared index.

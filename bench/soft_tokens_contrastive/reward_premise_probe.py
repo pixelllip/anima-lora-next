@@ -1,4 +1,4 @@
-"""AGSM reward-premise probe (Phase 0 of docs/proposal/soft_tokens_agsm.md).
+"""AGSM reward-premise probe (Phase 0 of docs/anima/proposal/soft_tokens_agsm.md).
 
 THE QUESTION. AGSM's entire alignment signal is the model's own denoising
 likelihood — the per-candidate FM error ``r(x_t, c) = −‖v_θ(x_t, c) − v_target‖²``

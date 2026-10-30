@@ -1,6 +1,6 @@
 # configs/ — the merge chain
 
-Key-by-key semantics of `base.toml` for users: `docs/guidelines/base-config.md`.
+Key-by-key semantics of `base.toml` for users: `docs/anima/guidelines/base-config.md`.
 
 `base.toml → presets.toml[<preset>] → methods/<method>.toml → CLI args`, **method
 settings win over preset settings on overlap**.
@@ -65,7 +65,7 @@ Sections `[default]`, `[low_vram]` (also Windows 8GB), `[graft]`, `[half]`, `[qu
 
 ## `methods/` — one flat file per family
 
-Read by `train.py` (`lora`, `soft_tokens`, `byg`), each holding rank + routing knobs +
+Read by `train.py` (`lora`, `soft_tokens`), each holding rank + routing knobs +
 opinionated LR/epochs/output_name. The default `lora.toml` stacks plain LoRA
 (weight-SVD `down_init`) + T-LoRA + REPA; Hydra routing is opt-in via the three-axis
 surface (`lora-routing` skill).
@@ -82,7 +82,7 @@ present (default `methods` subdir only — `gui-methods` stays flat); `--method 
 it up with no extra flag.
 
 EasyControl uses it: `configs/easycontrol/easycontrol.toml`, with the miner-generated
-descriptor blueprints `near_twins.toml` / `colorize.toml` in the same dir.
+descriptors `near_twins.toml` / `colorize.toml` in the same dir (the task's `name`/`[staging]` live in `i2i_tasks/configs/<task>.toml`).
 `configs/gui-methods/easycontrol.toml` still points at the standalone
 `configs/datasets/easycontrol.toml` — keep the inline subset in sync until gui-methods is
 migrated.
@@ -105,8 +105,8 @@ fields; the `[half]` / `[quarter]` presets are CLI shorthand for the same key.
 
 ## `moss/` — not the merge chain
 
-`configs/moss/lora.toml` is a flat table of `library.moss.requests.TrainRequest` field
-names, read by `scripts/moss/train.py --config` (`Request.load_config` in
+`configs/moss/lora.toml` / `cache.toml` are flat tables of `library.moss.requests`
+`TrainRequest` / `CacheRequest` field names, read by `scripts/moss/{train,cache}.py --config` (`Request.load_config` in
 `library/lines/requests.py`): field default → TOML → CLI. None of the chain above applies.
 
 ## Subset knobs

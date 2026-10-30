@@ -4,7 +4,7 @@ The foveated line is **ARCHIVED** (the periphery soft blur is constitutive and
 unrecoverable; digest in
 `_archive/bench/foveated/report.md`, retired ship plan in
 `_archive/proposals/foveated_denoise.md`, durable lessons in
-`docs/findings/foveated_denoise.md`, user doc in `docs/inference/foveated.md`).
+`docs/anima/findings/foveated_denoise.md`, user doc in `docs/anima/inference/foveated.md`).
 The runner stays functional and off by default (`--fovea_sigma_c 0`):
 
   * Above σ_c: baseline full-grid sampling — composition/identity decided
@@ -306,7 +306,7 @@ def foveated_denoise(
         log.warning(
             "--fovea_sigma_c does not compose with SMC-CFG / FSG / CFG++ "
             "(sampler-boundary plug-ins are unvalidated against group-shared "
-            "periphery velocities); ignoring them. See docs/inference/foveated.md."
+            "periphery velocities); ignoring them. See docs/anima/inference/foveated.md."
         )
     if getattr(anima, "_native_flatten", False):
         log.warning(

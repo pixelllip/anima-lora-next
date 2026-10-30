@@ -24,7 +24,6 @@ from library.training.contexts import (
 
 # Per-method extension protocol (public — used by networks/methods/*).
 from library.training.method_adapter import (
-    ComputeLossCtx,
     ForwardArtifacts,
     MethodAdapter,
     SetupCtx,
@@ -137,7 +136,6 @@ __all__ = [
     "RuntimeState",
     "TrainCtx",
     "ValCtx",
-    "ComputeLossCtx",
     "ForwardArtifacts",
     "MethodAdapter",
     "SetupCtx",

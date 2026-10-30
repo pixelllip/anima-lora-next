@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Attention-sink premise probe on MOSS-Image: does a few-key set take the mass?
 
-Tier 1 §1 of ``docs/proposal/moss_anima_negatives_revisit.md``. Same prompt over N
+Tier 1 §1 of ``_archive/proposals/moss_anima_negatives_revisit.md``. Same prompt over N
 seeds, the shipped sampler (Euler, CFG, uncond skip 22, reference per-sample
 forward). On the probe steps, every joint block's ``_attention`` is recomputed
 with an explicit softmax (the block output still comes from SDPA), cond and
@@ -47,17 +47,14 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
 import warnings
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "moss_spectrum"))
-import numpy as np  # noqa: E402
-import torch  # noqa: E402
+import numpy as np
+import torch
 
-from bench._common import make_run_dir, start_heartbeat, write_result  # noqa: E402
-from run_bench import PROMPTS  # noqa: E402
+from bench._common import make_run_dir, start_heartbeat, write_result
+from bench._moss import PROMPTS
 
 CLASSES = ("image", "tok0", "prefix", "caption", "suffix")
 BRANCHES = ("cond", "uncond")
@@ -174,7 +171,7 @@ class Probe:
 
     def attention(self, q, k, v, rope, heads):
         """Stats of the explicit softmax over one sample's joint sequence."""
-        from library.moss.model import _rotate
+        from library.moss.model import rotate
 
         w = self.where
         if w is None or self.block is None or q.shape[1] != self.N:
@@ -182,8 +179,8 @@ class Probe:
         branch, j, b = *w, self.block
         shape = (*q.shape[:2], heads, q.shape[-1] // heads)
         dtype = q.dtype
-        q = _rotate(q.reshape(shape), rope).transpose(1, 2)[0].to(dtype)
-        k = _rotate(k.reshape(shape), rope).transpose(1, 2)[0].to(dtype)
+        q = rotate(q.reshape(shape), rope).transpose(1, 2)[0].to(dtype)
+        k = rotate(k.reshape(shape), rope).transpose(1, 2)[0].to(dtype)
         v = v.reshape(shape).transpose(1, 2)[0].float()
         # The no-op write is the mean image value (the values carry the massive-
         # channel DC), not 0; Σp = 1, so out − v̄_img = Σ p·(v − v̄_img). Every
@@ -314,7 +311,7 @@ def main() -> None:
     ap.add_argument(
         "--prompts",
         default="anime_sunset,ja_manga",
-        help="keys of moss_spectrum PROMPTS",
+        help="keys of bench/_moss.py PROMPTS",
     )
     ap.add_argument("--seeds", type=int, default=4)
     ap.add_argument("--seed0", type=int, default=1000)
@@ -343,10 +340,10 @@ def main() -> None:
 
     import library.moss.model as moss_model
     from library.env import resolve_under_home
-    from library.moss.generate import _cached_embeds, denoise, initial_noise
+    from library.moss.generate import cached_embeds, denoise, initial_noise
     from library.moss.loader import load_tokenizer, load_transformer, pad_embeds
-    from library.moss.model import DEFAULT_UNCOND_SKIP, snapped_sigmas
-    from library.moss.requests import resolve_model_dir
+    from library.moss.model import snapped_sigmas
+    from library.moss.requests import DEFAULT_UNCOND_SKIP, resolve_model_dir
 
     keys = [k for k in args.prompts.split(",") if k]
     probe_steps = [int(s) for s in args.probe_steps.split(",") if s]
@@ -360,7 +357,7 @@ def main() -> None:
     splits = {k: template_split(tok, PROMPTS[k]) for k in keys}
     splits[""] = template_split(tok, "")
     del tok
-    embeds = _cached_embeds(
+    embeds = cached_embeds(
         model_dir, [PROMPTS[k] for k in keys] + [""], Path(args.te_cache)
     )
     uncond, uncond_mask = pad_embeds([embeds[""]], device=device)

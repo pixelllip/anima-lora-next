@@ -45,10 +45,10 @@ from pathlib import Path
 
 import numpy as np
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
 
-from bench._common import make_run_dir, write_result  # noqa: E402
+from bench._common import make_run_dir, write_result
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 RESULTS = REPO_ROOT / "bench" / "memorization" / "results"
 BANKED_RESULT = RESULTS / "20260704-1839-sincos_half_plain" / "result.json"
@@ -61,7 +61,7 @@ BANKED_AUC_FALLBACK = 0.822
 # active T-LoRA mask, which killed the overfit and invalidated the first
 # Phase-0 run), so every knob the banked snapshot disagrees with today's TOML
 # on is pinned here explicitly. sample_ratio is pinned on CLI because it is not
-# in tracked config (docs/experimental/soup.md).
+# in tracked config (docs/anima/experimental/soup.md).
 RECIPE = [
     "--method",
     "lora",

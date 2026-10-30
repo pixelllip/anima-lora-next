@@ -1,0 +1,41 @@
+name = "phash_edit"
+
+# phash-mined aligned instruction edits:
+#
+#   make i2i-stage TASK=phash_edit   # mine the pair tree (this file)
+#   make easycontrol-preprocess EASYADAPTER=phash_edit   # resize + VAE/TE + cond
+#   make easycontrol            EASYADAPTER=phash_edit   # train
+#
+# The miner writes the dataset blueprint into configs/easycontrol/phash_edit.toml.
+
+[staging]
+# The RAW crawl pool. NOT selected/ — that tree is the deduplicated curation and
+# has almost no variant pairs left (72 at tag-delta <= 16 out of 4.5M). Needs
+# gelcrawl's .hash_cache.json in each root (`make post` writes it).
+image_dirs = ["{CAPTION_CORPUS_DIR}/retrieved"]
+
+phash_max = 40              # 256-bit Hamming; random pairs sit at 128, spot-checked aligned through 36
+delta_min = 1               # 0 = identical captions = empty instruction
+delta_max = 0               # no cap: a tag-delta prefilter throws away aligned pairs whose caption moved
+drop_count_flip = true      # 1girl <-> 4girls is a different scene, not an edit
+same_artist_only = true
+max_pairs_per_image = 4     # stop one variant series dominating; tightest pairs claim quota first
+max_pairs_per_artist = 0
+both_directions = true      # teach every attribute as both an addition and a removal
+instruction_format = "prefix"   # "prefix": `glasses, -hat`  |  "word": `add glasses, remove hat`
+removal_prefix = "-"
+ar_max_log2 = 0.0           # off: same artist = same canvas, so AR divergence is ~0 and gates nothing
+
+# --- synthetic arms, sized as a share of the FINAL directed set --------------
+# Both ride the same pool: the target latent is one the edit arm already
+# encoded, so an arm record costs at most one extra *cond* encode.
+# NOTE on the identity arm: these ARE the empty-instruction no-op pairs the
+# twin_edit arm failed on ("aligned cond + short prompt -> exact copy", which
+# swallowed small edits and hardened the inversion copy-lock). Held to 2% here,
+# against ~14% of the edit arm being genuinely terse (delta <= 3, 542 records) so
+# "short prompt" is not by itself a copy signal. If small edits start getting
+# swallowed, this arm is the first suspect — drop identity_frac to 0 and re-mine.
+identity_frac = 0.02        # no-op records: cond IS the target latent, caption empty
+colorize_frac = 0.20        # cond = mangafied B&W of the target (XDoG + screentone)
+colorize_dropout = 0.8      # tag dropout on the color-tag caption form
+colorize_variants = 4       # per-variant coin flip: `-monochrome, -greyscale` vs color tags

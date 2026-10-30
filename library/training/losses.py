@@ -292,7 +292,7 @@ def _flow_matching_vr_loss(ctx: LossContext) -> torch.Tensor:
     EMA'd across batches (β default 0.01); always squared-error regardless of
     ``args.loss_type`` (theory only applies there).
 
-    Trainer contract: ``train.py::get_noise_pred_and_target`` stashes
+    Trainer contract: ``AnimaStep.get_noise_pred_and_target`` stashes
     ``ctx.aux['vr'] = {'z': Tensor, 'state': mutable_dict}``; this handler
     updates ``state['lambda_ema']`` in place. Falls back to standard
     flow-match if the aux entry is missing (e.g. validation step).
@@ -346,7 +346,7 @@ def _hydra_balance_loss(ctx: LossContext) -> torch.Tensor:
 
 
 def _functional_loss(ctx: LossContext) -> torch.Tensor:
-    # Stamped by train.py::post_process_network (top-level training arg) —
+    # Stamped by AnimaStep.attach_network (top-level training arg) —
     # see the gating convention in the module docstring.
     weight = float(getattr(ctx.network, "_functional_loss_weight", 0.0) or 0.0)
     func_loss = ctx.aux.get("func_loss")

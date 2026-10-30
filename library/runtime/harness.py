@@ -476,7 +476,7 @@ def _apply_partitioner_tuning(
     recompute at all: ``recompute_views`` stops saving view ops,
     ``aggressive_recomputation`` drops the ban list on recomputing whole op
     classes when the min-cut is cheap. See
-    docs/findings/custom_autograd_removal_partitioner_oom.md.
+    docs/anima/findings/custom_autograd_removal_partitioner_oom.md.
 
     Skipped under gradient checkpointing for the same reason as the budget
     (see :func:`_apply_activation_memory_budget`).
@@ -557,7 +557,7 @@ def compile_blocks_for_training(
 
     Sequence: partitioner budget/tuning (skipped under grad-ckpt) →
     per-signature compile cache isolation → ``unet.compile_blocks(...)`` with
-    the caller-derived token budget (``train.py::_derive_token_budget``) →
+    the caller-derived token budget (``library.anima.trainer.data.derive_token_budget``) →
     ``network.compile_cond_stream(...)`` when the adapter exposes it. GOTCHA:
     EasyControl's patched ``Block.forward`` routes its cond path through
     ``_two_stream_inner``, bypassing the just-compiled ``block._forward`` —

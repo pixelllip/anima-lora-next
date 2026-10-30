@@ -43,22 +43,21 @@ import argparse
 import csv
 import json
 import logging
-import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
 
-import torch  # noqa: E402
-
-from bench._common import make_run_dir, write_result  # noqa: E402
-from anime_tools.tagger.readback import (  # noqa: E402
+import torch
+from anime_tools.tagger.readback import (
     AGG_LOGSIGMOID,
     AGG_RECALL,
     CONTENT_CATEGORIES,
     TagReadback,
 )
+
+from bench._common import make_run_dir, write_result
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -68,7 +67,7 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     p.add_argument(
         "--model_dir",
-        default="models/captioners/anima-tagger-dbv4",
+        default="models/captioners/anima-tagger-pixai",
         help="Tagger checkpoint dir (model.safetensors + config.json + vocab.json "
         "+ dataset.json [+ thresholds.safetensors]).",
     )
@@ -83,7 +82,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--feature_cache_dir",
         default=None,
-        help="Feature-cache root override (default: post_image_dataset/anima_tagger).",
+        help="Feature-cache root override (default: workspace/anima_tagger).",
     )
     p.add_argument("--batch_size", type=int, default=64)
     p.add_argument("--feature_cache_workers", type=int, default=4)
@@ -113,7 +112,7 @@ def parse_args() -> argparse.Namespace:
 
 
 # --------------------------------------------------------------------------- #
-# Cached forward off the sidecar trainer's dbv4 feature cache
+# Cached forward off the sidecar trainer's backbone feature cache
 # --------------------------------------------------------------------------- #
 def collect_logits(
     args: argparse.Namespace, model_dir: Path, cfg_d: dict, split_stems: List[str]
@@ -123,37 +122,37 @@ def collect_logits(
     Returns ``(tag_logits [N, n_tags] fp32 cpu, multi_hot [N, n_tags] cpu,
     device)`` in loader-emission order — the two rows always align.
     """
-    if cfg_d.get("backend") != "dbv4":
+    if cfg_d.get("backend") not in ("pixai", "dbv4"):
         raise SystemExit(
-            "bench/readback: only dbv4-backed tagger checkpoints are supported "
-            "(the PE dual-encoder head was removed 2026-08-30)."
+            "bench/readback: only backbone-backed tagger checkpoints (pixai / dbv4) "
+            "are supported (the PE dual-encoder head was removed 2026-08-30)."
         )
-    return _collect_logits_dbv4(args, model_dir, cfg_d, split_stems)
+    return _collect_logits_cached(args, model_dir, cfg_d, split_stems)
 
 
-def _collect_logits_dbv4(
+def _collect_logits_cached(
     args: argparse.Namespace, model_dir: Path, cfg_d: dict, split_stems: List[str]
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.device]:
-    """dbv4 backend: logits off the sidecar trainer's feature cache.
+    """Backbone logits off the sidecar trainer's feature cache.
 
-    ``train_sidecar.py`` caches the projected our-vocab probs + the MLP-head
+    ``train_sidecar.py`` caches the projected our-vocab probs + the backbone
     hidden feature for every ``dataset.json`` stem; sidecar rows are recomputed
     from the hidden feature so the logits match ``AnimaTagger.tag_logits``.
     """
-    from safetensors import safe_open
-    from safetensors.torch import load_file as st_load
-
     from anime_tools.tagger.dbv4_backend import (
         UNSUPPORTED_LOGIT,
         SidecarHead,
         probs_to_logits,
     )
+    from safetensors import safe_open
+    from safetensors.torch import load_file as st_load
 
     device = torch.device(args.device or "cpu")
-    arch = cfg_d["dbv4"]["arch"]
+    kind = cfg_d["backend"]
+    arch = cfg_d[kind]["arch"]
     cache_path = (
-        Path(args.feature_cache_dir or "post_image_dataset/anima_tagger")
-        / "dbv4"
+        Path(args.feature_cache_dir or "workspace/anima_tagger")
+        / kind
         / f"{arch}_hidden.safetensors"
     )
     if not cache_path.exists():

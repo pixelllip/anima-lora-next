@@ -26,7 +26,7 @@ DISTINCT-vs-SHAREDWSVD (the shipping question) and DISTINCT-vs-SHAREDKAI (the
 mechanism), each set at its own seed since DISTINCT recurs.
 
 Caveat carried: one training seed per arm — the seed lottery
-(``docs/experimental/soup.md`` Act 5) can swing a single pair; a lean here
+(``docs/anima/experimental/soup.md`` Act 5) can swing a single pair; a lean here
 earns a second-training-seed replicate, not a verdict.
 
 ``--variant n4`` (added after the N=2 flat) merges all four E0 held-out artists
@@ -48,14 +48,19 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO))
 PY = sys.executable
 
 import torch  # noqa: E402
 from safetensors import safe_open  # noqa: E402
 
 from bench._common import make_run_dir, write_result  # noqa: E402
-from bench.grad_init.e1_blind import BLIND, INFER_BASE, n_rows, rendered, run  # noqa: E402
+from bench.grad_init.e1_blind import (  # noqa: E402
+    BLIND,
+    INFER_BASE,
+    n_rows,
+    rendered,
+    run,
+)
 
 CKPT = Path("output/ckpt/merge_basis")
 # artist -> path_pattern, trigger tag, per-artist random seed for the DISTINCT

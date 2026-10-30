@@ -2,7 +2,7 @@
 
 The plan from the Phase 0d result to a 4-step v4 student. How our `[dmad]` path
 differs from the official DMAD code is in `difference.md`. The phase history is in
-`docs/proposal/turbo_dmad.md`.
+`docs/anima/proposal/turbo_dmad.md`.
 
 ## Where we are: Phase 0d
 
