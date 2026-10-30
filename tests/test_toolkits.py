@@ -200,7 +200,10 @@ def test_easycontrol_lists_method_and_descriptors():
     catalog = easycontrol.list_variants()
     values = [v["value"] for v in catalog["variants"]]
     assert values[0] == "easycontrol"
-    assert {"colorize", "inpaint", "sanitize", "region"} <= set(values)
+    # v2.3.x 起 sanitize 不再带 [variant]（staging 搬进 i2i_tasks/configs/<task>.toml），
+    # 所以它不再是 EasyControl 描述符；上游 GUI 用同一条规则，下拉里也没有它。
+    assert {"colorize", "inpaint", "region"} <= set(values)
+    assert "sanitize" not in values
     assert all(v["kind"] in {"method", "descriptor"} for v in catalog["variants"])
 
 
@@ -208,8 +211,9 @@ def test_easycontrol_descriptor_detail_uses_compound_keys():
     detail = easycontrol.detail("colorize")
     assert detail["kind"] == "descriptor"
     labels = [g["label"] for g in detail["groups"]]
-    assert "顶部标量" in labels
-    assert "[training]" in labels
+    # 同一波重构把 top-level 的 name / [staging] 搬进了 i2i 任务文件，
+    # 颜色描述符现在只剩两张表（不再有"顶部标量"分组）。
+    assert labels == ["[preprocess]", "[training]"]
     keys = {f["key"] for g in detail["groups"] for f in g["fields"]}
     assert "training.network_dim" in keys
     assert "network_dim" not in keys
